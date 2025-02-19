@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Votre candidature bénévole a été approuvée</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            color: #333333;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        td {
+            padding: 20px;
+            text-align: center;
+        }
+        .email-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .header {
+            background-color: #F7749D;
+            color: #ffffff;
+            padding: 30px 20px;
+        }
+        .logo {
+            max-width: 150px;
+            height: auto;
+        }
+        .content-section {
+            padding: 30px 20px;
+            background-color: #ffffff;
+        }
+        h1 {
+            color: #F7749D;
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+        p {
+            margin-top: 0;
+            margin-bottom: 15px;
+            line-height: 1.6;
+            color: #555555;
+        }
+        .footer {
+            background-color: #FFBDD2;
+            color: #333333;
+            padding: 20px;
+            font-size: 0.9em;
+        }
+        .footer p {
+            color: #333333;
+            margin-bottom: 5px;
+        }
+        .footer a {
+            color: #F7749D;
+            text-decoration: none;
+        }
+        .footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <table class="email-container">
+        <tr>
+            <td class="header">
+                <img src="https://i.imgur.com/4u1b063.png" alt="Chiens en Cavale Logo" class="logo">
+            </td>
+        </tr>
+        <tr>
+            <td class="content-section">
+                <h1>Félicitations, ${username} !</h1>
+                <p>Votre candidature bénévole chez nous a été approuvée. Vous pouvez maintenant commencer à promener des chiens.</p>
+                <p>Vous pouvez dès à présent vous reconnecter. Votre tableau de bord apparaîtra alors.</p>
+                <p>Si vous avez des questions, n'hésitez pas à répondre à cet e-mail.</p>
+            </td>
+        </tr>
+        <tr>
+            <td class="footer">
+                <p>Cordialement,</p>
+                <p>L'équipe <strong style="color: #F7749D;">Chiens en Cavale</strong></p>
+                <p><a href="https://www.chiensencavale.com" target="_blank" style="color: #F7749D;">www.chiensencavale.com</a></p>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

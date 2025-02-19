@@ -1,0 +1,49 @@
+@import url('https://fonts.googleapis.com/css2?family=Arizonia&family=Source+Sans+3:ital,wght@0,200..900;1,200..900&display=swap');
+@import "tailwindcss";
+@theme {
+    --font-primary: "Source Sans 3";
+    --font-secondary: "Arizonia";
+
+    --color-primary-pink: #F7749D;
+    --color-secondary-pink: #F8ECF5;
+
+    --color-primary-black: #392F2F;
+
+    --color-primary-blue: #72B5F4;
+    --color-secondary-blue: #EDECF8;
+
+    --color-primary-yellow: #FEAE23;
+    --color-secondary-yellow: #F8F5EC;
+  }
+
+  @keyframes tail {
+    from {
+      transform: skewX(15deg);
+    }
+    to {
+      transform: skewX(-15deg);
+    }
+  }
+  
+  @keyframes tongue {
+    from {
+      bottom: 20%;
+    }
+    to {
+      bottom: 15%;
+    }
+  }
+  
+  .animate-tail {
+    animation: tail 0.3s cubic-bezier(0.65, 0, 0.35, 1) infinite alternate;
+  }
+  
+  .animate-tongue {
+    animation: tongue 0.3s cubic-bezier(0.45, 0, 0.55, 1) infinite alternate;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  

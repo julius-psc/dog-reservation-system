@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nouvelle Réservation Confirmée</title>
+    <style>
+        body { font-family: 'Arial', sans-serif; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }
+        .email-container { max-width: 800px; margin: 20px auto; background-color: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .header { background-color: #F7749D; color: #fff; padding: 30px 20px; text-align: center; }
+        .logo { max-width: 150px; height: auto; display: block; margin: 0 auto; }
+        .content-section { padding: 30px 20px; }
+        h2 { color: #F7749D; margin-top: 0; margin-bottom: 20px; font-size: 24px; }
+        p { margin-top: 0; margin-bottom: 15px; line-height: 1.6; color: #555; }
+        ul { list-style-type: disc; margin-left: 20px; padding-left: 0; }
+        li { margin-bottom: 5px; }
+        .footer { background-color: #FFBDD2; color: #333; padding: 20px; font-size: 0.9em; text-align: center; }
+        .footer p { color: #333; margin-bottom: 5px; }
+        .footer a { color: #F7749D; text-decoration: none; }
+        .footer a:hover { text-decoration: underline; }
+        strong { font-weight: bold; }
+    </style>
+</head>
+<body>
+    <table class="email-container" style="width: 100%; border-collapse: collapse;">
+        <tr>
+            <td class="header">
+                <img src="https://i.imgur.com/4u1b063.png" alt="Chiens en Cavale Logo" class="logo">
+            </td>
+        </tr>
+        <tr>
+            <td class="content-section">
+                <h2>Bonjour ${volunteerName},</h2>
+                <p>Une nouvelle réservation a été confirmée !</p>
+                <p><strong>Détails de la réservation :</strong></p>
+                <ul>
+                    <li>Propriétaire : ${clientName}</li>
+                    <li>Nom du chien : ${dogName}</li>
+                    <li>Date : ${reservationDate}</li>
+                    <li>Heure de début : ${startTime}</li>
+                    <li>Heure de fin : ${endTime}</li>
+                </ul>
+                <p><strong>Informations du client :</strong></p>
+                <ul>
+                    <li>Adresse : ${clientAddress}</li>
+                    <li>Email : ${clientEmail}</li>
+                    <li>Téléphone : ${clientPhone}</li>
+                </ul>
+                <p>Veuillez contacter le client si nécessaire pour organiser les détails de la promenade.</p>
+            </td>
+        </tr>
+        <tr>
+            <td class="footer">
+                <p>Cordialement,</p>
+                <p>L'équipe <strong style="color: #F7749D;">Chiens en Cavale</strong></p>
+                <p><a href="https://www.chiensencavale.com" target="_blank">www.chiensencavale.com</a></p>
+                <p>© 2025 Chiens en Cavale. Tous droits réservés.</p>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
