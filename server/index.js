@@ -128,9 +128,6 @@ const authorizeVolunteer = (req, res, next) => {
 
 // Serve static files from the Vite build output directory
 app.use(express.static(path.join(__dirname, "dist")));
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "dist", "index.html"));
-});
 
 // Route modules
 const authRoutes = require("./routes/authRoutes");
