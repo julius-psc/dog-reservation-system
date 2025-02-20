@@ -10,53 +10,48 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
     authorizeAdmin,
     async (req, res) => {
       try {
-        const { village, role } = req.query;
-  
+        const { village, role } = req.query; // Optional filters
+
         let query = `
-          SELECT
-              u.*,
-              u.charter_file_path,
-              u.insurance_file_path,
-              COALESCE(json_agg(
-                  json_build_object(
-                      'day_of_week', a.day_of_week,
-                      'start_time', a.start_time,
-                      'end_time', a.end_time
-                  )
-              ) FILTER (WHERE a.id IS NOT NULL), '[]') AS availabilities
-          FROM users u
-          LEFT JOIN availabilities a ON u.id = a.user_id
-          WHERE u.role = 'volunteer'
+            SELECT
+                u.*,
+                u.charter_file_path, -- Include charter file path
+                u.insurance_file_path, -- Include insurance file path
+                COALESCE(json_agg(
+                    json_build_object(
+                        'day_of_week', a.day_of_week,
+                        'start_time', a.start_time,
+                        'end_time', a.end_time
+                    )
+                ) FILTER (WHERE a.id IS NOT NULL), '[]') AS availabilities
+            FROM users u
+            LEFT JOIN availabilities a ON u.id = a.user_id
+            WHERE u.role = 'volunteer'
         `;
-  
+
         const whereClause = [];
         const queryParams = [];
-  
+
         if (village) {
-          whereClause.push(`u.village = $${queryParams.length + 1}`);
+          whereClause.push(`u.village = $${queryParams.length + 1}`); // Use u.village to avoid ambiguity
           queryParams.push(village);
         }
         if (role) {
-          whereClause.push(`u.role = $${queryParams.length + 1}`);
+          whereClause.push(`u.role = $${queryParams.length + 1}`); // Use u.role
           queryParams.push(role);
         }
-  
+
         if (whereClause.length > 0) {
           query += " AND " + whereClause.join(" AND ");
         }
-  
-        query += " GROUP BY u.id";
-  
+
+        query += " GROUP BY u`; // Modified GROUP BY clause - group by the alias 'u' which represents all columns of the users table" 
+
         const volunteers = await pool.query(query, queryParams);
-        
-        // Always return an array, even if empty
-        res.json(volunteers.rows || []);
+        res.json(volunteers.rows);
       } catch (error) {
         console.error("Error fetching volunteers (admin):", error);
-        res.status(500).json({ 
-          error: "Failed to fetch volunteers",
-          details: error.message 
-        });
+        res.status(500).json({ error: "Failed to fetch volunteers" });
       }
     }
   );
