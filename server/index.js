@@ -30,6 +30,10 @@ function isValidTime(time) {
 
 const app = express();
 const port = process.env.PORT || 3001;
+app.listen(port, () => {
+    console.log(`Server listening on port ${port}`);
+});
+
 
 // CORS configuration (important!)
 const corsOptions = {
@@ -149,4 +153,9 @@ app.use('/', adminRoutes(pool, authenticate, authorizeAdmin));
 
 app.listen(port, () => {
     console.log(`Server listening on port ${port}`);
+});
+
+// Add this catch-all route AFTER your API routes
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
