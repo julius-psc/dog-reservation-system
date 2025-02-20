@@ -138,11 +138,6 @@ app.use("/", volunteerRoutes(pool, authenticate, authorizeVolunteer, isValidTime
 app.use("/", clientRoutes(pool, authenticate, moment, connectedClients, WebSocket, isValidTime));
 app.use("/", adminRoutes(pool, authenticate, authorizeAdmin));
 
-// Catch-all route for SPA
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
-});
-
 // Start the server (only once!)
 app.listen(port, () => {
   console.log(`Server listening on port ${port}`);
