@@ -4,6 +4,8 @@ const bodyParser = require("body-parser");
 const cors = require("cors");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const http = require("http");
+const server = http.createServer(app);
 const WebSocket = require("ws");
 const moment = require("moment");
 const fileUpload = require('express-fileupload');
@@ -72,7 +74,7 @@ pool
 
 
 // Initialize WS server
-const wss = new WebSocket.Server({ port: 8081 });
+const wss = new WebSocket.Server({ server });
 
 // Keep track of connected clients
 const connectedClients = new Set();
@@ -150,10 +152,6 @@ app.use('/', authRoutes(pool, bcrypt, jwt, sendPasswordResetEmail)); // Pass sen
 app.use('/', volunteerRoutes(pool, authenticate, authorizeVolunteer, isValidTime, moment, connectedClients, WebSocket));
 app.use('/', clientRoutes(pool, authenticate, moment, connectedClients, WebSocket, isValidTime));
 app.use('/', adminRoutes(pool, authenticate, authorizeAdmin));
-
-app.listen(port, () => {
-    console.log(`Server listening on port ${port}`);
-});
 
 // Add this catch-all route AFTER your API routes
 app.get('*', (req, res) => {

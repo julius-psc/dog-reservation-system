@@ -6,10 +6,18 @@ import DatePicker from "react-datepicker";
 import LogoutButton from "./recycled/LogoutButton";
 import "react-datepicker/dist/react-datepicker.css";
 import toast from "react-hot-toast";
-import { ClipLoader } from 'react-spinners'; // Import ClipLoader for loading state
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPaw, faCalendarAlt, faDog, faExclamationTriangle, faClock, faCheck,faCalendarCheck,  faBan } from '@fortawesome/free-solid-svg-icons'; // Icons
-
+import { ClipLoader } from "react-spinners"; // Import ClipLoader for loading state
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faPaw,
+  faCalendarAlt,
+  faDog,
+  faExclamationTriangle,
+  faClock,
+  faCheck,
+  faCalendarCheck,
+  faBan,
+} from "@fortawesome/free-solid-svg-icons"; // Icons
 
 const ClientDashboard = ({ handleLogout }) => {
   const [protectedError] = useState("");
@@ -46,9 +54,12 @@ const ClientDashboard = ({ handleLogout }) => {
         return;
       }
 
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/fetchDog`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL}/fetchDog`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
 
       if (!response.ok) {
         console.error("Error fetching dogs:", await response.text());
@@ -86,18 +97,21 @@ const ClientDashboard = ({ handleLogout }) => {
 
     try {
       const token = Cookies.get("token");
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/addDog`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          name: dogData.name,
-          breed: dogData.breed,
-          age: ageAsNumber,
-        }),
-      });
+      const response = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL}/addDog`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            name: dogData.name,
+            breed: dogData.breed,
+            age: ageAsNumber,
+          }),
+        }
+      );
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -132,9 +146,12 @@ const ClientDashboard = ({ handleLogout }) => {
       );
 
       const availabilityPromises = days.map((date) =>
-        fetch(`${import.meta.env.VITE_API_BASE_URL}/client/volunteers?date=${date}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }).then((res) => res.json())
+        fetch(
+          `${import.meta.env.VITE_API_BASE_URL}/client/volunteers?date=${date}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        ).then((res) => res.json())
       );
 
       const allAvailabilities = await Promise.all(availabilityPromises);
@@ -148,8 +165,13 @@ const ClientDashboard = ({ handleLogout }) => {
 
       setAllAvailableSlots(mergedSlots);
     } catch (error) {
-      console.error("Erreur lors de la récupération des disponibilités:", error);
-      setAvailableSlotsError(error.message || "Une erreur inattendue est survenue.");
+      console.error(
+        "Erreur lors de la récupération des disponibilités:",
+        error
+      );
+      setAvailableSlotsError(
+        error.message || "Une erreur inattendue est survenue."
+      );
     }
   }, [currentWeekStart]);
 
@@ -159,7 +181,9 @@ const ClientDashboard = ({ handleLogout }) => {
     const token = Cookies.get("token");
 
     try {
-      let url = `${import.meta.env.VITE_API_BASE_URL}/client/personal-reservations`;
+      let url = `${
+        import.meta.env.VITE_API_BASE_URL
+      }/client/personal-reservations`;
       const queryParams = new URLSearchParams();
 
       queryParams.append(
@@ -180,14 +204,18 @@ const ClientDashboard = ({ handleLogout }) => {
           response
         );
         throw new Error(
-          errorData.error || "Échec de la récupération des réservations personnelles"
+          errorData.error ||
+            "Échec de la récupération des réservations personnelles"
         );
       }
 
       const personalReservationsData = await response.json();
       setPersonalReservations(personalReservationsData);
     } catch (err) {
-      console.error("Erreur lors de la récupération des réservations personnelles:", err);
+      console.error(
+        "Erreur lors de la récupération des réservations personnelles:",
+        err
+      );
       setPersonalReservationsError(err.message);
     } finally {
       setPersonalReservationsLoading(false);
@@ -227,11 +255,16 @@ const ClientDashboard = ({ handleLogout }) => {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Échec de la récupération des réservations");
+        throw new Error(
+          errorData.error || "Échec de la récupération des réservations"
+        );
       }
 
       const reservationsData = await response.json();
-      console.log("Données des réservations depuis le backend:", reservationsData);
+      console.log(
+        "Données des réservations depuis le backend:",
+        reservationsData
+      );
       setReservations(reservationsData);
     } catch (err) {
       console.error("Erreur lors de la récupération des réservations:", err);
@@ -262,24 +295,29 @@ const ClientDashboard = ({ handleLogout }) => {
       const startTimeFormatted = startMoment.format("HH:mm");
       const endTimeFormatted = endMoment.format("HH:mm");
 
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/reservations`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          volunteerId: volunteerId,
-          reservationDate: formattedDate,
-          startTime: startTimeFormatted,
-          endTime: endTimeFormatted,
-          dogId: selectedDog.id,
-        }),
-      });
+      const response = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL}/reservations`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            volunteerId: volunteerId,
+            reservationDate: formattedDate,
+            startTime: startTimeFormatted,
+            endTime: endTimeFormatted,
+            dogId: selectedDog.id,
+          }),
+        }
+      );
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Échec de la création de la réservation");
+        throw new Error(
+          errorData.error || "Échec de la création de la réservation"
+        );
       }
 
       const reservationData = await response.json();
@@ -292,8 +330,15 @@ const ClientDashboard = ({ handleLogout }) => {
         "Demande de réservation envoyée. Veuillez attendre la confirmation du bénévole."
       );
 
-      // Broadcast the reservation update via WebSocket
-      const ws = new WebSocket(`wss://${import.meta.env.VITE_API_BASE_URL.replace(/^http(s?):\/\//, '')}`);
+      // Updated WebSocket URL
+      const wsProtocol = window.location.protocol === "https:" ? "wss" : "ws";
+      const wsBaseUrl = import.meta.env.VITE_API_BASE_URL.replace(
+        /^http(s?):\/\//,
+        ""
+      ).replace(/\/$/, "");
+      const wsUrl = `${wsProtocol}://${wsBaseUrl}`;
+      const ws = new WebSocket(wsUrl);
+
       ws.onopen = () => {
         ws.send(
           JSON.stringify({
@@ -303,9 +348,15 @@ const ClientDashboard = ({ handleLogout }) => {
         );
         ws.close();
       };
+
+      ws.onerror = (error) => {
+        console.error("WebSocket error in reservation broadcast:", error);
+      };
     } catch (error) {
       console.error("Erreur lors de la création de la réservation:", error);
-      toast.error(`Erreur lors de la création de la réservation: ${error.message}`);
+      toast.error(
+        `Erreur lors de la création de la réservation: ${error.message}`
+      );
     } finally {
       setReservationLoading(false);
       fetchAvailableSlots();
@@ -332,7 +383,6 @@ const ClientDashboard = ({ handleLogout }) => {
     setIsConfirmationVisible(false);
     setConfirmationDetails(null);
   };
-
 
   const handleDateChange = (date) => {
     setSelectedDate(date);
@@ -387,37 +437,67 @@ const ClientDashboard = ({ handleLogout }) => {
   ]);
 
   useEffect(() => {
-    const ws = new WebSocket("ws://localhost:8081");
+    // Determine WebSocket protocol based on environment
+    const wsProtocol = window.location.protocol === "https:" ? "wss" : "ws";
+    const wsBaseUrl = import.meta.env.VITE_API_BASE_URL.replace(
+      /^http(s?):\/\//,
+      ""
+    ) // Remove http(s)://
+      .replace(/\/$/, ""); // Remove trailing slash if any
+    const wsUrl = `${wsProtocol}://${wsBaseUrl}`;
 
-    ws.onopen = () => {
-      console.log("Connecté au serveur WebSocket");
-    };
+    let ws;
 
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        console.log("Message WebSocket reçu:", data);
+    const connectWebSocket = () => {
+      ws = new WebSocket(wsUrl);
 
-        if (data.type === "reservation_update") {
-          fetchAvailableSlots();
-          fetchReservations();
-          fetchPersonalReservations();
+      ws.onopen = () => {
+        console.log("Connected to WebSocket server at", wsUrl);
+        // Optionally send an initial message, e.g., to join a village
+        const token = Cookies.get("token");
+        if (token) {
+          ws.send(
+            JSON.stringify({
+              type: "join_village",
+              village: "client_village", // Replace with actual village logic if needed
+            })
+          );
         }
-      } catch (error) {
-        console.error("Erreur lors de l'analyse du message WebSocket:", error);
-      }
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log("WebSocket message received:", data);
+
+          if (data.type === "reservation_update") {
+            fetchAvailableSlots();
+            fetchReservations();
+            fetchPersonalReservations();
+          }
+        } catch (error) {
+          console.error("Error parsing WebSocket message:", error);
+        }
+      };
+
+      ws.onclose = () => {
+        console.log("Disconnected from WebSocket server");
+        // Attempt to reconnect after a delay
+        setTimeout(connectWebSocket, 5000);
+      };
+
+      ws.onerror = (error) => {
+        console.error("WebSocket error:", error);
+        ws.close(); // Close the connection on error to trigger reconnect
+      };
     };
 
-    ws.onclose = () => {
-      console.log("Déconnecté du serveur WebSocket");
-      setTimeout(() => {
-        console.log("Tentative de reconnexion...");
-        ws.close();
-      }, 5000);
-    };
+    // Initial connection
+    connectWebSocket();
 
+    // Cleanup on component unmount
     return () => {
-      if (ws.readyState === WebSocket.OPEN) {
+      if (ws && ws.readyState === WebSocket.OPEN) {
         ws.close();
       }
     };
@@ -468,7 +548,12 @@ const ClientDashboard = ({ handleLogout }) => {
   // Function to show confirmation dialog
   const showConfirmation = (volunteerId, startTime, dayIndex) => {
     const reservationDate = moment(currentWeekStart).add(dayIndex, "days");
-    setConfirmationDetails({ volunteerId, startTime, dayIndex, date: reservationDate.format("DD/MM/YYYY") });
+    setConfirmationDetails({
+      volunteerId,
+      startTime,
+      dayIndex,
+      date: reservationDate.format("DD/MM/YYYY"),
+    });
     setIsConfirmationVisible(true);
   };
 
@@ -476,23 +561,42 @@ const ClientDashboard = ({ handleLogout }) => {
     return (
       <div className="container mx-auto p-6 dark:bg-gray-900">
         <div className="bg-white rounded-lg shadow-xl p-8 text-center dark:bg-gray-800">
-          <FontAwesomeIcon icon={faExclamationTriangle} className="text-red-500 text-4xl mb-4" />
-          {availableSlotsError && <p className="text-red-600 dark:text-red-400 mb-2">Erreur de créneaux horaires: {availableSlotsError}</p>}
-          {reservationsError && <p className="text-red-600 dark:text-red-400 mb-2">Erreur de réservations: {reservationsError}</p>}
-          {personalReservationsError && <p className="text-red-600 dark:text-red-400">Erreur de réservations personnelles: {personalReservationsError}</p>}
+          <FontAwesomeIcon
+            icon={faExclamationTriangle}
+            className="text-red-500 text-4xl mb-4"
+          />
+          {availableSlotsError && (
+            <p className="text-red-600 dark:text-red-400 mb-2">
+              Erreur de créneaux horaires: {availableSlotsError}
+            </p>
+          )}
+          {reservationsError && (
+            <p className="text-red-600 dark:text-red-400 mb-2">
+              Erreur de réservations: {reservationsError}
+            </p>
+          )}
+          {personalReservationsError && (
+            <p className="text-red-600 dark:text-red-400">
+              Erreur de réservations personnelles: {personalReservationsError}
+            </p>
+          )}
         </div>
       </div>
     );
   }
 
-  if (reservationsLoading || personalReservationsLoading || !dogs || !allAvailableSlots) {
+  if (
+    reservationsLoading ||
+    personalReservationsLoading ||
+    !dogs ||
+    !allAvailableSlots
+  ) {
     return (
       <div className="flex justify-center items-center h-screen bg-gray-100 dark:bg-gray-900">
         <ClipLoader color={"#3b82f6"} loading={true} size={50} />
       </div>
     );
   }
-
 
   return (
     <div className="bg-gray-100 dark:bg-gray-900 min-h-screen font-sans">
@@ -510,7 +614,6 @@ const ClientDashboard = ({ handleLogout }) => {
 
       <main className="container mx-auto mt-8 px-4 pb-8">
         <div className="grid grid-cols-1 gap-6">
-
           {/* Dog Information Section */}
           <section className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
             <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
@@ -593,13 +696,22 @@ const ClientDashboard = ({ handleLogout }) => {
                         className="p-4 border rounded-md border-gray-200 dark:border-gray-700 dark:bg-gray-900"
                       >
                         <p className="dark:text-gray-300 text-sm">
-                          <span className="font-semibold dark:text-gray-100">Nom:</span> {dog.name}
+                          <span className="font-semibold dark:text-gray-100">
+                            Nom:
+                          </span>{" "}
+                          {dog.name}
                         </p>
                         <p className="dark:text-gray-300 text-sm">
-                          <span className="font-semibold dark:text-gray-100">Race:</span> {dog.breed}
+                          <span className="font-semibold dark:text-gray-100">
+                            Race:
+                          </span>{" "}
+                          {dog.breed}
                         </p>
                         <p className="dark:text-gray-300 text-sm">
-                          <span className="font-semibold dark:text-gray-100">Âge:</span> {dog.age}
+                          <span className="font-semibold dark:text-gray-100">
+                            Âge:
+                          </span>{" "}
+                          {dog.age}
                         </p>
                       </div>
                     ))}
@@ -718,18 +830,20 @@ const ClientDashboard = ({ handleLogout }) => {
                           const isPastSlot =
                             isPastDay ||
                             moment(
-                              `${currentDate.format("YYYY-MM-DD")} ${slot.time}`,
+                              `${currentDate.format("YYYY-MM-DD")} ${
+                                slot.time
+                              }`,
                               "YYYY-MM-DD HH:mm"
                             ).isBefore(moment());
-
 
                           return (
                             <button
                               key={`${dayIndex}-${slot.time}`}
                               className={`inline-block rounded-md border px-3 py-2 mr-2 mb-2 text-xs sm:text-sm
-                              ${isReserved || isPastSlot || isPastDay
-                                ? "opacity-50 cursor-not-allowed bg-gray-200 border-gray-300 text-gray-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400"
-                                : "border-blue-500 bg-white hover:bg-blue-100 dark:border-blue-400 dark:bg-gray-800 dark:hover:bg-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-500"
+                              ${
+                                isReserved || isPastSlot || isPastDay
+                                  ? "opacity-50 cursor-not-allowed bg-gray-200 border-gray-300 text-gray-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400"
+                                  : "border-blue-500 bg-white hover:bg-blue-100 dark:border-blue-400 dark:bg-gray-800 dark:hover:bg-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-500"
                               }`}
                               onClick={() => {
                                 if (
@@ -773,13 +887,22 @@ const ClientDashboard = ({ handleLogout }) => {
               <div className="fixed inset-0 bg-gray-500 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex justify-center items-center p-4">
                 <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 space-y-4">
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
-                    <FontAwesomeIcon icon={faExclamationTriangle} className="mr-2 text-yellow-500" />
+                    <FontAwesomeIcon
+                      icon={faExclamationTriangle}
+                      className="mr-2 text-yellow-500"
+                    />
                     Confirmer la réservation ?
                   </h3>
                   <p className="text-gray-700 dark:text-gray-300 text-sm">
                     Êtes-vous sûr de vouloir réserver le créneau de{" "}
-                    <span className="font-semibold">{confirmationDetails.startTime}</span> le{" "}
-                    <span className="font-semibold">{confirmationDetails.date}</span> ?
+                    <span className="font-semibold">
+                      {confirmationDetails.startTime}
+                    </span>{" "}
+                    le{" "}
+                    <span className="font-semibold">
+                      {confirmationDetails.date}
+                    </span>{" "}
+                    ?
                   </p>
                   <div className="flex justify-end space-x-4">
                     <button
@@ -843,23 +966,29 @@ const ClientDashboard = ({ handleLogout }) => {
                   <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                     {personalReservations.map((reservation) => {
                       let statusColor = "";
-                      let statusName = ""
+                      let statusName = "";
                       let statusIcon = null;
                       switch (reservation.status) {
                         case "accepted":
                           statusColor = "bg-green-200 text-green-800";
-                          statusIcon = <FontAwesomeIcon icon={faCheck} className="mr-1" />;
+                          statusIcon = (
+                            <FontAwesomeIcon icon={faCheck} className="mr-1" />
+                          );
                           statusName = "Approuvé";
                           break;
                         case "pending":
                           statusColor = "bg-yellow-200 text-yellow-800";
-                          statusIcon = <FontAwesomeIcon icon={faClock} className="mr-1" />;
+                          statusIcon = (
+                            <FontAwesomeIcon icon={faClock} className="mr-1" />
+                          );
                           statusName = "En attente";
                           break;
                         case "rejected":
                         case "cancelled":
                           statusColor = "bg-red-200 text-red-800";
-                          statusIcon = <FontAwesomeIcon icon={faBan} className="mr-1" />;
+                          statusIcon = (
+                            <FontAwesomeIcon icon={faBan} className="mr-1" />
+                          );
                           break;
                         default:
                           statusColor = "";
@@ -890,8 +1019,12 @@ const ClientDashboard = ({ handleLogout }) => {
                           <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300 text-sm">
                             {reservation.end_time}
                           </td>
-                          <td className={`border px-4 py-2 dark:border-gray-700 dark:text-gray-300 text-sm font-semibold text-center`}>
-                            <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-bold ${statusColor}`}>
+                          <td
+                            className={`border px-4 py-2 dark:border-gray-700 dark:text-gray-300 text-sm font-semibold text-center`}
+                          >
+                            <span
+                              className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-bold ${statusColor}`}
+                            >
                               {statusIcon}
                               {statusName}
                             </span>
