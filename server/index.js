@@ -126,6 +126,12 @@ const authorizeVolunteer = (req, res, next) => {
   next();
 };
 
+// Serve static files from the Vite build output directory
+app.use(express.static(path.join(__dirname, "dist")));
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "dist", "index.html"));
+});
+
 // Route modules
 const authRoutes = require("./routes/authRoutes");
 const volunteerRoutes = require("./routes/volunteerRoutes");
@@ -137,6 +143,11 @@ app.use("/", authRoutes(pool, bcrypt, jwt, sendPasswordResetEmail));
 app.use("/", volunteerRoutes(pool, authenticate, authorizeVolunteer, isValidTime, moment, connectedClients, WebSocket));
 app.use("/", clientRoutes(pool, authenticate, moment, connectedClients, WebSocket, isValidTime));
 app.use("/", adminRoutes(pool, authenticate, authorizeAdmin));
+
+// Catch-all route for SPA: Serve index.html for all unmatched routes
+app.get("*", (req, res) => {
+    res.sendFile(path.join(__dirname, "dist", "index.html")); // Adjust 'dist' to your build output folder
+});
 
 // Start the server (only once!)
 app.listen(port, () => {
