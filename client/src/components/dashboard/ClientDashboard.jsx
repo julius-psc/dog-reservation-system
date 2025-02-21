@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
-import Cookies from "js-cookie";
+import Cookies from "js-cookies";
 import PropTypes from "prop-types";
 import moment from "moment";
 import DatePicker from "react-datepicker";
 import LogoutButton from "./recycled/LogoutButton";
 import "react-datepicker/dist/react-datepicker.css";
 import toast from "react-hot-toast";
-import { ClipLoader } from "react-spinners"; // Import ClipLoader for loading state
+import { ClipLoader } from "react-spinners";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faPaw,
@@ -17,7 +17,7 @@ import {
   faCheck,
   faCalendarCheck,
   faBan,
-} from "@fortawesome/free-solid-svg-icons"; // Icons
+} from "@fortawesome/free-solid-svg-icons";
 
 const ClientDashboard = ({ handleLogout }) => {
   const [protectedError] = useState("");
@@ -34,17 +34,28 @@ const ClientDashboard = ({ handleLogout }) => {
   const [personalReservationsError, setPersonalReservationsError] =
     useState(null);
   const [reservations, setReservations] = useState([]);
-  const [reservationsLoading, setReservationsLoading] = useState(true); // Set to true initially for loading
+  const [reservationsLoading, setReservationsLoading] = useState(true);
   const [reservationsError, setReservationsError] = useState(null);
   const [selectedDate, setSelectedDate] = useState(moment().toDate());
   const [currentWeekStart, setCurrentWeekStart] = useState(
     moment().startOf("isoWeek")
   );
   const [isCurrentWeekDisplayed, setIsCurrentWeekDisplayed] = useState(true);
-
-  // New state for confirmation dialog
   const [isConfirmationVisible, setIsConfirmationVisible] = useState(false);
   const [confirmationDetails, setConfirmationDetails] = useState(null);
+
+  // Function to determine WebSocket URL dynamically
+  const getWebSocketUrl = () => {
+    const isProduction = import.meta.env.PROD;
+    if (isProduction) {
+      // In production (Render), use wss:// with the same domain
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL.replace(/^http(s?):\/\//, "");
+      return `wss://${apiBaseUrl}`;
+    } else {
+      // Locally, use ws://localhost:8081
+      return "ws://localhost:8081";
+    }
+  };
 
   const fetchDogData = useCallback(async () => {
     try {
@@ -71,7 +82,6 @@ const ClientDashboard = ({ handleLogout }) => {
       setDogs(dogData);
       setShowDogForm(dogData.length === 0);
 
-      // Conditionally set selectedDog only if it's not already set and dogs are available
       if (dogData.length > 0 && !selectedDog) {
         setSelectedDog(dogData[0]);
         console.log("Initial dog selected:", dogData[0]);
@@ -228,7 +238,7 @@ const ClientDashboard = ({ handleLogout }) => {
     const token = Cookies.get("token");
 
     try {
-      let url = `${import.meta.env.VITE_API_BASE_URL}/client/all-reservations`; // Or adjust if needed for client dashboard
+      let url = `${import.meta.env.VITE_API_BASE_URL}/client/all-reservations`;
       const queryParams = new URLSearchParams();
 
       if (startDate && endDate) {
@@ -330,13 +340,7 @@ const ClientDashboard = ({ handleLogout }) => {
         "Demande de réservation envoyée. Veuillez attendre la confirmation du bénévole."
       );
 
-      // Updated WebSocket URL
-      const wsProtocol = window.location.protocol === "https:" ? "wss" : "ws";
-      const wsBaseUrl = import.meta.env.VITE_API_BASE_URL.replace(
-        /^http(s?):\/\//,
-        ""
-      ).replace(/\/$/, "");
-      const wsUrl = `${wsProtocol}://${wsBaseUrl}`;
+      const wsUrl = getWebSocketUrl();
       const ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
@@ -378,7 +382,6 @@ const ClientDashboard = ({ handleLogout }) => {
     }
   };
 
-  // Function to handle cancellation of confirmation
   const handleCancelConfirmation = () => {
     setIsConfirmationVisible(false);
     setConfirmationDetails(null);
@@ -437,15 +440,7 @@ const ClientDashboard = ({ handleLogout }) => {
   ]);
 
   useEffect(() => {
-    // Determine WebSocket protocol based on environment
-    const wsProtocol = window.location.protocol === "https:" ? "wss" : "ws";
-    const wsBaseUrl = import.meta.env.VITE_API_BASE_URL.replace(
-      /^http(s?):\/\//,
-      ""
-    ) // Remove http(s)://
-      .replace(/\/$/, ""); // Remove trailing slash if any
-    const wsUrl = `${wsProtocol}://${wsBaseUrl}`;
-
+    const wsUrl = getWebSocketUrl();
     let ws;
 
     const connectWebSocket = () => {
@@ -453,13 +448,12 @@ const ClientDashboard = ({ handleLogout }) => {
 
       ws.onopen = () => {
         console.log("Connected to WebSocket server at", wsUrl);
-        // Optionally send an initial message, e.g., to join a village
         const token = Cookies.get("token");
         if (token) {
           ws.send(
             JSON.stringify({
               type: "join_village",
-              village: "client_village", // Replace with actual village logic if needed
+              village: "client_village",
             })
           );
         }
@@ -482,20 +476,17 @@ const ClientDashboard = ({ handleLogout }) => {
 
       ws.onclose = () => {
         console.log("Disconnected from WebSocket server");
-        // Attempt to reconnect after a delay
         setTimeout(connectWebSocket, 5000);
       };
 
       ws.onerror = (error) => {
         console.error("WebSocket error:", error);
-        ws.close(); // Close the connection on error to trigger reconnect
+        ws.close();
       };
     };
 
-    // Initial connection
     connectWebSocket();
 
-    // Cleanup on component unmount
     return () => {
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.close();
@@ -545,7 +536,6 @@ const ClientDashboard = ({ handleLogout }) => {
     [currentWeekStart]
   );
 
-  // Function to show confirmation dialog
   const showConfirmation = (volunteerId, startTime, dayIndex) => {
     const reservationDate = moment(currentWeekStart).add(dayIndex, "days");
     setConfirmationDetails({
@@ -674,7 +664,7 @@ const ClientDashboard = ({ handleLogout }) => {
                     value={dogData.age}
                     onChange={handleDogFormChange}
                     required
-                    className="mt-1 block w-full py-2 px-3 rounded-md border-gray-300  shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-700 dark:text-gray-300"
+                    className="mt-1 block w-full py-2 px-3 rounded-md border-gray-300 shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-700 dark:text-gray-300"
                   />
                 </div>
                 <div className="flex justify-start">
@@ -989,6 +979,7 @@ const ClientDashboard = ({ handleLogout }) => {
                           statusIcon = (
                             <FontAwesomeIcon icon={faBan} className="mr-1" />
                           );
+                          statusName = "Rejeté";
                           break;
                         default:
                           statusColor = "";
