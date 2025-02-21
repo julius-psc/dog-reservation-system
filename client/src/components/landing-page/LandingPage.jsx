@@ -12,7 +12,9 @@ const LandingPage = () => {
     <div className='font-primary bg-secondary-pink relative overflow-x-hidden'>
       <Navbar />  
       <Hero />
-      <About />
+      <div id="about">
+        <About />
+      </div>
       <Tutorial />
       <Team />
       <Reviews />

@@ -6,7 +6,7 @@ import DatePicker from "react-datepicker";
 import LogoutButton from "./recycled/LogoutButton";
 import "react-datepicker/dist/react-datepicker.css";
 import toast from "react-hot-toast";
-import { ClipLoader } from "react-spinners"; // Import ClipLoader for loading state
+import { ClipLoader } from "react-spinners";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faPaw,
@@ -17,7 +17,7 @@ import {
   faCheck,
   faCalendarCheck,
   faBan,
-} from "@fortawesome/free-solid-svg-icons"; // Icons
+} from "@fortawesome/free-solid-svg-icons";
 
 const ClientDashboard = ({ handleLogout }) => {
   const [protectedError] = useState("");
@@ -34,17 +34,25 @@ const ClientDashboard = ({ handleLogout }) => {
   const [personalReservationsError, setPersonalReservationsError] =
     useState(null);
   const [reservations, setReservations] = useState([]);
-  const [reservationsLoading, setReservationsLoading] = useState(true); // Set to true initially for loading
+  const [reservationsLoading, setReservationsLoading] = useState(true);
   const [reservationsError, setReservationsError] = useState(null);
   const [selectedDate, setSelectedDate] = useState(moment().toDate());
   const [currentWeekStart, setCurrentWeekStart] = useState(
     moment().startOf("isoWeek")
   );
   const [isCurrentWeekDisplayed, setIsCurrentWeekDisplayed] = useState(true);
-
-  // New state for confirmation dialog
   const [isConfirmationVisible, setIsConfirmationVisible] = useState(false);
   const [confirmationDetails, setConfirmationDetails] = useState(null);
+
+  const getWebSocketUrl = () => {
+    const isProduction = import.meta.env.PROD;
+    if (isProduction) {
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL.replace(/^http(s?):\/\//, "");
+      return `wss://${apiBaseUrl}`;
+    } else {
+      return "ws://localhost:8081";
+    }
+  };
 
   const fetchDogData = useCallback(async () => {
     try {
@@ -71,7 +79,6 @@ const ClientDashboard = ({ handleLogout }) => {
       setDogs(dogData);
       setShowDogForm(dogData.length === 0);
 
-      // Conditionally set selectedDog only if it's not already set and dogs are available
       if (dogData.length > 0 && !selectedDog) {
         setSelectedDog(dogData[0]);
         console.log("Initial dog selected:", dogData[0]);
@@ -139,39 +146,30 @@ const ClientDashboard = ({ handleLogout }) => {
       setAvailableSlotsError("Token non trouvé. Veuillez vous connecter.");
       return;
     }
-
+  
     try {
       const days = Array.from({ length: 7 }, (_, i) =>
         moment(currentWeekStart).add(i, "days").format("YYYY-MM-DD")
       );
-
+  
       const availabilityPromises = days.map((date) =>
-        fetch(
-          `${import.meta.env.VITE_API_BASE_URL}/client/volunteers?date=${date}`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        ).then((res) => res.json())
+        fetch(`${import.meta.env.VITE_API_BASE_URL}/client/volunteers?date=${date}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }).then((res) => res.json())
       );
-
+  
       const allAvailabilities = await Promise.all(availabilityPromises);
-
+  
       const mergedSlots = {};
       days.forEach((date, index) => {
         const dayOfWeek = moment(date).isoWeekday() - 1;
-        mergedSlots[dayOfWeek] =
-          allAvailabilities[index].mergedAvailabilities[dayOfWeek] || [];
+        mergedSlots[dayOfWeek] = allAvailabilities[index].mergedAvailabilities[dayOfWeek] || [];
       });
-
+  
       setAllAvailableSlots(mergedSlots);
     } catch (error) {
-      console.error(
-        "Erreur lors de la récupération des disponibilités:",
-        error
-      );
-      setAvailableSlotsError(
-        error.message || "Une erreur inattendue est survenue."
-      );
+      console.error("Erreur lors de la récupération des disponibilités:", error);
+      setAvailableSlotsError(error.message || "Une erreur inattendue est survenue.");
     }
   }, [currentWeekStart]);
 
@@ -222,30 +220,24 @@ const ClientDashboard = ({ handleLogout }) => {
     }
   }, []);
 
-  const fetchReservations = useCallback(async (startDate, endDate) => {
+  const fetchReservations = useCallback(async () => {
     setReservationsLoading(true);
     setReservationsError(null);
     const token = Cookies.get("token");
 
     try {
-      let url = `${import.meta.env.VITE_API_BASE_URL}/client/all-reservations`; // Or adjust if needed for client dashboard
+      let url = `${import.meta.env.VITE_API_BASE_URL}/client/all-reservations`;
       const queryParams = new URLSearchParams();
 
-      if (startDate && endDate) {
-        queryParams.append(
-          "startDate",
-          moment().startOf("month").format("YYYY-MM-DD")
-        );
-        queryParams.append(
-          "endDate",
-          moment().endOf("month").format("YYYY-MM-DD")
-        );
-      } else {
-        queryParams.append(
-          "endDate",
-          moment().endOf("month").format("YYYY-MM-DD")
-        );
-      }
+      // Fetch reservations for the current week
+      queryParams.append(
+        "startDate",
+        moment(currentWeekStart).format("YYYY-MM-DD")
+      );
+      queryParams.append(
+        "endDate",
+        moment(currentWeekStart).endOf("isoWeek").format("YYYY-MM-DD")
+      );
 
       url += "?" + queryParams.toString();
 
@@ -272,7 +264,7 @@ const ClientDashboard = ({ handleLogout }) => {
     } finally {
       setReservationsLoading(false);
     }
-  }, []);
+  }, [currentWeekStart]);
 
   const handleReservation = async (volunteerId, startTime, dayIndex) => {
     console.log("Chien sélectionné avant la réservation:", selectedDog);
@@ -330,13 +322,7 @@ const ClientDashboard = ({ handleLogout }) => {
         "Demande de réservation envoyée. Veuillez attendre la confirmation du bénévole."
       );
 
-      // Updated WebSocket URL
-      const wsProtocol = window.location.protocol === "https:" ? "wss" : "ws";
-      const wsBaseUrl = import.meta.env.VITE_API_BASE_URL.replace(
-        /^http(s?):\/\//,
-        ""
-      ).replace(/\/$/, "");
-      const wsUrl = `${wsProtocol}://${wsBaseUrl}`;
+      const wsUrl = getWebSocketUrl();
       const ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
@@ -378,7 +364,6 @@ const ClientDashboard = ({ handleLogout }) => {
     }
   };
 
-  // Function to handle cancellation of confirmation
   const handleCancelConfirmation = () => {
     setIsConfirmationVisible(false);
     setConfirmationDetails(null);
@@ -437,15 +422,7 @@ const ClientDashboard = ({ handleLogout }) => {
   ]);
 
   useEffect(() => {
-    // Determine WebSocket protocol based on environment
-    const wsProtocol = window.location.protocol === "https:" ? "wss" : "ws";
-    const wsBaseUrl = import.meta.env.VITE_API_BASE_URL.replace(
-      /^http(s?):\/\//,
-      ""
-    ) // Remove http(s)://
-      .replace(/\/$/, ""); // Remove trailing slash if any
-    const wsUrl = `${wsProtocol}://${wsBaseUrl}`;
-
+    const wsUrl = getWebSocketUrl();
     let ws;
 
     const connectWebSocket = () => {
@@ -453,13 +430,12 @@ const ClientDashboard = ({ handleLogout }) => {
 
       ws.onopen = () => {
         console.log("Connected to WebSocket server at", wsUrl);
-        // Optionally send an initial message, e.g., to join a village
         const token = Cookies.get("token");
         if (token) {
           ws.send(
             JSON.stringify({
               type: "join_village",
-              village: "client_village", // Replace with actual village logic if needed
+              village: "client_village",
             })
           );
         }
@@ -482,20 +458,17 @@ const ClientDashboard = ({ handleLogout }) => {
 
       ws.onclose = () => {
         console.log("Disconnected from WebSocket server");
-        // Attempt to reconnect after a delay
         setTimeout(connectWebSocket, 5000);
       };
 
       ws.onerror = (error) => {
         console.error("WebSocket error:", error);
-        ws.close(); // Close the connection on error to trigger reconnect
+        ws.close();
       };
     };
 
-    // Initial connection
     connectWebSocket();
 
-    // Cleanup on component unmount
     return () => {
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.close();
@@ -510,19 +483,14 @@ const ClientDashboard = ({ handleLogout }) => {
   ]);
 
   const isSlotReserved = useCallback(
-    (currentDate, slot, dayIndex, reservations) => {
+    (currentDate, slot, dayIndex) => {
       const slotDate = moment(currentWeekStart)
         .add(dayIndex, "days")
         .format("YYYY-MM-DD");
       const slotStart = moment(`${slotDate} ${slot.time}`, "YYYY-MM-DD HH:mm");
+      const slotEnd = slotStart.clone().add(1, "hour");
 
       return reservations.some((reservation) => {
-        const isVolunteerMatch = slot.volunteerIds.includes(
-          reservation.volunteer_id
-        );
-
-        if (!isVolunteerMatch) return false;
-
         const reservationDate = reservation.reservation_date;
         const reservationStart = moment(
           `${reservationDate} ${reservation.start_time}`,
@@ -535,17 +503,15 @@ const ClientDashboard = ({ handleLogout }) => {
 
         return (
           reservationDate === slotDate &&
-          slotStart.isSameOrAfter(reservationStart) &&
           slotStart.isBefore(reservationEnd) &&
-          (reservation.status === "pending" ||
-            reservation.status === "reserved")
+          slotEnd.isAfter(reservationStart) &&
+          (reservation.status === "pending" || reservation.status === "reserved")
         );
       });
     },
-    [currentWeekStart]
+    [currentWeekStart, reservations]
   );
 
-  // Function to show confirmation dialog
   const showConfirmation = (volunteerId, startTime, dayIndex) => {
     const reservationDate = moment(currentWeekStart).add(dayIndex, "days");
     setConfirmationDetails({
@@ -674,7 +640,7 @@ const ClientDashboard = ({ handleLogout }) => {
                     value={dogData.age}
                     onChange={handleDogFormChange}
                     required
-                    className="mt-1 block w-full py-2 px-3 rounded-md border-gray-300  shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-700 dark:text-gray-300"
+                    className="mt-1 block w-full py-2 px-3 rounded-md border-gray-300 shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-700 dark:text-gray-300"
                   />
                 </div>
                 <div className="flex justify-start">
@@ -824,8 +790,7 @@ const ClientDashboard = ({ handleLogout }) => {
                           const isReserved = isSlotReserved(
                             currentDate,
                             slot,
-                            dayIndex,
-                            [...reservations, ...personalReservations]
+                            dayIndex
                           );
                           const isPastSlot =
                             isPastDay ||
@@ -840,31 +805,23 @@ const ClientDashboard = ({ handleLogout }) => {
                             <button
                               key={`${dayIndex}-${slot.time}`}
                               className={`inline-block rounded-md border px-3 py-2 mr-2 mb-2 text-xs sm:text-sm
-                              ${
-                                isReserved || isPastSlot || isPastDay
-                                  ? "opacity-50 cursor-not-allowed bg-gray-200 border-gray-300 text-gray-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400"
-                                  : "border-blue-500 bg-white hover:bg-blue-100 dark:border-blue-400 dark:bg-gray-800 dark:hover:bg-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-500"
-                              }`}
+                                ${
+                                  isReserved || isPastSlot
+                                    ? "opacity-50 cursor-not-allowed bg-gray-200 border-gray-300 text-gray-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400"
+                                    : "border-blue-500 bg-white hover:bg-blue-100 dark:border-blue-400 dark:bg-gray-800 dark:hover:bg-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-500"
+                                }`}
                               onClick={() => {
-                                if (
-                                  !isPastSlot &&
-                                  !reservationLoading &&
-                                  !isPastDay &&
-                                  !isReserved
-                                ) {
+                                if (!isPastSlot && !isReserved && !reservationLoading) {
                                   showConfirmation(
                                     slot.volunteerIds[0],
                                     slot.time,
                                     dayIndex
                                   );
+                                } else if (isReserved) {
+                                  toast.error("Ce créneau est déjà réservé.");
                                 }
                               }}
-                              disabled={
-                                isReserved ||
-                                isPastSlot ||
-                                reservationLoading ||
-                                isPastDay
-                              }
+                              disabled={isReserved || isPastSlot || reservationLoading}
                             >
                               {slot.time}
                               {isReserved && " (Réservé)"}
@@ -989,6 +946,7 @@ const ClientDashboard = ({ handleLogout }) => {
                           statusIcon = (
                             <FontAwesomeIcon icon={faBan} className="mr-1" />
                           );
+                          statusName = "Rejeté";
                           break;
                         default:
                           statusColor = "";
