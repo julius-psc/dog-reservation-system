@@ -7,6 +7,7 @@ const {
   sendVolunteerConfirmationEmail,
   sendReservationRejectedEmail,
 } = require("../email/emailService");
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 module.exports = (
   pool,
@@ -17,6 +18,7 @@ module.exports = (
   connectedClients,
   WebSocket
 ) => {
+  // Existing endpoint: GET /volunteer/availabilities
   router.get("/volunteer/availabilities", authenticate, async (req, res) => {
     try {
       const volunteerId = req.user.userId;
@@ -31,7 +33,7 @@ module.exports = (
     }
   });
 
-  // SETTING VOLUNTEER AVAILABILITIES
+  // Existing endpoint: POST /availabilities
   router.post(
     "/availabilities",
     authenticate,
@@ -62,7 +64,7 @@ module.exports = (
           const user_id = req.user.userId;
           await pool.query(
             "INSERT INTO availabilities (user_id, day_of_week, start_time, end_time, recurring) VALUES ($1, $2, $3, $4, $5)",
-            [user_id, dayOfWeek, startTime, endTime, true] // Always set recurring to true for now
+            [user_id, dayOfWeek, startTime, endTime, true]
           );
         }
         res.status(201).json({ message: "Availabilities saved successfully" });
@@ -73,7 +75,7 @@ module.exports = (
     }
   );
 
-  // GET VILLAGES COVERED BY VOLUNTEER
+  // Existing endpoint: GET /volunteer/villages-covered
   router.get(
     "/volunteer/villages-covered",
     authenticate,
@@ -88,7 +90,7 @@ module.exports = (
         if (volunteer.rows.length > 0) {
           res.json({
             villages_covered: volunteer.rows[0].villages_covered || [],
-          }); // Return villages_covered or empty array if null
+          });
         } else {
           res.status(404).json({ error: "Volunteer not found" });
         }
@@ -99,7 +101,7 @@ module.exports = (
     }
   );
 
-  // UPDATE VILLAGES COVERED BY VOLUNTEER
+  // Existing endpoint: PUT /volunteer/villages-covered
   router.put(
     "/volunteer/villages-covered",
     authenticate,
@@ -115,9 +117,7 @@ module.exports = (
             .json({ error: "Villages covered must be an array." });
         }
 
-        // Explicitly stringify the villagesCovered array to JSON
         const villagesCoveredJSON = JSON.stringify(villagesCovered);
-
         await pool.query(
           "UPDATE users SET villages_covered = $1 WHERE id = $2",
           [villagesCoveredJSON, volunteerId]
@@ -130,12 +130,12 @@ module.exports = (
     }
   );
 
-  // FETCH VOLUNTEERS
+  // Existing endpoint: GET /volunteers
   router.get("/volunteers", authenticate, async (req, res) => {
     try {
-      const clientVillage = req.user.village; // Village of the client making the request
-      const context = req.query.context; // "client" or "volunteer"
-      const date = req.query.date; // <--- Get the date from the query
+      const clientVillage = req.user.village;
+      const context = req.query.context;
+      const date = req.query.date;
 
       if (!date) {
         return res.status(400).json({ error: "Date parameter is required." });
@@ -153,34 +153,31 @@ module.exports = (
                 u.id,
                 u.username,
                 u.email,
-                u.villages_covered, -- Include villages_covered in the select
+                u.villages_covered,
                 COALESCE(json_agg(
                     json_build_object('day_of_week', a.day_of_week, 'start_time', a.start_time::TEXT, 'end_time', a.end_time::TEXT)
                 ) FILTER (WHERE a.id IS NOT NULL), '[]'::json) AS availabilities
             FROM users u
             LEFT JOIN availabilities a ON u.id = a.user_id AND a.day_of_week = $1
             WHERE u.role = 'volunteer'
-            AND u.holiday_mode IS NOT TRUE  -- ADDED: Exclude volunteers in holiday mode
+            AND u.holiday_mode IS NOT TRUE
         `;
-
       const queryParams = [dayOfWeek];
 
       if (context === "client") {
-        volunteersQuery += ` AND $2 = ANY(u.villages_covered)`; // Filter by villages_covered for clients
+        volunteersQuery += ` AND $2 = ANY(u.villages_covered)`;
         queryParams.push(clientVillage);
       } else if (context === "volunteer") {
-        volunteersQuery += " AND u.id = $3"; // original volunteer context filter
+        volunteersQuery += " AND u.id = $3";
         queryParams.push(req.user.userId);
       }
-      // No village filter for general volunteer listing (e.g., admin view if needed, or if volunteer wants to see all)
 
       volunteersQuery +=
         " GROUP BY u.id, u.username, u.email, u.villages_covered";
 
-      console.log("Executing volunteers query:", volunteersQuery, queryParams); // Log the query!
+      console.log("Executing volunteers query:", volunteersQuery, queryParams);
       const volunteers = await pool.query(volunteersQuery, queryParams);
 
-      // Fetch reservations (common for both client and volunteer context)
       const reservationsQuery = `
             SELECT r.reservation_date, r.start_time, r.end_time, r.volunteer_id, r.id,
                    u.username AS client_name,
@@ -191,16 +188,15 @@ module.exports = (
             WHERE r.reservation_date = $1
             AND r.volunteer_id IN (SELECT id FROM users WHERE role = 'volunteer' AND $2 = ANY(villages_covered))
         `;
-
       const reservations = await pool.query(reservationsQuery, [
         date,
         clientVillage,
-      ]); // Use clientVillage here for reservations query too
+      ]);
 
       console.log("Executing reservations query:", reservationsQuery, [
         date,
         clientVillage,
-      ]); // Log this too!
+      ]);
 
       res.json({
         volunteers: volunteers.rows,
@@ -212,7 +208,7 @@ module.exports = (
     }
   });
 
-  // FETCH CLIENT RESERVATION (volunteer)
+  // Existing endpoint: GET /volunteer/reservations
   router.get(
     "/volunteer/reservations",
     authenticate,
@@ -222,20 +218,20 @@ module.exports = (
         const volunteerId = req.user.userId;
         const reservations = await pool.query(
           `
-                        SELECT
-                            r.id,
-                            u.username AS client_name,
-                            d.name AS dog_name,
-                            r.reservation_date,
-                            TO_CHAR(r.start_time, 'HH24:MI') as start_time, -- Format start_time
-                            TO_CHAR(r.end_time, 'HH24:MI') as end_time, -- Format end_time
-                            r.status
-                        FROM reservations r
-                        JOIN users u ON r.client_id = u.id
-                        JOIN dogs d ON r.dog_id = d.id
-                        WHERE r.volunteer_id = $1
-                        ORDER BY r.reservation_date, r.start_time;
-                    `,
+            SELECT
+                r.id,
+                u.username AS client_name,
+                d.name AS dog_name,
+                r.reservation_date,
+                TO_CHAR(r.start_time, 'HH24:MI') as start_time,
+                TO_CHAR(r.end_time, 'HH24:MI') as end_time,
+                r.status
+            FROM reservations r
+            JOIN users u ON r.client_id = u.id
+            JOIN dogs d ON r.dog_id = d.id
+            WHERE r.volunteer_id = $1
+            ORDER BY r.reservation_date, r.start_time;
+          `,
           [volunteerId]
         );
         res.json(reservations.rows);
@@ -246,7 +242,7 @@ module.exports = (
     }
   );
 
-  // UPDATE RESERVATION STATUS
+  // Existing endpoint: PUT /reservations/:id
   router.put(
     "/reservations/:id",
     authenticate,
@@ -302,9 +298,7 @@ module.exports = (
           }
         });
 
-        // **SEND EMAILS ON ACCEPTANCE and REJECTION**
         if (status === "accepted") {
-          // Get client and volunteer details
           const detailsQuery = `
                 SELECT
                     r.reservation_date,
@@ -339,7 +333,6 @@ module.exports = (
               client_phone,
             } = detailsResult.rows[0];
 
-            // Format date
             const formattedDate = new Date(reservation_date).toLocaleDateString(
               "fr-FR",
               {
@@ -350,19 +343,16 @@ module.exports = (
               }
             );
 
-            // Send email to CLIENT
             await sendReservationApprovedEmail(
               client_email,
               client_name,
               dog_name,
-              formattedDate, // Use formatted date
+              formattedDate,
               start_time,
               end_time
             );
 
-            // Send email to VOLUNTEER (NEW)
             await sendVolunteerConfirmationEmail(
-              // Implement this function!
               volunteer_email,
               volunteer_name,
               client_name,
@@ -378,7 +368,6 @@ module.exports = (
             console.error("Could not retrieve reservation details for email.");
           }
         } else if (status === "rejected") {
-          // Get client details for rejection email
           const rejectionDetailsQuery = `
                 SELECT
                     r.reservation_date,
@@ -407,7 +396,6 @@ module.exports = (
               end_time,
             } = rejectionDetailsResult.rows[0];
 
-            // Format date for rejection email
             const formattedDate = new Date(reservation_date).toLocaleDateString(
               "fr-FR",
               {
@@ -418,7 +406,6 @@ module.exports = (
               }
             );
 
-            // Send REJECTION email to CLIENT
             await sendReservationRejectedEmail(
               client_email,
               client_name,
@@ -442,7 +429,7 @@ module.exports = (
     }
   );
 
-  // UPDATE CHARTER STATUS AND FILE UPLOADS
+  // Existing endpoint: POST /update-charter
   router.post(
     "/update-charter",
     authenticate,
@@ -451,7 +438,6 @@ module.exports = (
       try {
         const userId = req.user.userId;
 
-        // 1. File Handling - Ensure files are uploaded
         if (!req.files || !req.files.charter || !req.files.insurance) {
           return res
             .status(400)
@@ -461,7 +447,6 @@ module.exports = (
         const charterFile = req.files.charter;
         const insuranceFile = req.files.insurance;
 
-        // 2. Generate Unique Filenames
         const charterFilename = `charter_${userId}_${Date.now()}${path.extname(
           charterFile.name
         )}`;
@@ -469,13 +454,7 @@ module.exports = (
           insuranceFile.name
         )}`;
 
-        // 3. Define Upload Paths
-        const chartersUploadDir = path.join(
-          __dirname,
-          "..",
-          "forms",
-          "charters"
-        );
+        const chartersUploadDir = path.join(__dirname, "..", "forms", "charters");
         const insuranceUploadDir = path.join(
           __dirname,
           "..",
@@ -483,13 +462,9 @@ module.exports = (
           "insurance"
         );
 
-        // 4. Move files using mv() method from express-fileupload
         await charterFile.mv(path.join(chartersUploadDir, charterFilename));
-        await insuranceFile.mv(
-          path.join(insuranceUploadDir, insuranceFilename)
-        );
+        await insuranceFile.mv(path.join(insuranceUploadDir, insuranceFilename));
 
-        // 5. Store Relative File Paths in Database
         const result = await pool.query(
           "UPDATE users SET volunteer_status = $1, charter_file_path = $2, insurance_file_path = $3 WHERE id = $4 RETURNING *",
           [
@@ -513,7 +488,7 @@ module.exports = (
     }
   );
 
-  // GET volunteer status
+  // Existing endpoint: GET /volunteers/status
   router.get(
     "/volunteers/status",
     authenticate,
@@ -535,13 +510,12 @@ module.exports = (
     }
   );
 
-  // UPDATE volunteer status (admin endpoint)
+  // Existing endpoint: PUT /volunteers/:id/status
   router.put("/volunteers/:id/status", authenticate, async (req, res) => {
     try {
       const { id } = req.params;
       const { status } = req.body;
 
-      // Verify admin role
       const adminCheck = await pool.query(
         "SELECT role FROM users WHERE id = $1",
         [req.user.userId]
@@ -566,7 +540,7 @@ module.exports = (
     }
   });
 
-  // GET HOLIDAY MODE STATUS
+  // Existing endpoint: GET /volunteer/holiday-mode
   router.get(
     "/volunteer/holiday-mode",
     authenticate,
@@ -590,7 +564,7 @@ module.exports = (
     }
   );
 
-  // UPDATE HOLIDAY MODE STATUS
+  // Existing endpoint: PUT /volunteer/holiday-mode
   router.put(
     "/volunteer/holiday-mode",
     authenticate,
@@ -615,6 +589,100 @@ module.exports = (
       } catch (error) {
         console.error("Error updating holiday mode status:", error);
         res.status(500).json({ error: "Failed to update holiday mode status" });
+      }
+    }
+  );
+
+  // NEW ENDPOINT: GET /volunteer/subscription
+  router.get(
+    "/volunteer/subscription",
+    authenticate,
+    authorizeVolunteer,
+    async (req, res) => {
+      try {
+        const volunteerId = req.user.userId;
+
+        // Fetch subscription details from the users table
+        const subscription = await pool.query(
+          "SELECT subscription_paid, subscription_expiry_date FROM users WHERE id = $1 AND role = 'volunteer'",
+          [volunteerId]
+        );
+
+        if (subscription.rows.length === 0) {
+          return res.status(404).json({ error: "Volunteer not found" });
+        }
+
+        const { subscription_paid, subscription_expiry_date } = subscription.rows[0];
+        res.json({
+          subscription_paid: subscription_paid || false, // Default to false if null
+          subscription_expiry_date: subscription_expiry_date || null, // Return null if not set
+        });
+      } catch (error) {
+        console.error("Error fetching subscription status:", error);
+        res.status(500).json({ error: "Failed to fetch subscription status" });
+      }
+    }
+  );
+
+  // NEW ENDPOINT: POST /volunteer/subscription/pay
+  router.post(
+    "/volunteer/subscription/pay",
+    authenticate,
+    authorizeVolunteer,
+    async (req, res) => {
+      try {
+        const volunteerId = req.user.userId;
+        const { payment_method_id, amount } = req.body;
+  
+        // Validate input
+        if (!payment_method_id || amount !== 10) {
+          return res.status(400).json({ error: "Invalid payment details" });
+        }
+  
+        // Check if the user is a volunteer
+        const userCheck = await pool.query(
+          "SELECT role FROM users WHERE id = $1",
+          [volunteerId]
+        );
+        if (userCheck.rows.length === 0 || userCheck.rows[0].role !== "volunteer") {
+          return res.status(403).json({ error: "Not a volunteer" });
+        }
+  
+        // Create payment intent with explicit card-only configuration
+        const paymentIntent = await stripe.paymentIntents.create({
+          amount: 1000, // 10 EUR in cents
+          currency: "eur",
+          payment_method: payment_method_id,
+          confirm: true,
+          payment_method_types: ['card'], // Explicitly specify card payments only
+        });
+  
+        // Check payment status
+        if (paymentIntent.status !== "succeeded") {
+          return res.status(400).json({ 
+            error: "Payment failed",
+            status: paymentIntent.status 
+          });
+        }
+  
+        // Update subscription status in the database
+        const expiryDate = moment().add(1, "year").format("YYYY-MM-DD HH:mm:ss");
+        await pool.query(
+          "UPDATE users SET subscription_paid = $1, subscription_expiry_date = $2 WHERE id = $3",
+          [true, expiryDate, volunteerId]
+        );
+  
+        res.json({ 
+          success: true, 
+          message: "Subscription payment successful",
+          paymentIntentId: paymentIntent.id
+        });
+      } catch (error) {
+        console.error("Error processing subscription payment:", error);
+        res.status(500).json({ 
+          error: "Failed to process payment",
+          details: error.message 
+        });
       }
     }
   );
