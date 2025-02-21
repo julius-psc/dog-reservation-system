@@ -7,6 +7,7 @@ const jwt = require("jsonwebtoken");
 const WebSocket = require("ws");
 const moment = require("moment");
 const fileUpload = require("express-fileupload");
+const http = require("http"); // Add this for production WebSocket setup
 moment.locale("fr");
 
 require("dotenv").config();
@@ -34,7 +35,7 @@ const port = process.env.PORT || 3001;
 
 // CORS configuration
 const corsOptions = {
-  origin: process.env.PRODUCTION_URL,
+  origin: process.env.PRODUCTION_URL || "http://localhost:3000", // Allow local dev URL as fallback
   methods: ["GET", "POST", "PUT", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true,
@@ -67,9 +68,20 @@ pool
     console.error("Error connecting to PostgreSQL:", err);
   });
 
+// Create an HTTP server for Express
+const server = http.createServer(app);
+
 // Initialize WebSocket server
-const wss = new WebSocket.Server({ port: 8081 });
+let wss;
 const connectedClients = new Set();
+
+if (process.env.NODE_ENV === "production") {
+  // In production (Render), attach WebSocket to the same HTTP server as Express
+  wss = new WebSocket.Server({ server });
+} else {
+  // In development, use a separate port for WebSocket (e.g., 8081)
+  wss = new WebSocket.Server({ port: 8081 });
+}
 
 wss.on("connection", (ws) => {
   console.log("Client connected");
@@ -138,7 +150,12 @@ app.use("/", volunteerRoutes(pool, authenticate, authorizeVolunteer, isValidTime
 app.use("/", clientRoutes(pool, authenticate, moment, connectedClients, WebSocket, isValidTime));
 app.use("/", adminRoutes(pool, authenticate, authorizeAdmin));
 
-// Start the server (only once!)
-app.listen(port, () => {
+// Start the server
+server.listen(port, () => {
   console.log(`Server listening on port ${port}`);
+  if (process.env.NODE_ENV !== "production") {
+    console.log(`WebSocket server running on port 8081 (development)`);
+  } else {
+    console.log(`WebSocket server running on port ${port} (production)`);
+  }
 });
