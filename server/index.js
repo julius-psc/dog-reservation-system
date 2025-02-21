@@ -7,6 +7,7 @@ const jwt = require("jsonwebtoken");
 const WebSocket = require("ws");
 const moment = require("moment");
 const fileUpload = require("express-fileupload");
+const http = require("http");
 moment.locale("fr");
 
 require("dotenv").config();
@@ -34,7 +35,7 @@ const port = process.env.PORT || 3001;
 
 // CORS configuration
 const corsOptions = {
-  origin: process.env.PRODUCTION_URL,
+  origin: process.env.PRODUCTION_URL || "http://localhost:5173", // Adjust for local dev if using Vite
   methods: ["GET", "POST", "PUT", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true,
@@ -67,8 +68,21 @@ pool
     console.error("Error connecting to PostgreSQL:", err);
   });
 
+// Create HTTP server
+const server = http.createServer(app);
+
 // Initialize WebSocket server
-const wss = new WebSocket.Server({ port: 8081 });
+const isProduction = process.env.NODE_ENV === "production";
+let wss;
+
+if (isProduction) {
+  // In production (Render), attach WebSocket to the same HTTP server
+  wss = new WebSocket.Server({ server });
+} else {
+  // Locally, use a separate port (8081)
+  wss = new WebSocket.Server({ port: 8081 });
+}
+
 const connectedClients = new Set();
 
 wss.on("connection", (ws) => {
@@ -138,7 +152,10 @@ app.use("/", volunteerRoutes(pool, authenticate, authorizeVolunteer, isValidTime
 app.use("/", clientRoutes(pool, authenticate, moment, connectedClients, WebSocket, isValidTime));
 app.use("/", adminRoutes(pool, authenticate, authorizeAdmin));
 
-// Start the server (only once!)
-app.listen(port, () => {
+// Start the server
+server.listen(port, () => {
   console.log(`Server listening on port ${port}`);
+  if (!isProduction) {
+    console.log(`WebSocket server running on ws://localhost:8081`);
+  }
 });
