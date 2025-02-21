@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import Navbar from "./Navbar";
 
 const Articles = () => {
   const [articles] = useState([
@@ -61,8 +60,7 @@ const Articles = () => {
 
   return (
     <div className="font-sans antialiased bg-gray-100 text-gray-900 py-6 dark:bg-gray-900 dark:text-white">
-        <Navbar/>
-      <div className="max-w-7xl mx-auto mt-50 px-6">
+      <div className="max-w-7xl mx-auto px-6">
         <h1 className="text-center text-3xl font-bold text-gray-800 mb-8 dark:text-gray-100">
           Articles
         </h1>

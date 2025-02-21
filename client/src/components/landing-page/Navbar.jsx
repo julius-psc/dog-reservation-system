@@ -3,16 +3,18 @@ import navLogo from '../../assets/landing-page/desktop-landing-navbar-logo.svg';
 import emailIcon from '../../assets/landing-page/icons/chiens-email-icon.svg';
 import { useState, useEffect } from 'react';
 
-// Simple button without animation for md and below
+// Simple button without animation
 const SimpleDogButton = () => {
   return (
-    <button className="text-white bg-primary-pink px-4 md:px-5 py-3 md:py-4 text-lg md:text-xl rounded-xl cursor-pointer">
+    <button
+      className="text-white bg-primary-pink px-4 md:px-5 py-3 md:py-4 text-lg md:text-xl cursor-pointer w-full rounded-3xl"
+    >
       Se connecter
     </button>
   );
 };
 
-// Original animated button
+// Original animated button (unchanged)
 const AnimatedDogButton = () => {
   return (
     <div className="w-full h-full relative flex items-center justify-center">
@@ -85,13 +87,13 @@ const AnimatedDogButton = () => {
 };
 
 function Navbar() {
-  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 768);
+  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024); // lg breakpoint
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const handleResize = () => {
-      setIsDesktop(window.innerWidth >= 768);
-      if (window.innerWidth >= 768) {
+      setIsDesktop(window.innerWidth >= 1024);
+      if (window.innerWidth >= 1024) {
         setIsMobileMenuOpen(false);
       }
     };
@@ -104,101 +106,122 @@ function Navbar() {
     setIsMobileMenuOpen(!isMobileMenuOpen);
   };
 
+  // Scroll to About section function
+  const scrollToAbout = (e) => {
+    e.preventDefault();
+    const aboutSection = document.getElementById('about');
+    if (aboutSection) {
+      aboutSection.scrollIntoView({ behavior: 'smooth' });
+    }
+    setIsMobileMenuOpen(false);
+  };
+
   return (
-    <nav className="py-4 md:py-5 lg:py-6 w-full absolute top-0 z-100 flex justify-center items-center">
-      <div className="container max-w-4xl mx-4 flex items-center justify-between bg-white dark:bg-gray-800 pr-4 md:pr-5 lg:pr-6 rounded-4xl pt-2 md:pt-3 pb-5 md:pb-4 lg:pb-5 px-4 md:px-5 lg:px-6">
-        
+    <nav className="py-4 md:py-5 lg:py-6 w-full fixed top-0 z-[100] flex justify-center items-center">
+      <div
+        className={`container max-w-4xl flex items-center justify-between bg-white dark:bg-gray-800 pr-4 md:pr-5 lg:pr-6 pt-2 md:pt-3 pb-5 md:pb-4 lg:pb-5 px-4 md:px-5 lg:px-6 ${
+          isMobileMenuOpen ? 'mx-0 rounded-t-4xl' : 'mx-4 rounded-4xl'
+        }`}
+      >
         {/* Logo (Left Side) */}
         <div className="flex items-center my-2">
           <Link to="/" className="font-bold text-base md:text-lg">
-            <img 
-              className="h-auto w-44" 
-              src={navLogo} 
-              alt="Logo" 
-            />
+            <img className="h-auto w-44" src={navLogo} alt="Logo" />
           </Link>
         </div>
 
         {/* Mobile Menu Button */}
-        <button 
-          className="md:hidden text-primary-black dark:text-white focus:outline-none"
+        <button
+          className="lg:hidden text-primary-black dark:text-white focus:outline-none cursor-pointer"
           onClick={toggleMobileMenu}
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16m-7 6h7"></path>
+            {isMobileMenuOpen ? (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+            ) : (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16m-7 6h7" />
+            )}
           </svg>
         </button>
 
         {/* Navigation Links (Center) */}
-        <div className="hidden md:flex space-x-2 lg:space-x-4 pt-2 md:pt-3">
-          <Link 
-            to="/" 
+        <div className="hidden lg:flex space-x-2 lg:space-x-4 pt-2 md:pt-3">
+          <Link
+            to="/"
             className="text-primary-black dark:text-white hover:text-primary-pink dark:hover:text-primary-pink transition duration-200 text-xs md:text-sm lg:text-base"
           >
             Accueil
           </Link>
-          <Link 
-            to="/articles" 
+          <Link
+            to="/about"
+            className="text-primary-black dark:text-white hover:text-primary-pink dark:hover:text-primary-pink transition duration-200 text-xs md:text-sm lg:text-base"
+            onClick={scrollToAbout}
+          >
+            A propos
+          </Link>
+          <Link
+            to="/articles"
             className="text-primary-black dark:text-white hover:text-primary-pink dark:hover:text-primary-pink transition duration-200 text-xs md:text-sm lg:text-base"
           >
             Les bienfaits des promenades
           </Link>
-          <Link 
-            to="/donate" 
+          <Link
+            to="/donate"
             className="text-primary-black dark:text-white hover:text-primary-pink dark:hover:text-primary-pink transition duration-200 text-xs md:text-sm lg:text-base"
           >
             Faire un don
           </Link>
           <a href="mailto:contact@chiensencavale.com">
-            <img 
-              src={emailIcon} 
-              alt="Envoyer un email à Chiens en Cavale" 
-              className="w-4 md:w-5 lg:w-6"
-            />
+            <img src={emailIcon} alt="Envoyer un email à Chiens en Cavale" className="w-4 md:w-5 lg:w-6" />
           </a>
         </div>
 
-        {/* Login (Right Side)*/}
-        <div className="hidden md:flex items-center mt-2">
-          <Link to="/login">
-            {isDesktop ? <AnimatedDogButton /> : <SimpleDogButton />}
-          </Link>
+        {/* Login (Right Side) */}
+        <div className="hidden lg:flex items-center mt-2">
+          <Link to="/login">{isDesktop ? <AnimatedDogButton /> : <SimpleDogButton />}</Link>
         </div>
 
         {/* Mobile Menu */}
         {isMobileMenuOpen && (
-          <div className="md:hidden absolute top-18 left-0 w-full bg-white dark:bg-gray-800 rounded-b-4xl shadow-lg">
+          <div className="lg:hidden absolute top-[72px] left-0 w-full bg-white dark:bg-gray-800 rounded-t-none shadow-lg transition-all duration-300 ease-in-out">
             <div className="flex flex-col space-y-4 p-4">
-              <Link 
-                to="/" 
+              <Link
+                to="/"
                 className="text-primary-black dark:text-white hover:text-primary-pink dark:hover:text-primary-pink transition duration-200 text-sm"
                 onClick={toggleMobileMenu}
               >
                 Accueil
               </Link>
-              <Link 
-                to="/articles" 
+              <Link
+                to="/about"
+                className="text-primary-black dark:text-white hover:text-primary-pink dark:hover:text-primary-pink transition duration-200 text-sm"
+                onClick={scrollToAbout}
+              >
+                A propos
+              </Link>
+              <Link
+                to="/articles"
                 className="text-primary-black dark:text-white hover:text-primary-pink dark:hover:text-primary-pink transition duration-200 text-sm"
                 onClick={toggleMobileMenu}
               >
                 Les bienfaits des promenades
               </Link>
-              <Link 
-                to="/donate" 
+              <Link
+                to="/donate"
                 className="text-primary-black dark:text-white hover:text-primary-pink dark:hover:text-primary-pink transition duration-200 text-sm"
                 onClick={toggleMobileMenu}
               >
                 Faire un don
               </Link>
-              <a 
-                href="mailto:contact@chiensencavale.com" 
+              <a
+                href="mailto:contact@chiensencavale.com"
                 className="text-primary-black dark:text-white hover:text-primary-pink dark:hover:text-primary-pink transition duration-200 text-sm"
                 onClick={toggleMobileMenu}
               >
                 Contact
               </a>
-              <Link 
-                to="/login" 
+              <Link
+                to="/login"
                 className="text-primary-black dark:text-white hover:text-primary-pink dark:hover:text-primary-pink transition duration-200 text-sm"
                 onClick={toggleMobileMenu}
               >
