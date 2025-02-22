@@ -429,14 +429,23 @@ module.exports = (
     }
   );
 
-  // UPDATE CHARTER
+  // UPLOAD CHARTER / INSURANCE
+  const isProduction = process.env.NODE_ENV === "production";
+  const AWS = require("aws-sdk");
+  const s3 = isProduction
+    ? new AWS.S3({
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+      })
+    : null;
+  
   router.post(
     "/update-charter",
     authenticate,
     authorizeVolunteer,
     async (req, res) => {
       try {
-        const userId = req.user.userId; 
+        const userId = req.user.userId;
   
         if (!req.files || !req.files.charter || !req.files.insurance) {
           return res
@@ -454,50 +463,40 @@ module.exports = (
           insuranceFile.name
         )}`;
   
-        const chartersUploadDir = path.join(__dirname, "forms", "charters");
-        const insuranceUploadDir = path.join(__dirname, "forms", "insurance");
+        let charterPath, insurancePath;
   
-        // Ensure directories exist
-        await fs.mkdir(chartersUploadDir, { recursive: true });
-        await fs.mkdir(insuranceUploadDir, { recursive: true });
+        if (isProduction) {
+          const uploadToS3 = async (file, key) => {
+            const params = {
+              Bucket: process.env.S3_BUCKET_NAME,
+              Key: `forms/${key}`,
+              Body: file.data,
+              ContentType: file.mimetype,
+            };
+            return s3.upload(params).promise();
+          };
   
-        const charterPath = path.join(chartersUploadDir, charterFilename);
-        const insurancePath = path.join(insuranceUploadDir, insuranceFilename);
+          const charterUpload = await uploadToS3(charterFile, `charters/${charterFilename}`);
+          const insuranceUpload = await uploadToS3(insuranceFile, `insurance/${insuranceFilename}`);
+          charterPath = charterUpload.Location;
+          insurancePath = insuranceUpload.Location;
+        } else {
+          const chartersUploadDir = path.join(__dirname, "forms", "charters");
+          const insuranceUploadDir = path.join(__dirname, "forms", "insurance");
   
-        console.log("Saving charter to:", charterPath);
-        console.log("Saving insurance to:", insurancePath);
+          await fs.mkdir(chartersUploadDir, { recursive: true });
+          await fs.mkdir(insuranceUploadDir, { recursive: true });
   
-        // Move files with explicit error handling
-        await new Promise((resolve, reject) => {
-          charterFile.mv(charterPath, (err) => {
-            if (err) reject(new Error(`Failed to save charter: ${err.message}`));
-            else resolve();
-          });
-        });
+          charterPath = path.join(chartersUploadDir, charterFilename);
+          insurancePath = path.join(insuranceUploadDir, insuranceFilename);
   
-        await new Promise((resolve, reject) => {
-          insuranceFile.mv(insurancePath, (err) => {
-            if (err) reject(new Error(`Failed to save insurance: ${err.message}`));
-            else resolve();
-          });
-        });
-  
-        // Verify files exist
-        await fs.access(charterPath, fs.constants.F_OK).catch(() => {
-          throw new Error(`Charter file not found after save: ${charterPath}`);
-        });
-        await fs.access(insurancePath, fs.constants.F_OK).catch(() => {
-          throw new Error(`Insurance file not found after save: ${insurancePath}`);
-        });
+          await charterFile.mv(charterPath);
+          await insuranceFile.mv(insurancePath);
+        }
   
         const result = await pool.query(
           "UPDATE users SET volunteer_status = $1, charter_file_path = $2, insurance_file_path = $3 WHERE id = $4 RETURNING *",
-          [
-            "pending",
-            `/charters/${charterFilename}`,
-            `/insurance/${insuranceFilename}`,
-            userId,
-          ]
+          ["pending", `/charters/${charterFilename}`, `/insurance/${insuranceFilename}`, userId]
         );
   
         res.json({

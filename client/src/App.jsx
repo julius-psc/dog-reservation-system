@@ -9,7 +9,7 @@ import AdminDashboard from './components/dashboard/AdminDashboard';
 import LandingPage from './components/landing-page/LandingPage';
 import VolunteerConfirmationPage from './components/dashboard/redirs/VolunteerConfirmationPage';
 import Donate from './components/dashboard/forms/Donate';
-import Articles from './components/landing-page/Articles';
+import Benefits from './components/landing-page/Benefits';
 import ResetPasswordComponent from './components/auth/ResetPassword';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import PropTypes from 'prop-types';
@@ -168,7 +168,7 @@ const App = () => {
                 <Route path="/volunteer-confirmation" element={<ProtectedRoute allowedRoles={['volunteer']} volunteerStatuses={['pending', 'rejected']} element={<VolunteerConfirmationPage />} />} />
                 <Route path="/admin-dashboard" element={<ProtectedRoute allowedRoles={['admin']} element={<AdminDashboard handleLogout={handleLogout} />} />} />
                 <Route path="/donate" element={<Donate />} />
-                <Route path="/articles" element={<Articles />} />
+                <Route path="/benefits" element={<Benefits />} />
                 <Route
                     path="/"
                     element={

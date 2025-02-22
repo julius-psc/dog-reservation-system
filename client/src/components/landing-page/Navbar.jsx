@@ -160,7 +160,7 @@ function Navbar() {
             A propos
           </Link>
           <Link
-            to="/articles"
+            to="/benefits"
             className="text-primary-black dark:text-white hover:text-primary-pink dark:hover:text-primary-pink transition duration-200 text-xs md:text-sm lg:text-base"
           >
             Les bienfaits des promenades
@@ -200,7 +200,7 @@ function Navbar() {
                 A propos
               </Link>
               <Link
-                to="/articles"
+                to="/benefits"
                 className="text-primary-black dark:text-white hover:text-primary-pink dark:hover:text-primary-pink transition duration-200 text-sm"
                 onClick={toggleMobileMenu}
               >
