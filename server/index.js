@@ -41,10 +41,8 @@ const corsOptions = {
   credentials: true,
 };
 
-app.use("/charters", express.static(path.join(__dirname, "forms", "charters")));
-app.use("/insurance", express.static(path.join(__dirname, "forms", "insurance")));
-
 app.use(cors(corsOptions));
+app.use(express.static(path.join(__dirname, "forms")));
 app.use(bodyParser.json());
 app.use(fileUpload());
 

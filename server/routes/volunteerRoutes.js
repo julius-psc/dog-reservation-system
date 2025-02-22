@@ -429,42 +429,67 @@ module.exports = (
     }
   );
 
-  // Existing endpoint: POST /update-charter
+  // UPDATE CHARTER
   router.post(
     "/update-charter",
     authenticate,
     authorizeVolunteer,
     async (req, res) => {
       try {
-        const userId = req.user.userId;
-
+        const userId = req.user.userId; 
+  
         if (!req.files || !req.files.charter || !req.files.insurance) {
           return res
             .status(400)
             .json({ error: "Please upload both charter and insurance files." });
         }
-
+  
         const charterFile = req.files.charter;
         const insuranceFile = req.files.insurance;
-
+  
         const charterFilename = `charter_${userId}_${Date.now()}${path.extname(
           charterFile.name
         )}`;
         const insuranceFilename = `insurance_${userId}_${Date.now()}${path.extname(
           insuranceFile.name
         )}`;
-
-        const chartersUploadDir = path.join(__dirname, "..", "forms", "charters");
-        const insuranceUploadDir = path.join(
-          __dirname,
-          "..",
-          "forms",
-          "insurance"
-        );
-
-        await charterFile.mv(path.join(chartersUploadDir, charterFilename));
-        await insuranceFile.mv(path.join(insuranceUploadDir, insuranceFilename));
-
+  
+        const chartersUploadDir = path.join(__dirname, "forms", "charters");
+        const insuranceUploadDir = path.join(__dirname, "forms", "insurance");
+  
+        // Ensure directories exist
+        await fs.mkdir(chartersUploadDir, { recursive: true });
+        await fs.mkdir(insuranceUploadDir, { recursive: true });
+  
+        const charterPath = path.join(chartersUploadDir, charterFilename);
+        const insurancePath = path.join(insuranceUploadDir, insuranceFilename);
+  
+        console.log("Saving charter to:", charterPath);
+        console.log("Saving insurance to:", insurancePath);
+  
+        // Move files with explicit error handling
+        await new Promise((resolve, reject) => {
+          charterFile.mv(charterPath, (err) => {
+            if (err) reject(new Error(`Failed to save charter: ${err.message}`));
+            else resolve();
+          });
+        });
+  
+        await new Promise((resolve, reject) => {
+          insuranceFile.mv(insurancePath, (err) => {
+            if (err) reject(new Error(`Failed to save insurance: ${err.message}`));
+            else resolve();
+          });
+        });
+  
+        // Verify files exist
+        await fs.access(charterPath, fs.constants.F_OK).catch(() => {
+          throw new Error(`Charter file not found after save: ${charterPath}`);
+        });
+        await fs.access(insurancePath, fs.constants.F_OK).catch(() => {
+          throw new Error(`Insurance file not found after save: ${insurancePath}`);
+        });
+  
         const result = await pool.query(
           "UPDATE users SET volunteer_status = $1, charter_file_path = $2, insurance_file_path = $3 WHERE id = $4 RETURNING *",
           [
@@ -474,7 +499,7 @@ module.exports = (
             userId,
           ]
         );
-
+  
         res.json({
           message: "Documents submitted successfully!",
           user: result.rows[0],
@@ -612,7 +637,8 @@ module.exports = (
           return res.status(404).json({ error: "Volunteer not found" });
         }
 
-        const { subscription_paid, subscription_expiry_date } = subscription.rows[0];
+        const { subscription_paid, subscription_expiry_date } =
+          subscription.rows[0];
         res.json({
           subscription_paid: subscription_paid || false, // Default to false if null
           subscription_expiry_date: subscription_expiry_date || null, // Return null if not set
@@ -633,55 +659,60 @@ module.exports = (
       try {
         const volunteerId = req.user.userId;
         const { payment_method_id, amount } = req.body;
-  
+
         // Validate input
         if (!payment_method_id || amount !== 10) {
           return res.status(400).json({ error: "Invalid payment details" });
         }
-  
+
         // Check if the user is a volunteer
         const userCheck = await pool.query(
           "SELECT role FROM users WHERE id = $1",
           [volunteerId]
         );
-        if (userCheck.rows.length === 0 || userCheck.rows[0].role !== "volunteer") {
+        if (
+          userCheck.rows.length === 0 ||
+          userCheck.rows[0].role !== "volunteer"
+        ) {
           return res.status(403).json({ error: "Not a volunteer" });
         }
-  
+
         // Create payment intent with explicit card-only configuration
         const paymentIntent = await stripe.paymentIntents.create({
           amount: 1000, // 10 EUR in cents
           currency: "eur",
           payment_method: payment_method_id,
           confirm: true,
-          payment_method_types: ['card'], // Explicitly specify card payments only
+          payment_method_types: ["card"], // Explicitly specify card payments only
         });
-  
+
         // Check payment status
         if (paymentIntent.status !== "succeeded") {
-          return res.status(400).json({ 
+          return res.status(400).json({
             error: "Payment failed",
-            status: paymentIntent.status 
+            status: paymentIntent.status,
           });
         }
-  
+
         // Update subscription status in the database
-        const expiryDate = moment().add(1, "year").format("YYYY-MM-DD HH:mm:ss");
+        const expiryDate = moment()
+          .add(1, "year")
+          .format("YYYY-MM-DD HH:mm:ss");
         await pool.query(
           "UPDATE users SET subscription_paid = $1, subscription_expiry_date = $2 WHERE id = $3",
           [true, expiryDate, volunteerId]
         );
-  
-        res.json({ 
-          success: true, 
+
+        res.json({
+          success: true,
           message: "Subscription payment successful",
-          paymentIntentId: paymentIntent.id
+          paymentIntentId: paymentIntent.id,
         });
       } catch (error) {
         console.error("Error processing subscription payment:", error);
-        res.status(500).json({ 
+        res.status(500).json({
           error: "Failed to process payment",
-          details: error.message 
+          details: error.message,
         });
       }
     }
