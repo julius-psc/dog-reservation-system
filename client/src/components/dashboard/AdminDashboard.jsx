@@ -482,7 +482,7 @@ const AdminDashboard = ({ handleLogout }) => {
                                   <span className="font-semibold dark:text-gray-100">Fichier de Charte:</span>
                                   {volunteer.charter_file_path ? (
                                     <a
-                                      href={`${import.meta.env.VITE_API_BASE_URL}/forms${volunteer.charter_file_path}`}
+                                      href={`${import.meta.env.VITE_API_BASE_URL}${volunteer.charter_file_path}`}
                                       download
                                       className="text-blue-600 hover:underline dark:text-blue-500"
                                     >
