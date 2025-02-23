@@ -35,7 +35,14 @@ const port = process.env.PORT || 3001;
 
 // CORS configuration
 const corsOptions = {
-  origin: process.env.PRODUCTION_URL || "http://localhost:5173", // Adjust for local dev if using Vite
+  origin: (origin, callback) => {
+    const allowedOrigins = ["https://chiensencavale.com", "http://localhost:5173"];
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
   methods: ["GET", "POST", "PUT", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true,
