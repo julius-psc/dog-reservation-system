@@ -110,7 +110,7 @@ const CharterFormComponent = ({ onCharterComplete, volunteerStatus }) => {
                     {[1, 2, 3].map((stepNumber) => (
                         <li
                             key={stepNumber}
-                            className={`relative flex ${stepNumber === 1 ? 'justify-start' : stepNumber === 2 ? 'justify-center' : 'justify-end'} transition-colors duration-300 ${step >= stepNumber ? 'text-primary-yellow' : 'text-gray-500'}`} // Highlight color changed to primary-yellow
+                            className={`relative flex ${stepNumber === 1 ? 'justify-start' : stepNumber === 2 ? 'justify-center' : 'justify-end'} transition-colors duration-300 ${step >= stepNumber ? 'text-primary-yellow' : 'text-gray-500'}`}
                         >
                             <span className={`absolute -bottom-[1.75rem] rounded-full bg-white border-2 ${step >= stepNumber ? 'border-primary-yellow bg-primary-yellow' : 'border-gray-200'} ${stepNumber === 1 ? 'start-0' : stepNumber === 2 ? 'left-1/2 -translate-x-1/2' : 'end-0'}`}>
                                 {step >= stepNumber && <ProgressIcon completed={step >= stepNumber} />}
@@ -127,24 +127,24 @@ const CharterFormComponent = ({ onCharterComplete, volunteerStatus }) => {
 
     return (
         <div className='fixed inset-0 z-50 bg-gray-100/90 overflow-auto' role='dialog' aria-modal='true'>
-            <div className='flex justify-center items-center min-h-screen p-6 md:p-4'> {/* Added padding for larger screens and reduced for smaller */}
-                <div className='bg-white rounded-xl shadow-xl p-8 max-w-2xl w-full space-y-8 md:space-y-6'> {/* Rounded corners and increased padding */}
+            <div className='flex justify-center items-center min-h-screen p-6 md:p-4'>
+                <div className='bg-white rounded-xl shadow-xl p-8 max-w-2xl w-full space-y-8 md:space-y-6'>
                     {renderProgressBar()}
 
-                    <div className='mt-8 space-y-8 md:space-y-6'> {/* Increased spacing for better readability */}
+                    <div className='mt-8 space-y-8 md:space-y-6'>
                         {step === 1 && (
-                            <div className='space-y-5'> {/* Increased spacing */}
-                                <h2 className='text-3xl font-semibold text-gray-900 text-center'> {/* More prominent heading and centered */}
+                            <div className='space-y-5'>
+                                <h2 className='text-3xl font-semibold text-gray-900 text-center'>
                                     Bienvenue jeune promeneur !
                                 </h2>
-                                <p className='text-lg text-gray-700 text-center'> {/* Slightly larger text and centered */}
+                                <p className='text-lg text-gray-700 text-center'>
                                     Merci de vouloir faire une différence dans la vie des chiens ! En rejoignant notre communauté de bénévoles,
                                     vous contribuerez à offrir des promenades joyeuses et des aventures sécurisées aux chiens dans le besoin. Commençons par quelques exigences simples pour assurer la sécurité et le plaisir de tous.
                                 </p>
-                                <div className='flex justify-center'> {/* Center the button */}
+                                <div className='flex justify-center'>
                                     <button
                                         onClick={nextStep}
-                                        className='rounded-full bg-primary-yellow hover:bg-yellow-500 text-gray-900 font-bold py-3 px-6 w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-primary-yellow focus:ring-opacity-50 transition-colors duration-300' // Aesthetic button with primary-yellow and rounded corners
+                                        className='rounded-full bg-primary-yellow hover:bg-yellow-500 text-gray-900 font-bold py-3 px-6 w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-primary-yellow focus:ring-opacity-50 transition-colors duration-300'
                                     >
                                         Continuer
                                     </button>
@@ -154,57 +154,66 @@ const CharterFormComponent = ({ onCharterComplete, volunteerStatus }) => {
 
                         {step === 2 && (
                             <div className='space-y-6'>
-                                <h2 className='text-3xl font-semibold text-gray-900 text-center'>Exigences d&apos;adhésion</h2> {/* More prominent heading and centered */}
-                                <p className='text-lg text-gray-700 text-center'> {/* Slightly larger text and centered */}
+                                <h2 className='text-3xl font-semibold text-gray-900 text-center'>Exigences d&#39;adhésion</h2>
+                                <p className='text-lg text-gray-700 text-center'>
                                     Pour garantir la meilleure expérience à nos bénévoles et à nos amis à fourrure, nous exigeons :
                                 </p>
 
-                                <div className='space-y-8'> {/* Increased spacing */}
-                                    <div className='flex items-start space-x-3'> {/* Added flex for better alignment */}
+                                <div className='space-y-8'>
+                                    <div className='flex items-start space-x-3'>
                                         <div className='flex-shrink-0'>
-                                            <span className='text-xl text-gray-700'>•</span> {/* Bullet point for list */}
+                                            <span className='text-xl text-gray-700'>•</span>
                                         </div>
                                         <div>
-                                            <p className='text-lg text-gray-700'> {/* Slightly larger text */}
+                                            <p className='text-lg text-gray-700'>
                                                 Téléchargez et signez notre{' '}
                                                 <a
                                                     href={charterPDF}
                                                     download
-                                                    className='text-primary-yellow hover:underline font-medium focus:outline-none focus:ring-2 focus:ring-primary-yellow focus:ring-opacity-50 transition-colors duration-300' // Primary yellow for link color
+                                                    className='text-primary-yellow hover:underline font-medium focus:outline-none focus:ring-2 focus:ring-primary-yellow focus:ring-opacity-50 transition-colors duration-300'
                                                 >
                                                     Charte du Promeneur de Chiens
                                                 </a>
                                             </p>
                                         </div>
                                     </div>
-                                    <div className='flex items-start space-x-3'> {/* Added flex for better alignment */}
+                                    <div className='flex items-start space-x-3'>
                                         <div className='flex-shrink-0'>
-                                            <span className='text-xl text-gray-700'>•</span> {/* Bullet point for list */}
+                                            <span className='text-xl text-gray-700'>•</span>
                                         </div>
                                         <div>
-                                            <p className='text-lg text-gray-700'> {/* Slightly larger text */}
-                                                Fournissez une documentation d&apos;assurance responsabilité civile pour animaux de compagnie valide
+                                            <p className='text-lg text-gray-700'>
+                                                Fournissez une documentation d&#39;assurance responsabilité civile pour animaux de compagnie valide
                                             </p>
                                         </div>
                                     </div>
 
-
-                                    <div className='space-y-6'> {/* Increased spacing */}
+                                    <div className='space-y-6'>
                                         <div>
-                                            <label htmlFor='charter-upload' className='block text-lg font-medium text-gray-700 mb-3'> {/* Larger label */}
+                                            <label htmlFor='charter-upload' className='block text-lg font-medium text-gray-700 mb-3'>
                                                 Téléverser la Charte Signée
                                                 <span className='text-gray-500 ml-1'>(JPG, PNG, PDF, etc.)</span>
                                             </label>
-                                            <div className='relative'>
-                                                <input
-                                                    id='charter-upload'
-                                                    type='file'
-                                                    onChange={(e) => handleFileChange('charter', e.target.files[0])}
-                                                    className='peer absolute inset-0 w-full h-full opacity-0 cursor-pointer'
-                                                />
-                                                <label htmlFor='charter-upload' className='text-lg text-white file:mr-4  bg-primary-yellow file:py-2 file:px-4 px-4 py-2 rounded-lg file:rounded-full file:border-0 file:text-md file:font-semibold file:bg-gray-50 file:text-gray-700 hover:file:bg-gray-100 cursor-pointer'>
-                                                    Choisir un fichier
-                                                </label>
+                                            <div className='flex items-center space-x-4'>
+                                                <div className='relative'>
+                                                    <input
+                                                        id='charter-upload'
+                                                        type='file'
+                                                        onChange={(e) => handleFileChange('charter', e.target.files[0])}
+                                                        className='peer absolute inset-0 w-full h-full opacity-0 cursor-pointer'
+                                                    />
+                                                    <label
+                                                        htmlFor='charter-upload'
+                                                        className='text-lg text-white file:mr-4 bg-primary-yellow file:py-2 file:px-4 px-4 py-2 rounded-lg file:rounded-full file:border-0 file:text-md file:font-semibold file:bg-gray-50 file:text-gray-700 hover:file:bg-gray-100 cursor-pointer'
+                                                    >
+                                                        Choisir un fichier
+                                                    </label>
+                                                </div>
+                                                {charterFile && (
+                                                    <span className='text-gray-700 dark:text-gray-500 text-sm'>
+                                                        {charterFile.name}
+                                                    </span>
+                                                )}
                                             </div>
                                             {fileErrors.charter && (
                                                 <p className='text-red-500 text-sm mt-1'>{fileErrors.charter}</p>
@@ -212,20 +221,30 @@ const CharterFormComponent = ({ onCharterComplete, volunteerStatus }) => {
                                         </div>
 
                                         <div>
-                                            <label htmlFor='insurance-upload' className='block text-lg font-medium text-gray-700 mb-3'> {/* Larger label */}
-                                                Téléverser le Certificat d&apos;Assurance
+                                            <label htmlFor='insurance-upload' className='block text-lg font-medium text-gray-700 mb-3'>
+                                                Téléverser le Certificat d&#39;Assurance
                                                 <span className='text-gray-500 ml-1'>(JPG, PNG, PDF, etc.)</span>
                                             </label>
-                                            <div className='relative'>
-                                                <input
-                                                    id='insurance-upload'
-                                                    type='file'
-                                                    onChange={(e) => handleFileChange('insurance', e.target.files[0])}
-                                                    className='peer absolute inset-0 w-full h-full opacity-0 cursor-pointer'
-                                                />
-                                                <label htmlFor='insurance-upload' className='text-lg text-white file:mr-4  bg-primary-yellow file:py-2 file:px-4 px-4 py-2 rounded-lg file:rounded-full file:border-0 file:text-md file:font-semibold file:bg-gray-50 file:text-gray-700 hover:file:bg-gray-100 cursor-pointer'>
-                                                    Choisir un fichier
-                                                </label>
+                                            <div className='flex items-center space-x-4'>
+                                                <div className='relative'>
+                                                    <input
+                                                        id='insurance-upload'
+                                                        type='file'
+                                                        onChange={(e) => handleFileChange('insurance', e.target.files[0])}
+                                                        className='peer absolute inset-0 w-full h-full opacity-0 cursor-pointer'
+                                                    />
+                                                    <label
+                                                        htmlFor='insurance-upload'
+                                                        className='text-lg text-white file:mr-4 bg-primary-yellow file:py-2 file:px-4 px-4 py-2 rounded-lg file:rounded-full file:border-0 file:text-md file:font-semibold file:bg-gray-50 file:text-gray-700 hover:file:bg-gray-100 cursor-pointer'
+                                                    >
+                                                        Choisir un fichier
+                                                    </label>
+                                                </div>
+                                                {insuranceFile && (
+                                                    <span className='text-gray-700 dark:text-gray-300 text-sm'>
+                                                        {insuranceFile.name}
+                                                    </span>
+                                                )}
                                             </div>
                                             {fileErrors.insurance && (
                                                 <p className='text-red-500 text-sm mt-1'>{fileErrors.insurance}</p>
@@ -233,17 +252,17 @@ const CharterFormComponent = ({ onCharterComplete, volunteerStatus }) => {
                                         </div>
                                     </div>
 
-                                    <div className='flex flex-col sm:flex-row justify-center gap-6 mt-8'> {/* Centered buttons and increased gap, margin top */}
+                                    <div className='flex flex-col sm:flex-row justify-center gap-6 mt-8'>
                                         <button
                                             onClick={prevStep}
-                                            className='order-2 sm:order-1 rounded-full bg-gray-300 hover:bg-gray-400 text-gray-700 font-bold py-3 px-6 flex-1 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-opacity-50 transition-colors duration-300' // Aesthetic back button with rounded corners
+                                            className='order-2 sm:order-1 rounded-full bg-gray-300 hover:bg-gray-400 text-gray-700 font-bold py-3 px-6 flex-1 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-opacity-50 transition-colors duration-300'
                                         >
                                             Retour
                                         </button>
                                         <button
                                             onClick={handleCompletion}
                                             disabled={isSubmitting}
-                                            className={`order-1 sm:order-2 rounded-full bg-primary-yellow hover:bg-yellow-500 text-gray-900 font-bold py-3 px-6 flex-1 focus:outline-none focus:ring-2 focus:ring-primary-yellow focus:ring-opacity-50 transition-colors duration-300 ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`} // Aesthetic submit button with primary-yellow and rounded corners
+                                            className={`order-1 sm:order-2 rounded-full bg-primary-yellow hover:bg-yellow-500 text-gray-900 font-bold py-3 px-6 flex-1 focus:outline-none focus:ring-2 focus:ring-primary-yellow focus:ring-opacity-50 transition-colors duration-300 ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
                                         >
                                             {isSubmitting ? 'Soumettre les Documents' : 'Soumettre les Documents'}
                                         </button>
@@ -253,15 +272,22 @@ const CharterFormComponent = ({ onCharterComplete, volunteerStatus }) => {
                         )}
 
                         {step === 3 && (
-                            <div className='text-center space-y-5'> {/* Increased spacing */}
-                                <h2 className='text-3xl font-semibold text-gray-900'> {/* More prominent heading */}
-                                    Merci d&apos;avoir rejoint Chiens en Cavale !
+                            <div className='text-center space-y-5'>
+                                <h2 className='text-3xl font-semibold text-gray-900'>
+                                    Merci d&#39;avoir rejoint Chiens en Cavale !
                                 </h2>
-                                <p className='text-lg text-gray-700'> {/* Slightly larger text */}
-                                    Votre demande est maintenant en cours d&apos;examen par notre équipe. Nous traitons généralement les demandes dans un délai de 24 à 48 heures. Vous recevrez une notification par e-mail une fois votre adhésion approuvée.
+                                <p className='text-lg text-gray-700'>
+                                    Votre demande est maintenant en cours d&#39;examen par notre équipe. Nous traitons généralement les demandes dans un délai de 24 à 48 heures. Vous recevrez une notification par e-mail une fois votre adhésion approuvée.
                                 </p>
-                                <p className='text-gray-600 text-md'> {/* Slightly larger text */}
-                                    En attendant, n&apos;hésitez pas à nous contacter à <a href='mailto:contact@chiensencavale.com' className='text-primary-yellow hover:underline font-medium focus:outline-none focus:ring-2 focus:ring-primary-yellow focus:ring-opacity-50 transition-colors duration-300'>contact@chiensencavale.com</a> si vous avez des questions. 
+                                <p className='text-gray-600 text-md'>
+                                    En attendant, n&#39;hésitez pas à nous contacter à{' '}
+                                    <a
+                                        href='mailto:contact@chiensencavale.com'
+                                        className='text-primary-yellow hover:underline font-medium focus:outline-none focus:ring-2 focus:ring-primary-yellow focus:ring-opacity-50 transition-colors duration-300'
+                                    >
+                                        contact@chiensencavale.com
+                                    </a>{' '}
+                                    si vous avez des questions.
                                 </p>
                             </div>
                         )}
@@ -274,7 +300,7 @@ const CharterFormComponent = ({ onCharterComplete, volunteerStatus }) => {
 
 CharterFormComponent.propTypes = {
     onCharterComplete: PropTypes.func.isRequired,
-    volunteerStatus: PropTypes.string
+    volunteerStatus: PropTypes.string,
 };
 
 const CharterForm = memo(CharterFormComponent);

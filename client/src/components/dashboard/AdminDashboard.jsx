@@ -4,12 +4,22 @@ import moment from "moment";
 import PropTypes from "prop-types";
 import "moment/locale/fr";
 moment.locale("fr");
-import { ClipLoader } from 'react-spinners';
-import {toast} from 'react-hot-toast';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCheckCircle, faTimesCircle, faExclamationTriangle, faUsers, faCalendarCheck, faUserShield, faClock, faCheck, faBan } from '@fortawesome/free-solid-svg-icons'; // Added more icons
+import { ClipLoader } from "react-spinners";
+import { toast } from "react-hot-toast";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faCheckCircle,
+  faTimesCircle,
+  faExclamationTriangle,
+  faUsers,
+  faCalendarCheck,
+  faUserShield,
+  faClock,
+  faCheck,
+  faBan,
+} from "@fortawesome/free-solid-svg-icons";
 
-import LogoutButton from './recycled/LogoutButton';
+import LogoutButton from "./recycled/LogoutButton";
 
 const AdminDashboard = ({ handleLogout }) => {
   const [volunteers, setVolunteers] = useState(null);
@@ -28,6 +38,10 @@ const AdminDashboard = ({ handleLogout }) => {
   const [reservationStatusFilter, setReservationStatusFilter] = useState("all");
   const [userVillageFilter, setUserVillageFilter] = useState("");
   const [userFilter, setUserFilter] = useState("");
+
+  // Determine environment and API base URL
+  const isProduction = import.meta.env.MODE === "production";
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
 
   useEffect(() => {
     const fetchVolunteers = async () => {
@@ -122,7 +136,6 @@ const AdminDashboard = ({ handleLogout }) => {
     fetchAllUsers();
   }, []);
 
-
   if (loading || usersLoading || reservationsLoading) {
     return (
       <div className="flex justify-center items-center h-screen bg-gray-100 dark:bg-gray-900">
@@ -145,17 +158,11 @@ const AdminDashboard = ({ handleLogout }) => {
   }
 
   const handleVolunteerRowClick = (volunteerId) => {
-    setExpandedVolunteerId(
-      expandedVolunteerId === volunteerId ? null : volunteerId
-    );
+    setExpandedVolunteerId(expandedVolunteerId === volunteerId ? null : volunteerId);
   };
 
   const handleRoleChange = async (userId, username, newRole) => {
-    if (
-      window.confirm(
-        `Êtes-vous sûr de vouloir changer le rôle de ${username} en ${newRole} ?`
-      )
-    ) {
+    if (window.confirm(`Êtes-vous sûr de vouloir changer le rôle de ${username} en ${newRole} ?`)) {
       try {
         const token = Cookies.get("token");
         const response = await fetch(
@@ -177,9 +184,7 @@ const AdminDashboard = ({ handleLogout }) => {
 
         const updatedUser = await response.json();
         setAllUsers((prevUsers) =>
-          prevUsers.map((user) =>
-            user.id === userId ? updatedUser.user : user
-          )
+          prevUsers.map((user) => (user.id === userId ? updatedUser.user : user))
         );
         toast.success(`Le rôle de ${username} a été changé en ${newRole}.`);
       } catch (error) {
@@ -321,7 +326,6 @@ const AdminDashboard = ({ handleLogout }) => {
           </div>
         </div>
 
-
         <section className="mb-8">
           <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
             <h2 className="text-xl font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
@@ -365,14 +369,20 @@ const AdminDashboard = ({ handleLogout }) => {
                   </thead>
                   <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                     {filteredVolunteers.map((volunteer) => {
-                      const groupedAvailabilities = (volunteer.availabilities || []).reduce((acc, availability) => {
-                        const dayOfWeek = availability.day_of_week;
-                        if (!acc[dayOfWeek]) {
-                          acc[dayOfWeek] = [];
-                        }
-                        acc[dayOfWeek].push({ startTime: availability.start_time, endTime: availability.end_time });
-                        return acc;
-                      }, {});
+                      const groupedAvailabilities = (volunteer.availabilities || []).reduce(
+                        (acc, availability) => {
+                          const dayOfWeek = availability.day_of_week;
+                          if (!acc[dayOfWeek]) {
+                            acc[dayOfWeek] = [];
+                          }
+                          acc[dayOfWeek].push({
+                            startTime: availability.start_time,
+                            endTime: availability.end_time,
+                          });
+                          return acc;
+                        },
+                        {}
+                      );
 
                       return (
                         <React.Fragment key={volunteer.id}>
@@ -384,28 +394,46 @@ const AdminDashboard = ({ handleLogout }) => {
                             <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300">{volunteer.email}</td>
                             <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300">{volunteer.village}</td>
                             <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300 font-semibold">
-                              <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-bold ${volunteer.volunteer_status === 'approved' ? 'bg-green-200 text-green-800' : volunteer.volunteer_status === 'rejected' ? 'bg-red-200 text-red-800' : 'bg-yellow-200 text-yellow-800'}`}>
-                                {volunteer.volunteer_status === 'pending' && <FontAwesomeIcon icon={faClock} className="mr-1" />}
-                                {volunteer.volunteer_status === 'approved' && <FontAwesomeIcon icon={faCheck} className="mr-1" />}
-                                {volunteer.volunteer_status === 'rejected' && <FontAwesomeIcon icon={faBan} className="mr-1" />}
+                              <span
+                                className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-bold ${
+                                  volunteer.volunteer_status === "approved"
+                                    ? "bg-green-200 text-green-800"
+                                    : volunteer.volunteer_status === "rejected"
+                                    ? "bg-red-200 text-red-800"
+                                    : "bg-yellow-200 text-yellow-800"
+                                }`}
+                              >
+                                {volunteer.volunteer_status === "pending" && (
+                                  <FontAwesomeIcon icon={faClock} className="mr-1" />
+                                )}
+                                {volunteer.volunteer_status === "approved" && (
+                                  <FontAwesomeIcon icon={faCheck} className="mr-1" />
+                                )}
+                                {volunteer.volunteer_status === "rejected" && (
+                                  <FontAwesomeIcon icon={faBan} className="mr-1" />
+                                )}
                                 {volunteer.volunteer_status}
                               </span>
                             </td>
                             <td className="border px-4 py-2 text-center dark:border-gray-700 dark:text-gray-300">
                               {(volunteer.availabilities || []).length > 0 ? (
-                                <span className="text-green-500"><FontAwesomeIcon icon={faCheckCircle} /></span>
+                                <span className="text-green-500">
+                                  <FontAwesomeIcon icon={faCheckCircle} />
+                                </span>
                               ) : (
-                                <span className="text-red-500"><FontAwesomeIcon icon={faTimesCircle} /></span>
+                                <span className="text-red-500">
+                                  <FontAwesomeIcon icon={faTimesCircle} />
+                                </span>
                               )}
                             </td>
                             <td className="border px-4 py-2 text-center dark:border-gray-700 dark:text-gray-300">
-                              {volunteer.volunteer_status === 'pending' && (
+                              {volunteer.volunteer_status === "pending" && (
                                 <>
                                   <button
                                     className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded mr-2 focus:outline-none focus:shadow-outline text-xs"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      handleVolunteerStatusChange(volunteer.id, 'approved')
+                                      handleVolunteerStatusChange(volunteer.id, "approved");
                                     }}
                                   >
                                     Approuver
@@ -414,7 +442,7 @@ const AdminDashboard = ({ handleLogout }) => {
                                     className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline text-xs"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      handleVolunteerStatusChange(volunteer.id, 'rejected')
+                                      handleVolunteerStatusChange(volunteer.id, "rejected");
                                     }}
                                   >
                                     Rejeter
@@ -435,12 +463,12 @@ const AdminDashboard = ({ handleLogout }) => {
                                   {volunteer.village}
                                 </p>
                                 <p className="dark:text-gray-300">
-                                  <span className="font-semibold dark:text-gray-100">
-                                    Statut:
-                                  </span>
+                                  <span className="font-semibold dark:text-gray-100">Statut:</span>
                                   <select
                                     value={volunteer.volunteer_status}
-                                    onChange={(e) => handleVolunteerStatusChange(volunteer.id, e.target.value)}
+                                    onChange={(e) =>
+                                      handleVolunteerStatusChange(volunteer.id, e.target.value)
+                                    }
                                     className="mt-1 px-3 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow-sm border rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 block text-xs"
                                   >
                                     <option value="pending">En attente</option>
@@ -466,7 +494,9 @@ const AdminDashboard = ({ handleLogout }) => {
                                               {dayAvailabilities.map((av, index, array) => (
                                                 <span key={index}>
                                                   {av.startTime} - {av.endTime}
-                                                  {index < array.length - 1 && <span className="mx-1">/</span>}
+                                                  {index < array.length - 1 && (
+                                                    <span className="mx-1">/</span>
+                                                  )}
                                                 </span>
                                               ))}
                                             </li>
@@ -479,28 +509,42 @@ const AdminDashboard = ({ handleLogout }) => {
                                   )}
                                 </div>
                                 <p className="dark:text-gray-300">
-                                  <span className="font-semibold dark:text-gray-100">Fichier de Charte:</span>
+                                  <span className="font-semibold dark:text-gray-100">
+                                    Fichier de Charte:
+                                  </span>
                                   {volunteer.charter_file_path ? (
                                     <a
-                                      href={`${import.meta.env.VITE_API_BASE_URL}${volunteer.charter_file_path}`}
-                                      download
+                                      href={
+                                        isProduction
+                                          ? volunteer.charter_file_path
+                                          : `${API_BASE_URL}${volunteer.charter_file_path}`
+                                      }
+                                      target="_blank"
+                                      rel="noopener noreferrer"
                                       className="text-blue-600 hover:underline dark:text-blue-500"
                                     >
-                                      Télécharger
+                                      Voir / Télécharger
                                     </a>
                                   ) : (
                                     "Aucun fichier de charte téléchargé"
                                   )}
                                 </p>
                                 <p className="dark:text-gray-300">
-                                  <span className="font-semibold dark:text-gray-100">Fichier d&#39;Assurance:</span>
+                                  <span className="font-semibold dark:text-gray-100">
+                                    Fichier d&#39;Assurance:
+                                  </span>
                                   {volunteer.insurance_file_path ? (
                                     <a
-                                      href={`${import.meta.env.VITE_API_BASE_URL}${volunteer.insurance_file_path}`}
-                                      download
+                                      href={
+                                        isProduction
+                                          ? volunteer.insurance_file_path
+                                          : `${API_BASE_URL}${volunteer.insurance_file_path}`
+                                      }
+                                      target="_blank"
+                                      rel="noopener noreferrer"
                                       className="text-blue-600 hover:underline dark:text-blue-500"
                                     >
-                                      Télécharger
+                                      Voir / Télécharger
                                     </a>
                                   ) : (
                                     "Aucun fichier d'assurance téléchargé"
@@ -541,8 +585,7 @@ const AdminDashboard = ({ handleLogout }) => {
               <div className="dark:text-gray-300">Chargement des réservations...</div>
             ) : reservationsError ? (
               <div className="text-red-500 dark:text-red-400">Erreur: {reservationsError}</div>
-            ) : filteredReservations.length === 0 &&
-              allReservations?.length > 0 ? (
+            ) : filteredReservations.length === 0 && allReservations?.length > 0 ? (
               <p className="text-gray-500 text-center dark:text-gray-400">
                 Aucune réservation ne correspond au filtre.
               </p>
@@ -570,14 +613,30 @@ const AdminDashboard = ({ handleLogout }) => {
                         <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300">{reservation.volunteer_name}</td>
                         <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300">{reservation.client_name}</td>
                         <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300">{reservation.dog_name}</td>
-                        <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300">{moment(reservation.reservation_date).format("DD/MM/YYYY")}</td>
+                        <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300">
+                          {moment(reservation.reservation_date).format("DD/MM/YYYY")}
+                        </td>
                         <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300">{reservation.start_time}</td>
                         <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300">{reservation.end_time}</td>
                         <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300 font-semibold">
-                          <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-bold ${reservation.status === 'accepted' ? 'bg-green-200 text-green-800' : reservation.status === 'rejected' ? 'bg-red-200 text-red-800' : 'bg-yellow-200 text-yellow-800'}`}>
-                            {reservation.status === 'pending' && <FontAwesomeIcon icon={faClock} className="mr-1" />}
-                            {reservation.status === 'accepted' && <FontAwesomeIcon icon={faCheck} className="mr-1" />}
-                            {reservation.status === 'rejected' && <FontAwesomeIcon icon={faBan} className="mr-1" />}
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-bold ${
+                              reservation.status === "accepted"
+                                ? "bg-green-200 text-green-800"
+                                : reservation.status === "rejected"
+                                ? "bg-red-200 text-red-800"
+                                : "bg-yellow-200 text-yellow-800"
+                            }`}
+                          >
+                            {reservation.status === "pending" && (
+                              <FontAwesomeIcon icon={faClock} className="mr-1" />
+                            )}
+                            {reservation.status === "accepted" && (
+                              <FontAwesomeIcon icon={faCheck} className="mr-1" />
+                            )}
+                            {reservation.status === "rejected" && (
+                              <FontAwesomeIcon icon={faBan} className="mr-1" />
+                            )}
                             {reservation.status}
                           </span>
                         </td>
@@ -644,20 +703,12 @@ const AdminDashboard = ({ handleLogout }) => {
                         <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300">
                           <select
                             value={user.role}
-                            onChange={(e) =>
-                              handleRoleChange(
-                                user.id,
-                                user.username,
-                                e.target.value
-                              )
-                            }
+                            onChange={(e) => handleRoleChange(user.id, user.username, e.target.value)}
                             className="mt-1 px-3 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow-sm border rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 block text-xs"
                           >
                             <option value="client">Client</option>
                             <option value="volunteer">Bénévole</option>
-                            {user.role === "admin" && (
-                              <option value="admin">Admin</option>
-                            )}
+                            {user.role === "admin" && <option value="admin">Admin</option>}
                           </select>
                         </td>
                       </tr>

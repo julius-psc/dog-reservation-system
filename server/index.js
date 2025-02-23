@@ -49,7 +49,8 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.use(express.static(path.join(__dirname, "forms")));
+app.use("/charters", express.static(path.join(__dirname, "routes", "forms", "charters")));
+app.use("/insurance", express.static(path.join(__dirname, "routes", "forms", "insurance")));
 app.use(bodyParser.json());
 app.use(fileUpload());
 
