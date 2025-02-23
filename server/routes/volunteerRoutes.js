@@ -8,6 +8,7 @@ const {
   sendReservationRejectedEmail,
 } = require("../email/emailService");
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
 
 module.exports = (
   pool,
@@ -431,14 +432,16 @@ module.exports = (
 
   // UPLOAD CHARTER / INSURANCE
   const isProduction = process.env.NODE_ENV === "production";
-  const AWS = require("aws-sdk");
-  const s3 = isProduction
-    ? new AWS.S3({
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  const s3Client = isProduction
+    ? new S3Client({
+        region: process.env.AWS_REGION || "us-east-1", // Add region (required in v3)
+        credentials: {
+          accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+          secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+        },
       })
     : null;
-  
+
   router.post(
     "/update-charter",
     authenticate,
@@ -446,59 +449,62 @@ module.exports = (
     async (req, res) => {
       try {
         const userId = req.user.userId;
-  
+
         if (!req.files || !req.files.charter || !req.files.insurance) {
           return res
             .status(400)
             .json({ error: "Please upload both charter and insurance files." });
         }
-  
+
         const charterFile = req.files.charter;
         const insuranceFile = req.files.insurance;
-  
+
         const charterFilename = `charter_${userId}_${Date.now()}${path.extname(
           charterFile.name
         )}`;
         const insuranceFilename = `insurance_${userId}_${Date.now()}${path.extname(
           insuranceFile.name
         )}`;
-  
+
         let charterPath, insurancePath;
-  
+
         if (isProduction) {
           const uploadToS3 = async (file, key) => {
             const params = {
               Bucket: process.env.S3_BUCKET_NAME,
               Key: `forms/${key}`,
-              Body: file.data,
+              Body: file.data, // Buffer from express-fileupload
               ContentType: file.mimetype,
             };
-            return s3.upload(params).promise();
+
+            const command = new PutObjectCommand(params);
+            await s3Client.send(command);
+
+            // Construct the S3 URL manually (v3 doesn't return it by default)
+            return `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION || "us-east-1"}.amazonaws.com/forms/${key}`;
           };
-  
-          const charterUpload = await uploadToS3(charterFile, `charters/${charterFilename}`);
-          const insuranceUpload = await uploadToS3(insuranceFile, `insurance/${insuranceFilename}`);
-          charterPath = charterUpload.Location;
-          insurancePath = insuranceUpload.Location;
+
+          charterPath = await uploadToS3(charterFile, `charters/${charterFilename}`);
+          insurancePath = await uploadToS3(insuranceFile, `insurance/${insuranceFilename}`);
         } else {
           const chartersUploadDir = path.join(__dirname, "forms", "charters");
           const insuranceUploadDir = path.join(__dirname, "forms", "insurance");
-  
+
           await fs.mkdir(chartersUploadDir, { recursive: true });
           await fs.mkdir(insuranceUploadDir, { recursive: true });
-  
+
           charterPath = path.join(chartersUploadDir, charterFilename);
           insurancePath = path.join(insuranceUploadDir, insuranceFilename);
-  
+
           await charterFile.mv(charterPath);
           await insuranceFile.mv(insurancePath);
         }
-  
+
         const result = await pool.query(
           "UPDATE users SET volunteer_status = $1, charter_file_path = $2, insurance_file_path = $3 WHERE id = $4 RETURNING *",
-          ["pending", `/charters/${charterFilename}`, `/insurance/${insuranceFilename}`, userId]
+          ["pending", charterPath, insurancePath, userId] // Use full S3 URLs in production
         );
-  
+
         res.json({
           message: "Documents submitted successfully!",
           user: result.rows[0],
