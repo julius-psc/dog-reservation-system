@@ -471,7 +471,7 @@ module.exports = (
                 Key: `forms/${key}`,
                 Body: file.data,
                 ContentType: file.mimetype,
-                ACL: "public-read",
+                // Remove ACL: "public-read" since ACLs are disabled
               };
               const command = new PutObjectCommand(params);
               await s3Client.send(command);
@@ -481,7 +481,7 @@ module.exports = (
             charterPath = await uploadToS3(charterFile, `charters/${charterFilename}`);
             insurancePath = await uploadToS3(insuranceFile, `insurance/${insuranceFilename}`);
           } else {
-            const chartersUploadDir = path.join(__dirname, "forms", "charters"); // Now relative to routes/
+            const chartersUploadDir = path.join(__dirname, "forms", "charters");
             const insuranceUploadDir = path.join(__dirname, "forms", "insurance");
     
             await fs.mkdir(chartersUploadDir, { recursive: true });
