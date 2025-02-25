@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { sendReservationRequestEmailToVolunteer } = require('../email/emailService'); 
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 module.exports = (
   pool,
@@ -558,7 +559,6 @@ module.exports = (
     }
   });
 
-  // OTHER VILLAGE FORM SUBMISSION ENDPOINT
   router.post("/client/other-village", async (req, res) => {
     try {
       const {
@@ -566,75 +566,87 @@ module.exports = (
         autreCommuneEmail,
         autreCommuneTelephone,
         autreCommuneVillageSouhaite,
-        autreCommuneTypeDemande,
         village,
+        role
       } = req.body;
-
-      if (
-        !autreCommuneNom ||
-        !autreCommuneEmail ||
-        !autreCommuneVillageSouhaite ||
-        !autreCommuneTypeDemande
-      ) {
+  
+      // Basic validation
+      if (!autreCommuneNom || !autreCommuneEmail || !autreCommuneTelephone || !autreCommuneVillageSouhaite) {
         return res.status(400).json({
           error: "Missing required information for 'Autres communes' request.",
         });
       }
-      if (
-        typeof autreCommuneNom !== "string" ||
-        typeof autreCommuneVillageSouhaite !== "string" ||
-        !["ponctuel", "regulier"].includes(autreCommuneTypeDemande)
-      ) {
-        return res
-          .status(400)
-          .json({ error: "Invalid data types in 'Autres communes' request." });
+  
+      if (typeof autreCommuneNom !== "string" || typeof autreCommuneVillageSouhaite !== "string") {
+        return res.status(400).json({
+          error: "Invalid data types in 'Autres communes' request.",
+        });
       }
-      if (
-        (autreCommuneEmail && typeof autreCommuneEmail !== "string") ||
-        !autreCommuneEmail.includes("@")
-      ) {
+  
+      if (!autreCommuneEmail.includes("@") || typeof autreCommuneEmail !== "string") {
         return res.status(400).json({
           error: "Invalid email format in 'Autres communes' request.",
         });
       }
-      if (
-        (autreCommuneTelephone && typeof autreCommuneTelephone !== "string") ||
-        isNaN(autreCommuneTelephone.replace(/\s/g, ""))
-      ) {
+  
+      if (!/^[0-9]{10}$/.test(autreCommuneTelephone)) {
         return res.status(400).json({
-          error: "Invalid phone number format in 'Autres communes' request.",
+          error: "Phone number must be exactly 10 digits.",
         });
       }
-
+  
       const query = `
-                INSERT INTO other_village_requests (name, email, phone_number, desired_village, request_type, request_date)
-                VALUES ($1, $2, $3, $4, $5, NOW())
-                RETURNING *;`;
-
+        INSERT INTO other_village_requests (name, email, phone_number, desired_village, request_date)
+        VALUES ($1, $2, $3, $4, NOW())
+        RETURNING *;
+      `;
+  
       const values = [
         autreCommuneNom,
-        autreCommuneEmail || null,
-        autreCommuneTelephone || null,
-        autreCommuneVillageSouhaite,
-        autreCommuneTypeDemande,
+        autreCommuneEmail,
+        autreCommuneTelephone,
+        autreCommuneVillageSouhaite
       ];
-
+  
       const newRequest = await pool.query(query, values);
-
+  
       console.log("New 'autres communes' request logged:", newRequest.rows[0]);
-
+  
       res.status(201).json({
-        message:
-          "Demande pour autres communes enregistrée avec succès. Nous vous contacterons bientôt.",
+        message: "Demande pour autres communes enregistrée avec succès. Nous vous contacterons bientôt.",
       });
     } catch (error) {
       console.error("Error handling 'autres communes' request:", error);
-      res
-        .status(500)
-        .json({ error: "Failed to process your request for autres communes." });
+      res.status(500).json({
+        error: "Failed to process your request for autres communes.",
+      });
     }
   });
 
+  // DONATE
+  router.post("/donate", async (req, res) => {
+    try {
+      const { amount } = req.body;
+      if (!amount || isNaN(amount) || amount < 1) {
+        return res.status(400).json({ error: "Montant de don invalide. Minimum 1 EUR." });
+      }
+      const amountInCents = Math.round(amount * 100);
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amountInCents,
+        currency: "eur",
+        payment_method_types: ["card"],
+        description: "Don à Chiens en Cavale",
+      });
+      res.json({
+        clientSecret: paymentIntent.client_secret,
+      });
+    } catch (error) {
+      console.error("Erreur lors de la création de l'intention de paiement:", error);
+      res.status(500).json({ error: "Échec du traitement du don" });
+    }
+  });
+
+  // Othe
 
   return router;
 };

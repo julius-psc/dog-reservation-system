@@ -171,7 +171,7 @@ function Navbar() {
           >
             Faire un don
           </Link>
-          <a href="mailto:contact@chiensencavale.com">
+          <a href="mailto:contact.chiensencavale@gmail.com" target='_blank'>
             <img src={emailIcon} alt="Envoyer un email à Chiens en Cavale" className="w-4 md:w-5 lg:w-6" />
           </a>
         </div>
