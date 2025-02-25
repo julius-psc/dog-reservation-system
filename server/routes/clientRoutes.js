@@ -566,8 +566,6 @@ module.exports = (
         autreCommuneEmail,
         autreCommuneTelephone,
         autreCommuneVillageSouhaite,
-        village,
-        role
       } = req.body;
   
       // Basic validation
