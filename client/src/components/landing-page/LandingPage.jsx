@@ -3,7 +3,6 @@ import Navbar from './Navbar';
 import About from './About';
 import Tutorial from './Tutorial';
 import Team from './Team';
-import Reviews from './Reviews';
 import Footer from './Footer';
 import ConfettiEaster from '../misc/ConfettiEasterEgg';
 
@@ -17,7 +16,6 @@ const LandingPage = () => {
       </div>
       <Tutorial />
       <Team />
-      <Reviews />
       <Footer />
       <ConfettiEaster />
     </div>

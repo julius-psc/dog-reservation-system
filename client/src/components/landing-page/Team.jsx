@@ -26,10 +26,10 @@ const Team = () => {
         await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
 
         const hardcodedAdmins = [
-          { image: nana, name: "Nana", role: "Présidente" },
-          { image: lilou, name: "Lilou", role: "Secrétaire et promeneuse" },
-          { image: nath, name: "Nath", role: "Trésorière" },
-          { image: julius, name: "Julius", role: "Webmaster" },
+          { image: nana, name: "Louisiana Richard", role: "Présidente" },
+          { image: julius, name: "Julius Peschard", role: "Vice-président" },
+          { image: lilou, name: "Lilou-ann Mossmann", role: "Secrétaire et promeneuse" },
+          { image: nath, name: "Nathalie Mossmann", role: "Trésorière" }
         ];
         setAdmins(hardcodedAdmins);
 
@@ -87,7 +87,7 @@ const Team = () => {
     <section className="bg-secondary-pink w-screen py-40 relative overflow-hidden text-primary-black">
       <img className="absolute bottom-10 left-40 z-0" src={paws} alt="Paws background pattern" />
       <div className="relative z-10">
-        <h1 className="text-primary-pink font-semibold text-4xl pl-20 mb-8">Notre réseau</h1>
+        <h1 className="text-primary-pink font-semibold text-4xl pl-20 mb-8">Notre association</h1>
 
         <div className="flex justify-center mb-16">
           {admins.map((admin, index) => (
@@ -102,7 +102,7 @@ const Team = () => {
         </div>
 
         <div className="flex justify-center items-center">
-          <p className="text-primary-black text-xl mr-8">et nos <span className="font-bold text-primary-pink">15</span> merveilleux bénévoles!</p>
+          <p className="text-primary-black text-xl mr-8">et le réseau des <span className="font-bold text-primary-pink">bénévoles</span>!</p>
           {members.map((avatar, index) => (
             <div key={index} className={`rounded-full w-20 h-20 shadow-md relative overflow-hidden ${index > 0 ? "-ml-8" : ""}`}>
               <img src={avatar} alt={`Member ${index + 1}`} className="w-full h-full object-cover" />

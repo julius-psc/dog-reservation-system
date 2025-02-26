@@ -20,110 +20,109 @@ import {
   faExclamationTriangle,
   faPaw,
   faEuroSign,
+  faFlagCheckered, // Added for "completed" status
 } from "@fortawesome/free-solid-svg-icons";
 
-// Initialize Stripe with your Publishable Key (replace with your key from .env)
+// Initialize Stripe with your Publishable Key
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
 // Payment Form Component
 const PaymentForm = ({ onSuccess, onCancel }) => {
-    const stripe = useStripe();
-    const elements = useElements();
-    const [paymentError, setPaymentError] = useState(null);
-    const [processing, setProcessing] = useState(false);
-  
-    const handleSubmit = async (e) => {
-      e.preventDefault();
-      if (!stripe || !elements) return;
-  
-      setProcessing(true);
-      setPaymentError(null);
-  
-      const token = Cookies.get("token");
-      try {
-        const cardElement = elements.getElement(CardElement);
-        const { error, paymentMethod } = await stripe.createPaymentMethod({
-          type: "card",
-          card: cardElement,
-        });
-  
-        if (error) {
-          throw new Error(error.message);
-        }
-  
-        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/volunteer/subscription/pay`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ 
-            payment_method_id: paymentMethod.id, 
-            amount: 10 
-          }),
-        });
-  
-        const data = await response.json();
-        if (!response.ok) {
-          throw new Error(data.error || "Payment processing failed");
-        }
-  
-        if (data.success) {
-          onSuccess();
-        } else {
-          throw new Error(data.error || "Payment was not successful");
-        }
-      } catch (err) {
-        setPaymentError(err.message || "An error occurred during payment");
-      } finally {
-        setProcessing(false);
-      }
-    };
-  
-    return (
-      <div className="p-6 bg-white dark:bg-gray-800 rounded-lg shadow-xl">
-        <h3 className="text-lg font-semibold mb-4 dark:text-white">Payer l&#39;abonnement (10€)</h3>
-        <form onSubmit={handleSubmit} className="space-y-4 w-100">
-          <CardElement
-            className="p-2 border rounded dark:bg-gray-700 dark:text-white"
-            options={{
-              style: {
-                base: {
-                  fontSize: "16px",
-                  color: "#fff",
-                  "::placeholder": { color: "#aab7c4" },
+  const stripe = useStripe();
+  const elements = useElements();
+  const [paymentError, setPaymentError] = useState(null);
+  const [processing, setProcessing] = useState(false);
 
-                },
-                invalid: { color: "#9e2146" },
-              },
-            }}
-          />
-          {paymentError && <p className="text-red-500 text-sm">{paymentError}</p>}
-          <div className="flex justify-between">
-            <button
-              type="submit"
-              disabled={!stripe || processing}
-              className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50 cursor-pointer"
-            >
-              {processing ? "Traitement..." : "Payer"}
-            </button>
-            <button
-              type="button"
-              onClick={onCancel}
-              className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 cursor-pointer"
-            >
-              Annuler
-            </button>
-          </div>
-        </form>
-      </div>
-    );
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!stripe || !elements) return;
+
+    setProcessing(true);
+    setPaymentError(null);
+
+    const token = Cookies.get("token");
+    try {
+      const cardElement = elements.getElement(CardElement);
+      const { error, paymentMethod } = await stripe.createPaymentMethod({
+        type: "card",
+        card: cardElement,
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/volunteer/subscription/pay`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ 
+          payment_method_id: paymentMethod.id, 
+          amount: 10 
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Payment processing failed");
+      }
+
+      if (data.success) {
+        onSuccess();
+      } else {
+        throw new Error(data.error || "Payment was not successful");
+      }
+    } catch (err) {
+      setPaymentError(err.message || "An error occurred during payment");
+    } finally {
+      setProcessing(false);
+    }
   };
 
-// Define PropTypes for PaymentForm
+  return (
+    <div className="p-6 bg-white dark:bg-gray-800 rounded-lg shadow-xl">
+      <h3 className="text-lg font-semibold mb-4 dark:text-white">Payer l&#39;abonnement (10€)</h3>
+      <form onSubmit={handleSubmit} className="space-y-4 w-100">
+        <CardElement
+          className="p-2 border rounded dark:bg-gray-700 dark:text-white"
+          options={{
+            style: {
+              base: {
+                fontSize: "16px",
+                color: "#fff",
+                "::placeholder": { color: "#aab7c4" },
+              },
+              invalid: { color: "#9e2146" },
+            },
+          }}
+        />
+        {paymentError && <p className="text-red-500 text-sm">{paymentError}</p>}
+        <div className="flex justify-between">
+          <button
+            type="submit"
+            disabled={!stripe || processing}
+            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50 cursor-pointer"
+          >
+            {processing ? "Traitement..." : "Payer"}
+          </button>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 cursor-pointer"
+          >
+            Annuler
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+};
+
 PaymentForm.propTypes = {
-    onSuccess: PropTypes.func.isRequired, 
-    onCancel: PropTypes.func.isRequired,
+  onSuccess: PropTypes.func.isRequired,
+  onCancel: PropTypes.func.isRequired,
 };
 
 const VolunteerDashboard = ({ handleLogout }) => {
@@ -160,9 +159,9 @@ const VolunteerDashboard = ({ handleLogout }) => {
     accepted: "Accepté",
     rejected: "Refusée",
     cancelled: "Annulée",
+    completed: "Terminé", // Added for "completed" status
   };
 
-  // Fetch subscription status
   const fetchSubscriptionStatus = useCallback(async () => {
     setLoadingSubscription(true);
     setErrorSubscription(null);
@@ -193,7 +192,6 @@ const VolunteerDashboard = ({ handleLogout }) => {
     }
   }, []);
 
-  // Existing fetch functions...
   const fetchAvailabilities = useCallback(async () => {
     setLoadingAvailabilities(true);
     setErrorAvailabilities(null);
@@ -723,6 +721,10 @@ const VolunteerDashboard = ({ handleLogout }) => {
                         case "cancelled":
                           statusColor = "bg-red-200 text-red-800";
                           statusIcon = <FontAwesomeIcon icon={faBan} className="mr-1" />;
+                          break;
+                        case "completed":
+                          statusColor = "bg-blue-200 text-blue-800";
+                          statusIcon = <FontAwesomeIcon icon={faFlagCheckered} className="mr-1" />;
                           break;
                         default:
                           statusColor = "";

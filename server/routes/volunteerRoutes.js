@@ -209,7 +209,7 @@ module.exports = (
     }
   });
 
-  // Existing endpoint: GET /volunteer/reservations
+  // Updated endpoint: GET /volunteer/reservations with "completed" status logic
   router.get(
     "/volunteer/reservations",
     authenticate,
@@ -235,7 +235,21 @@ module.exports = (
           `,
           [volunteerId]
         );
-        res.json(reservations.rows);
+
+        // Dynamically update status to "completed" for past accepted reservations
+        const now = moment();
+        const updatedReservations = reservations.rows.map((reservation) => {
+          const endDateTime = moment(
+            `${reservation.reservation_date} ${reservation.end_time}`,
+            "YYYY-MM-DD HH:mm"
+          );
+          if (endDateTime.isBefore(now) && reservation.status === "accepted") {
+            return { ...reservation, status: "completed" };
+          }
+          return reservation;
+        });
+
+        res.json(updatedReservations);
       } catch (error) {
         console.error("Error fetching volunteer reservations:", error);
         res.status(500).json({ error: "Failed to fetch reservations" });
@@ -434,7 +448,7 @@ module.exports = (
   const isProduction = process.env.NODE_ENV === "production";
   const s3Client = isProduction
     ? new S3Client({
-        region: process.env.AWS_REGION || "us-east-1", // Add region (required in v3)
+        region: process.env.AWS_REGION || "us-east-1",
         credentials: {
           accessKeyId: process.env.AWS_ACCESS_KEY_ID,
           secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
@@ -442,81 +456,81 @@ module.exports = (
       })
     : null;
 
-    router.post(
-      "/update-charter",
-      authenticate,
-      authorizeVolunteer,
-      async (req, res) => {
-        try {
-          const userId = req.user.userId;
-    
-          if (!req.files || !req.files.charter || !req.files.insurance) {
-            return res
-              .status(400)
-              .json({ error: "Please upload both charter and insurance files." });
-          }
-    
-          const charterFile = req.files.charter;
-          const insuranceFile = req.files.insurance;
-    
-          const charterFilename = `charter_${userId}_${Date.now()}${path.extname(charterFile.name)}`;
-          const insuranceFilename = `insurance_${userId}_${Date.now()}${path.extname(insuranceFile.name)}`;
-    
-          let charterPath, insurancePath;
-    
-          if (isProduction) {
-            const uploadToS3 = async (file, key) => {
-              const params = {
-                Bucket: process.env.S3_BUCKET_NAME,
-                Key: `forms/${key}`,
-                Body: file.data,
-                ContentType: file.mimetype,
-                // Remove ACL: "public-read" since ACLs are disabled
-              };
-              const command = new PutObjectCommand(params);
-              await s3Client.send(command);
-              return `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION || "us-east-1"}.amazonaws.com/forms/${key}`;
-            };
-    
-            charterPath = await uploadToS3(charterFile, `charters/${charterFilename}`);
-            insurancePath = await uploadToS3(insuranceFile, `insurance/${insuranceFilename}`);
-          } else {
-            const chartersUploadDir = path.join(__dirname, "forms", "charters");
-            const insuranceUploadDir = path.join(__dirname, "forms", "insurance");
-    
-            await fs.mkdir(chartersUploadDir, { recursive: true });
-            await fs.mkdir(insuranceUploadDir, { recursive: true });
-    
-            charterPath = `/charters/${charterFilename}`;
-            insurancePath = `/insurance/${insuranceFilename}`;
-    
-            const charterFullPath = path.join(chartersUploadDir, charterFilename);
-            const insuranceFullPath = path.join(insuranceUploadDir, insuranceFilename);
-    
-            await charterFile.mv(charterFullPath);
-            await insuranceFile.mv(insuranceFullPath);
-    
-            console.log(`Charter saved to: ${charterFullPath}`);
-            console.log(`Insurance saved to: ${insuranceFullPath}`);
-          }
-    
-          const result = await pool.query(
-            "UPDATE users SET volunteer_status = $1, charter_file_path = $2, insurance_file_path = $3 WHERE id = $4 RETURNING *",
-            ["pending", charterPath, insurancePath, userId]
-          );
-    
-          res.json({
-            message: "Documents submitted successfully!",
-            user: result.rows[0],
-          });
-        } catch (error) {
-          console.error("Error updating charter status:", error);
-          res.status(500).json({
-            error: error.message || "Failed to process documents",
-          });
+  router.post(
+    "/update-charter",
+    authenticate,
+    authorizeVolunteer,
+    async (req, res) => {
+      try {
+        const userId = req.user.userId;
+
+        if (!req.files || !req.files.charter || !req.files.insurance) {
+          return res
+            .status(400)
+            .json({ error: "Please upload both charter and insurance files." });
         }
+
+        const charterFile = req.files.charter;
+        const insuranceFile = req.files.insurance;
+
+        const charterFilename = `charter_${userId}_${Date.now()}${path.extname(charterFile.name)}`;
+        const insuranceFilename = `insurance_${userId}_${Date.now()}${path.extname(insuranceFile.name)}`;
+
+        let charterPath, insurancePath;
+
+        if (isProduction) {
+          const uploadToS3 = async (file, key) => {
+            const params = {
+              Bucket: process.env.S3_BUCKET_NAME,
+              Key: `forms/${key}`,
+              Body: file.data,
+              ContentType: file.mimetype,
+            };
+            const command = new PutObjectCommand(params);
+            await s3Client.send(command);
+            return `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION || "us-east-1"}.amazonaws.com/forms/${key}`;
+          };
+
+          charterPath = await uploadToS3(charterFile, `charters/${charterFilename}`);
+          insurancePath = await uploadToS3(insuranceFile, `insurance/${insuranceFilename}`);
+        } else {
+          const chartersUploadDir = path.join(__dirname, "forms", "charters");
+          const insuranceUploadDir = path.join(__dirname, "forms", "insurance");
+
+          await fs.mkdir(chartersUploadDir, { recursive: true });
+          await fs.mkdir(insuranceUploadDir, { recursive: true });
+
+          charterPath = `/charters/${charterFilename}`;
+          insurancePath = `/insurance/${insuranceFilename}`;
+
+          const charterFullPath = path.join(chartersUploadDir, charterFilename);
+          const insuranceFullPath = path.join(insuranceUploadDir, insuranceFilename);
+
+          await charterFile.mv(charterFullPath);
+          await insuranceFile.mv(insuranceFullPath);
+
+          console.log(`Charter saved to: ${charterFullPath}`);
+          console.log(`Insurance saved to: ${insuranceFullPath}`);
+        }
+
+        const result = await pool.query(
+          "UPDATE users SET volunteer_status = $1, charter_file_path = $2, insurance_file_path = $3 WHERE id = $4 RETURNING *",
+          ["pending", charterPath, insurancePath, userId]
+        );
+
+        res.json({
+          message: "Documents submitted successfully!",
+          user: result.rows[0],
+        });
+      } catch (error) {
+        console.error("Error updating charter status:", error);
+        res.status(500).json({
+          error: error.message || "Failed to process documents",
+        });
       }
-    );
+    }
+  );
+
   // Existing endpoint: GET /volunteers/status
   router.get(
     "/volunteers/status",
@@ -622,7 +636,7 @@ module.exports = (
     }
   );
 
-  // NEW ENDPOINT: GET /volunteer/subscription
+  // Existing endpoint: GET /volunteer/subscription
   router.get(
     "/volunteer/subscription",
     authenticate,
@@ -631,7 +645,6 @@ module.exports = (
       try {
         const volunteerId = req.user.userId;
 
-        // Fetch subscription details from the users table
         const subscription = await pool.query(
           "SELECT subscription_paid, subscription_expiry_date FROM users WHERE id = $1 AND role = 'volunteer'",
           [volunteerId]
@@ -644,8 +657,8 @@ module.exports = (
         const { subscription_paid, subscription_expiry_date } =
           subscription.rows[0];
         res.json({
-          subscription_paid: subscription_paid || false, // Default to false if null
-          subscription_expiry_date: subscription_expiry_date || null, // Return null if not set
+          subscription_paid: subscription_paid || false,
+          subscription_expiry_date: subscription_expiry_date || null,
         });
       } catch (error) {
         console.error("Error fetching subscription status:", error);
@@ -654,7 +667,7 @@ module.exports = (
     }
   );
 
-  // NEW ENDPOINT: POST /volunteer/subscription/pay
+  // Existing endpoint: POST /volunteer/subscription/pay
   router.post(
     "/volunteer/subscription/pay",
     authenticate,
@@ -664,12 +677,10 @@ module.exports = (
         const volunteerId = req.user.userId;
         const { payment_method_id, amount } = req.body;
 
-        // Validate input
         if (!payment_method_id || amount !== 10) {
           return res.status(400).json({ error: "Invalid payment details" });
         }
 
-        // Check if the user is a volunteer
         const userCheck = await pool.query(
           "SELECT role FROM users WHERE id = $1",
           [volunteerId]
@@ -681,16 +692,14 @@ module.exports = (
           return res.status(403).json({ error: "Not a volunteer" });
         }
 
-        // Create payment intent with explicit card-only configuration
         const paymentIntent = await stripe.paymentIntents.create({
-          amount: 1000, // 10 EUR in cents
+          amount: 1000,
           currency: "eur",
           payment_method: payment_method_id,
           confirm: true,
-          payment_method_types: ["card"], // Explicitly specify card payments only
+          payment_method_types: ["card"],
         });
 
-        // Check payment status
         if (paymentIntent.status !== "succeeded") {
           return res.status(400).json({
             error: "Payment failed",
@@ -698,7 +707,6 @@ module.exports = (
           });
         }
 
-        // Update subscription status in the database
         const expiryDate = moment()
           .add(1, "year")
           .format("YYYY-MM-DD HH:mm:ss");

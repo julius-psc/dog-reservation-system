@@ -9,27 +9,26 @@ const About = () => {
         alt="Paws background pattern"
       />
 
-      <h1 className="text-primary-blue font-semibold text-4xl pl-20 mb-8">Qui sommes-nous?</h1>
+      <h1 className="text-primary-blue font-semibold text-4xl pl-20 mb-8">
+        Qui sommes-nous?
+      </h1>
       <div className="flex justify-between items-center">
         <div className="bg-white z-8 w-2/3 mr-8 pt-10 px-16 h-74 flex flex-col rounded-tr-4xl rounded-br-4xl shadow-[0_3px_4px_rgba(0,0,0,0.25)]">
           <p className="text-2xl flex-grow">
-            Fondée en 2024, notre association propose des sorties pour les chiens
-            dont les propriétaires ne peuvent plus les sortir, que ce soit
-            temporairement ou durablement. Nos bénévoles adaptent{" "}
             <span className="text-primary-blue font-semibold">
-              chaque balade{" "}
-            </span>
-            aux besoins de votre animal, selon leur disponibilité et leur
-            secteur, pour assurer son{" "}
-            <span className="text-primary-blue font-semibold">bien-être</span>.
-            Ce service s’adresse aux personnes âgées, en situation de handicap,
-            aux jeunes mamans ou à toute personne immobilisée. Au-delà d’un simple
-            coup de main,{" "}
-            <span className="text-primary-blue font-semibold">
-              Chiens en Cavale crée du lien en réunissant passionnés d’animaux et
-              personnes en difficulté
-            </span>
-            .
+              Depuis 2024, notre association offre des promenades aux chiens dont
+              les propriétaires ne peuvent plus les sortir, que ce soit
+              temporairement ou durablement.
+            </span> Nos bénévoles, répartis sur tout le
+            territoire, adaptent chaque balade aux besoins de votre compagnon,
+            en fonction de leur disponibilité et de votre secteur, pour garantir
+            son bien-être. Ce service s’adresse aux personnes âgées, en
+            situation de handicap, aux jeunes mamans ou à toute personne
+            immobilisée.... <span className="text-primary-blue font-semibold">
+              Bien plus qu’un simple coup de main, Chiens en
+              Cavale crée du lien en réunissant passionnés d’animaux et personnes
+              en difficulté
+            </span>.
           </p>
         </div>
         <div className="flex items-center justify-center bg-white w-1/3 ml-8 h-60 rounded-tl-4xl rounded-bl-4xl shadow-[0_3px_4px_rgba(0,0,0,0.25)]">

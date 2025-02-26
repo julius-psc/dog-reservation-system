@@ -18,6 +18,7 @@ import {
   faCheck,
   faBan,
   faMapMarkerAlt,
+  faFlagCheckered, // Added for "completed" status
 } from "@fortawesome/free-solid-svg-icons";
 
 import LogoutButton from "./recycled/LogoutButton";
@@ -157,7 +158,7 @@ const AdminDashboard = ({ handleLogout }) => {
     fetchAllReservations();
     fetchAllUsers();
     fetchOtherVillageRequests();
-  }); 
+  });
 
   if (loading || usersLoading || reservationsLoading || otherVillageLoading) {
     return (
@@ -569,6 +570,7 @@ const AdminDashboard = ({ handleLogout }) => {
                 <option value="pending">En attente</option>
                 <option value="accepted">Accepté</option>
                 <option value="rejected">Rejeté</option>
+                <option value="completed">Terminé</option> {/* Added "completed" option */}
               </select>
             </div>
 
@@ -616,7 +618,9 @@ const AdminDashboard = ({ handleLogout }) => {
                                 ? "bg-green-200 text-green-800"
                                 : reservation.status === "rejected"
                                 ? "bg-red-200 text-red-800"
-                                : "bg-yellow-200 text-yellow-800"
+                                : reservation.status === "completed"
+                                ? "bg-blue-200 text-blue-800" // Added for "completed"
+                                : "bg-yellow-200 text-yellow-800" // pending
                             }`}
                           >
                             {reservation.status === "pending" && (
@@ -627,6 +631,9 @@ const AdminDashboard = ({ handleLogout }) => {
                             )}
                             {reservation.status === "rejected" && (
                               <FontAwesomeIcon icon={faBan} className="mr-1" />
+                            )}
+                            {reservation.status === "completed" && (
+                              <FontAwesomeIcon icon={faFlagCheckered} className="mr-1" /> // Added for "completed"
                             )}
                             {reservation.status}
                           </span>

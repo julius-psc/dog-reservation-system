@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { sendApprovalEmail } = require("../email/emailService.js");
+const moment = require("moment"); // Added moment import for date/time handling
 
 module.exports = (pool, authenticate, authorizeAdmin) => {
   // GET ALL VOLUNTEERS (ADMIN)
@@ -49,7 +50,6 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
           query += " AND " + whereClause.join(" AND ");
         }
 
-        // Group by all non-aggregated columns from the users table
         query += `
           GROUP BY
               u.id,
@@ -80,8 +80,8 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
     authorizeAdmin,
     async (req, res) => {
       try {
-        const allUsers = await pool.query("SELECT * FROM users"); // Simple query to fetch all users
-        res.json(allUsers.rows); // Return the rows as JSON
+        const allUsers = await pool.query("SELECT * FROM users");
+        res.json(allUsers.rows);
       } catch (error) {
         console.error("Error fetching all users (admin):", error);
         res.status(500).json({ error: "Failed to fetch all users" });
@@ -97,14 +97,12 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
     async (req, res) => {
       try {
         const userId = req.params.userId;
-        const { newRole } = req.body; // Get the new role from the request body
+        const { newRole } = req.body;
 
-        // Validate userId (optional, but good practice)
         if (!userId || isNaN(userId)) {
           return res.status(400).json({ error: "Invalid user ID." });
         }
 
-        // Validate newRole (important to prevent invalid roles)
         if (
           !newRole ||
           !["client", "volunteer", "admin"].includes(newRole.toLowerCase())
@@ -115,7 +113,6 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
           });
         }
 
-        // Check if user exists (optional, but good practice)
         const userCheck = await pool.query(
           "SELECT * FROM users WHERE id = $1",
           [userId]
@@ -124,7 +121,6 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
           return res.status(404).json({ error: "User not found." });
         }
 
-        // Update the user role in the database
         const updatedUser = await pool.query(
           "UPDATE users SET role = $1 WHERE id = $2 RETURNING *",
           [newRole, userId]
@@ -138,7 +134,7 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
         } else {
           res
             .status(404)
-            .json({ error: "User not found or role update failed." }); // Should not happen if userCheck passed, but good to have
+            .json({ error: "User not found or role update failed." });
         }
       } catch (error) {
         console.error("Error updating user role:", error);
@@ -147,7 +143,7 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
     }
   );
 
-  // FETCH RESERVATIONS (Admin)
+  // FETCH RESERVATIONS (Admin) - Updated with "completed" status logic
   router.get(
     "/admin/reservations",
     authenticate,
@@ -155,23 +151,37 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
     async (req, res) => {
       try {
         const reservations = await pool.query(`
-  SELECT
-      r.id,
-      u.username AS client_name,
-      v.username AS volunteer_name,
-      d.name AS dog_name,
-      r.reservation_date,
-      TO_CHAR(r.start_time, 'HH24:MI') as start_time,
-      TO_CHAR(r.end_time, 'HH24:MI') as end_time,
-      r.status,
-      u.village AS client_village  -- Add this line to fetch client's village
-  FROM reservations r
-  JOIN users u ON r.client_id = u.id
-  JOIN users v ON r.volunteer_id = v.id
-  JOIN dogs d ON r.dog_id = d.id
-  ORDER BY r.reservation_date, r.start_time;
-      `);
-        res.json(reservations.rows);
+          SELECT
+              r.id,
+              u.username AS client_name,
+              v.username AS volunteer_name,
+              d.name AS dog_name,
+              r.reservation_date,
+              TO_CHAR(r.start_time, 'HH24:MI') as start_time,
+              TO_CHAR(r.end_time, 'HH24:MI') as end_time,
+              r.status,
+              u.village AS client_village
+          FROM reservations r
+          JOIN users u ON r.client_id = u.id
+          JOIN users v ON r.volunteer_id = v.id
+          JOIN dogs d ON r.dog_id = d.id
+          ORDER BY r.reservation_date, r.start_time;
+        `);
+
+        // Dynamically update status to "completed" for past accepted reservations
+        const now = moment();
+        const updatedReservations = reservations.rows.map((reservation) => {
+          const endDateTime = moment(
+            `${reservation.reservation_date} ${reservation.end_time}`,
+            "YYYY-MM-DD HH:mm"
+          );
+          if (endDateTime.isBefore(now) && reservation.status === "accepted") {
+            return { ...reservation, status: "completed" };
+          }
+          return reservation;
+        });
+
+        res.json(updatedReservations);
       } catch (error) {
         console.error("Error fetching all reservations:", error);
         res.status(500).json({ error: "Failed to fetch reservations" });
@@ -187,7 +197,7 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
     async (req, res) => {
       try {
         const volunteerId = req.params.volunteerId;
-        const { status } = req.body; // Status can be 'approved', 'pending', or 'rejected'
+        const { status } = req.body;
 
         if (!["approved", "pending", "rejected"].includes(status)) {
           return res.status(400).json({
@@ -232,7 +242,7 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
   // SEND VOLUNTEER APPROVAL EMAIL
   router.post("/send-approval-email", async (req, res) => {
     const { email, username } = req.body;
-  
+
     try {
       await sendApprovalEmail(email, username);
       res.status(200).json({ message: "Approval email sent successfully." });

@@ -82,7 +82,7 @@ const Tutorial = () => {
             </li>
             <li className="flex items-center">
               <img src={pawList} alt="Paw bullet" className="w-4 h-4 mr-2" />
-              <span>Je saisis mes disponibilités et les communes de promenade</span>
+              <span>Je saisis mes disponibilités et la (ou les) communes(s) de promenade</span>
             </li>
           </ul>
         </div>
@@ -101,11 +101,11 @@ const Tutorial = () => {
             </li>
             <li className="flex items-center">
               <img src={pawList} alt="Paw bullet" className="w-4 h-4 mr-2" />
-              <span>Je peux réserver des créneaux</span>
+              <span>Je réserve un ou des créneaux de promenades</span>
             </li>
             <li className="flex items-center">
               <img src={pawList} alt="Paw bullet" className="w-4 h-4 mr-2" />
-              <span>J&#39;attends la confirmation d&#39;un promeneur</span>
+              <span>J&#39;attends la confirmation du promeneur</span>
             </li>
           </ul>
         </div>

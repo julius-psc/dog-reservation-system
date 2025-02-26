@@ -4,12 +4,9 @@ const crypto = require("crypto");
 const moment = require("moment");
 
 module.exports = (pool, bcrypt, jwt, sendPasswordResetEmail) => {
-  // Receive sendPasswordResetEmail function
-
   // Register endpoint
   router.post("/register", async (req, res) => {
-    const { username, password, email, role, village, address, phoneNumber } =
-      req.body;
+    const { username, password, email, role, village, address, phoneNumber } = req.body;
 
     // Enhanced validation for regular signup
     if (!username || !password || !email || !role || !village) {
@@ -57,16 +54,16 @@ module.exports = (pool, bcrypt, jwt, sendPasswordResetEmail) => {
       if (error.code === "23505") {
         const detail = error.detail.toLowerCase();
         if (detail.includes("username")) {
-          return res.status(409).json({ error: "Username already taken" });
+          return res.status(409).json({ error: "Ce nom d'utilisateur est déjà utilisé" });
         }
         if (detail.includes("email")) {
-          return res.status(409).json({ error: "Email already registered" });
+          return res.status(409).json({ error: "Cet email est déjà enregistré" });
         }
-        return res.status(409).json({ error: "Duplicate data violation" });
+        return res.status(409).json({ error: "Violation de données uniques" });
       }
       console.error("Registration error:", error);
       res.status(500).json({
-        error: "Failed to register user",
+        error: "Échec de l'inscription",
         details: error.message,
       });
     }
@@ -105,7 +102,7 @@ module.exports = (pool, bcrypt, jwt, sendPasswordResetEmail) => {
         httpOnly: true,
         maxAge: 7 * 24 * 60 * 60 * 1000,
         sameSite: "Strict",
-      }); // Secure, HttpOnly, SameSite
+      });
       res.json({
         message: "Connexion réussie!",
         token: token,
@@ -113,20 +110,20 @@ module.exports = (pool, bcrypt, jwt, sendPasswordResetEmail) => {
       });
     } catch (error) {
       console.error("Login error:", error);
-      res.status(500).json({ error: "Login failed", details: error.message });
+      res.status(500).json({ error: "Échec de la connexion", details: error.message });
     }
   });
 
   // Logout endpoint (clear cookie)
   router.post("/logout", (req, res) => {
     res.clearCookie("token", { httpOnly: true, sameSite: "Strict" });
-    res.json({ message: "Logged out successfully" });
+    res.json({ message: "Déconnexion réussie" });
   });
 
   router.post("/forgot-password", async (req, res) => {
     const { usernameOrEmail } = req.body;
     if (!usernameOrEmail) {
-      return res.status(400).json({ error: "Email or Username is required" });
+      return res.status(400).json({ error: "Email ou nom d'utilisateur requis" });
     }
 
     try {
@@ -135,7 +132,7 @@ module.exports = (pool, bcrypt, jwt, sendPasswordResetEmail) => {
         [usernameOrEmail, usernameOrEmail]
       );
       if (userResult.rows.length === 0) {
-        return res.status(404).json({ error: "User not found" });
+        return res.status(404).json({ error: "Utilisateur non trouvé" });
       }
       const user = userResult.rows[0];
 
@@ -149,7 +146,7 @@ module.exports = (pool, bcrypt, jwt, sendPasswordResetEmail) => {
 
       const resetLink = `/reset-password/${resetToken}`;
 
-      await sendPasswordResetEmail(user.email, resetLink); // Call sendPasswordResetEmail function
+      await sendPasswordResetEmail(user.email, resetLink);
 
       res.json({ message: "Email de réinitialisation envoyé" });
     } catch (error) {

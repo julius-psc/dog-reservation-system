@@ -17,7 +17,7 @@ const Hero = () => {
       <div className="z-10 relative">
         <h1 className="text-7xl leading-22 text-primary-pink font-semibold">
           Besoin d&#39;un coup de<br></br>{" "}
-          <span className="font-bold">patte</span> ?
+          patte ?
         </h1>
         <p className="text-2xl w-1/2 leading-9 text-primary-black">
           Vous rencontrez des difficultés pour sortir votre chien ? Que ce soit
