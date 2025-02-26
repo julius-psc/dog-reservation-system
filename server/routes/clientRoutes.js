@@ -78,7 +78,7 @@ module.exports = (
 
       if (overlapResult.rows.length > 0) {
         throw new Error(
-          "This time slot is already booked. Please choose another time."
+          "Ce créneau est déjà réservé. Veuillez choisir une autre horaire."
         );
       }
 
@@ -104,7 +104,7 @@ module.exports = (
 
       if (clientOverlapResult.rows.length > 0) {
         throw new Error(
-          "You already have a reservation during this time slot."
+          "Vous avez déjà une résérvation à ce créneau."
         );
       }
 
@@ -577,13 +577,13 @@ module.exports = (
   
       if (typeof autreCommuneNom !== "string" || typeof autreCommuneVillageSouhaite !== "string") {
         return res.status(400).json({
-          error: "Invalid data types in 'Autres communes' request.",
+          error: "Type de données incorrectes dans 'Autres communes'",
         });
       }
   
       if (!autreCommuneEmail.includes("@") || typeof autreCommuneEmail !== "string") {
         return res.status(400).json({
-          error: "Invalid email format in 'Autres communes' request.",
+          error: "Format de l'email incorrect pour 'Autres communes'",
         });
       }
   

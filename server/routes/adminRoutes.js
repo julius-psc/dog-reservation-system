@@ -242,5 +242,21 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
     }
   });
 
+  // FETCH OTHER VILLAGE REQUESTS
+  router.get('/admin/other-village-requests', async (req, res) => {
+    try {
+      const query = `
+        SELECT id, name, email, phone_number, desired_village, request_date 
+        FROM other_village_requests 
+        ORDER BY request_date DESC;
+      `;
+      const result = await pool.query(query);
+      res.status(200).json(result.rows);
+    } catch (error) {
+      console.error("Error fetching other village requests:", error);
+      res.status(500).json({ error: "Failed to fetch other village requests" });
+    }
+  });
+
   return router;
 };

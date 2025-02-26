@@ -21,7 +21,7 @@ module.exports = (pool, bcrypt, jwt, sendPasswordResetEmail) => {
     // Optional phone number validation
     if (phoneNumber && !/^\d{10}$/.test(phoneNumber)) {
       return res.status(400).json({
-        error: "Invalid phone number format (must be 10 digits)",
+        error: "Numéro de téléphone invalide",
       });
     }
 
@@ -78,7 +78,7 @@ module.exports = (pool, bcrypt, jwt, sendPasswordResetEmail) => {
     if (!username || !password) {
       return res
         .status(400)
-        .json({ error: "Username and password are required" });
+        .json({ error: "Veuillez entrer un nom d'utilisateur et un mot de passe." });
     }
 
     try {
@@ -87,13 +87,13 @@ module.exports = (pool, bcrypt, jwt, sendPasswordResetEmail) => {
         [username]
       );
       if (userResult.rows.length === 0) {
-        return res.status(401).json({ error: "Invalid credentials" });
+        return res.status(401).json({ error: "Nom d'utilisateur / Mot de passe incorrect" });
       }
 
       const user = userResult.rows[0];
       const passwordMatch = await bcrypt.compare(password, user.password);
       if (!passwordMatch) {
-        return res.status(401).json({ error: "Invalid credentials" });
+        return res.status(401).json({ error: "Nom d'utilisateur / Mot de passe incorrect" });
       }
 
       const token = jwt.sign(
@@ -107,7 +107,7 @@ module.exports = (pool, bcrypt, jwt, sendPasswordResetEmail) => {
         sameSite: "Strict",
       }); // Secure, HttpOnly, SameSite
       res.json({
-        message: "Login successful",
+        message: "Connexion réussie!",
         token: token,
         user: { id: user.id, username: user.username, role: user.role },
       });

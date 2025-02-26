@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useState } from 'react';
 import Cookies from 'js-cookie';
 import PropTypes from 'prop-types';
 import toast from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom'; // Import useNavigate for redirection
 import charterPDF from '../../../assets/dashboard/charte-benevole.pdf';
 
 // Composant d'icône de progression réutilisable - Déjà bien conçu
@@ -30,6 +31,7 @@ const CharterFormComponent = ({ onCharterComplete, volunteerStatus }) => {
     const [charterFile, setCharterFile] = useState(null);
     const [insuranceFile, setInsuranceFile] = useState(null);
     const [fileErrors, setFileErrors] = useState({ charter: '', insurance: '' });
+    const navigate = useNavigate(); // Hook for programmatic navigation
 
     useEffect(() => {
         if (volunteerStatus === 'pending') {
@@ -95,13 +97,18 @@ const CharterFormComponent = ({ onCharterComplete, volunteerStatus }) => {
             setCharterFile(null);
             setInsuranceFile(null);
             toast.success('Documents soumis avec succès !');
+
+            // Remove cookies and redirect to /login
+            Cookies.remove('token');
+            Cookies.remove('userId'); // Remove any other relevant cookies if applicable
+            setTimeout(() => navigate('/login'), 3000)
         } catch (error) {
             console.error('Submission error:', error);
             toast.error(error.message);
         } finally {
             setIsSubmitting(false);
         }
-    }, [charterFile, insuranceFile, nextStep, onCharterComplete]);
+    }, [charterFile, insuranceFile, nextStep, onCharterComplete, navigate]);
 
     const renderProgressBar = () => (
         <div aria-label='Progress steps' role='navigation'>
@@ -116,7 +123,7 @@ const CharterFormComponent = ({ onCharterComplete, volunteerStatus }) => {
                                 {step >= stepNumber && <ProgressIcon completed={step >= stepNumber} />}
                             </span>
                             <span className='hidden sm:block'>
-                                {stepNumber === 1 ? 'Bienvenue' : stepNumber === 2 ? 'Exigences' : 'Confirmation'}
+                                {stepNumber === 1 ? 'Bienvenue' : stepNumber === 2 ? 'Formalités' : 'Confirmation'}
                             </span>
                         </li>
                     ))}
@@ -154,7 +161,7 @@ const CharterFormComponent = ({ onCharterComplete, volunteerStatus }) => {
 
                         {step === 2 && (
                             <div className='space-y-6'>
-                                <h2 className='text-3xl font-semibold text-gray-900 text-center'>Exigences d&#39;adhésion</h2>
+                                <h2 className='text-3xl font-semibold text-gray-900 text-center'>Formalités d&#39;adhésion</h2>
                                 <p className='text-lg text-gray-700 text-center'>
                                     Pour garantir la meilleure expérience à nos bénévoles et à nos amis à fourrure, nous exigeons :
                                 </p>
@@ -191,7 +198,7 @@ const CharterFormComponent = ({ onCharterComplete, volunteerStatus }) => {
                                     <div className='space-y-6'>
                                         <div>
                                             <label htmlFor='charter-upload' className='block text-lg font-medium text-gray-700 mb-3'>
-                                                Téléverser la Charte Signée
+                                                Téléversez la charte promeneur signée ici   
                                                 <span className='text-gray-500 ml-1'>(JPG, PNG, PDF, etc.)</span>
                                             </label>
                                             <div className='flex items-center space-x-4'>
@@ -222,7 +229,7 @@ const CharterFormComponent = ({ onCharterComplete, volunteerStatus }) => {
 
                                         <div>
                                             <label htmlFor='insurance-upload' className='block text-lg font-medium text-gray-700 mb-3'>
-                                                Téléverser le Certificat d&#39;Assurance
+                                                Téléverser l&#39;attestation de responsabilitié civile ici
                                                 <span className='text-gray-500 ml-1'>(JPG, PNG, PDF, etc.)</span>
                                             </label>
                                             <div className='flex items-center space-x-4'>
@@ -264,7 +271,7 @@ const CharterFormComponent = ({ onCharterComplete, volunteerStatus }) => {
                                             disabled={isSubmitting}
                                             className={`order-1 sm:order-2 rounded-full bg-primary-yellow hover:bg-yellow-500 text-gray-900 font-bold py-3 px-6 flex-1 focus:outline-none focus:ring-2 focus:ring-primary-yellow focus:ring-opacity-50 transition-colors duration-300 ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
                                         >
-                                            {isSubmitting ? 'Soumettre les Documents' : 'Soumettre les Documents'}
+                                            {isSubmitting ? 'Soumission...' : 'Soumettre les documents'}
                                         </button>
                                     </div>
                                 </div>

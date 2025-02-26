@@ -17,6 +17,7 @@ import {
   faClock,
   faCheck,
   faBan,
+  faMapMarkerAlt,
 } from "@fortawesome/free-solid-svg-icons";
 
 import LogoutButton from "./recycled/LogoutButton";
@@ -31,6 +32,9 @@ const AdminDashboard = ({ handleLogout }) => {
   const [allUsers, setAllUsers] = useState(null);
   const [usersLoading, setUsersLoading] = useState(true);
   const [usersError, setUsersError] = useState(null);
+  const [otherVillageRequests, setOtherVillageRequests] = useState(null);
+  const [otherVillageLoading, setOtherVillageLoading] = useState(true);
+  const [otherVillageError, setOtherVillageError] = useState(null);
 
   const [expandedVolunteerId, setExpandedVolunteerId] = useState(null);
   const [volunteerFilter, setVolunteerFilter] = useState("");
@@ -39,7 +43,6 @@ const AdminDashboard = ({ handleLogout }) => {
   const [userVillageFilter, setUserVillageFilter] = useState("");
   const [userFilter, setUserFilter] = useState("");
 
-  // Determine environment and API base URL
   const isProduction = import.meta.env.MODE === "production";
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
 
@@ -52,12 +55,9 @@ const AdminDashboard = ({ handleLogout }) => {
         return;
       }
       try {
-        const response = await fetch(
-          `${import.meta.env.VITE_API_BASE_URL}/admins/volunteers`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
+        const response = await fetch(`${API_BASE_URL}/admins/volunteers`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         if (!response.ok) {
           if (response.status === 403) {
             Cookies.remove("token");
@@ -86,12 +86,9 @@ const AdminDashboard = ({ handleLogout }) => {
         return;
       }
       try {
-        const response = await fetch(
-          `${import.meta.env.VITE_API_BASE_URL}/admin/reservations`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
+        const response = await fetch(`${API_BASE_URL}/admin/reservations`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(errorData.error || "Échec de la récupération des réservations");
@@ -114,7 +111,7 @@ const AdminDashboard = ({ handleLogout }) => {
         return;
       }
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/admin/all-users`, {
+        const response = await fetch(`${API_BASE_URL}/admin/all-users`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!response.ok) {
@@ -131,12 +128,38 @@ const AdminDashboard = ({ handleLogout }) => {
       }
     };
 
+    const fetchOtherVillageRequests = async () => {
+      const token = Cookies.get("token");
+      if (!token) {
+        setOtherVillageError("Aucun token trouvé. Veuillez vous connecter.");
+        setOtherVillageLoading(false);
+        return;
+      }
+      try {
+        const response = await fetch(`${API_BASE_URL}/admin/other-village-requests`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Échec de la récupération des demandes d'autres communes");
+        }
+        const data = await response.json();
+        setOtherVillageRequests(data || []);
+      } catch (err) {
+        console.error("Erreur lors de la récupération des demandes d'autres communes:", err);
+        setOtherVillageError(err.message || "Une erreur inattendue s'est produite.");
+      } finally {
+        setOtherVillageLoading(false);
+      }
+    };
+
     fetchVolunteers();
     fetchAllReservations();
     fetchAllUsers();
-  }, []);
+    fetchOtherVillageRequests();
+  }); 
 
-  if (loading || usersLoading || reservationsLoading) {
+  if (loading || usersLoading || reservationsLoading || otherVillageLoading) {
     return (
       <div className="flex justify-center items-center h-screen bg-gray-100 dark:bg-gray-900">
         <ClipLoader color={"#3b82f6"} loading={true} size={50} />
@@ -144,14 +167,15 @@ const AdminDashboard = ({ handleLogout }) => {
     );
   }
 
-  if (error || usersError || reservationsError) {
+  if (error || usersError || reservationsError || otherVillageError) {
     return (
       <div className="container mx-auto p-6 dark:bg-gray-900">
         <div className="bg-white rounded-lg shadow-xl p-8 text-center dark:bg-gray-800">
           <FontAwesomeIcon icon={faExclamationTriangle} className="text-red-500 text-4xl mb-4" />
           {error && <p className="text-red-600 dark:text-red-400 mb-2">Erreur: {error}</p>}
           {usersError && <p className="text-red-600 dark:text-red-400 mb-2">Erreur utilisateurs: {usersError}</p>}
-          {reservationsError && <p className="text-red-600 dark:text-red-400">Erreur réservations: {reservationsError}</p>}
+          {reservationsError && <p className="text-red-600 dark:text-red-400 mb-2">Erreur réservations: {reservationsError}</p>}
+          {otherVillageError && <p className="text-red-600 dark:text-red-400">Erreur demandes d&#39;autres communes: {otherVillageError}</p>}
         </div>
       </div>
     );
@@ -161,44 +185,11 @@ const AdminDashboard = ({ handleLogout }) => {
     setExpandedVolunteerId(expandedVolunteerId === volunteerId ? null : volunteerId);
   };
 
-  const handleRoleChange = async (userId, username, newRole) => {
-    if (window.confirm(`Êtes-vous sûr de vouloir changer le rôle de ${username} en ${newRole} ?`)) {
-      try {
-        const token = Cookies.get("token");
-        const response = await fetch(
-          `${import.meta.env.VITE_API_BASE_URL}/admin/users/${userId}/role`,
-          {
-            method: "PUT",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ newRole: newRole }),
-          }
-        );
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || "Échec du changement de rôle");
-        }
-
-        const updatedUser = await response.json();
-        setAllUsers((prevUsers) =>
-          prevUsers.map((user) => (user.id === userId ? updatedUser.user : user))
-        );
-        toast.success(`Le rôle de ${username} a été changé en ${newRole}.`);
-      } catch (error) {
-        console.error("Erreur lors du changement de rôle:", error);
-        toast.error(`Échec du changement de rôle pour ${username}: ${error.message}`);
-      }
-    }
-  };
-
   const handleVolunteerStatusChange = async (volunteerId, newStatus) => {
     try {
       const token = Cookies.get("token");
       const response = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL}/admin/volunteers/${volunteerId}/status`,
+        `${API_BASE_URL}/admin/volunteers/${volunteerId}/status`,
         {
           method: "PUT",
           headers: {
@@ -225,7 +216,7 @@ const AdminDashboard = ({ handleLogout }) => {
       if (newStatus === "approved") {
         const volunteer = volunteers.find((vol) => vol.id === volunteerId);
         if (volunteer) {
-          await fetch(`${import.meta.env.VITE_API_BASE_URL}/send-approval-email`, {
+          await fetch(`${API_BASE_URL}/send-approval-email`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -334,14 +325,14 @@ const AdminDashboard = ({ handleLogout }) => {
             <div className="mb-4 flex space-x-2">
               <input
                 type="text"
-                placeholder="Filtrer par Nom d'Utilisateur"
+                placeholder="Filtrer par nom d'utilisateur"
                 className="w-full md:w-1/2 px-4 py-2 rounded-md border dark:border-gray-700 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-300"
                 value={volunteerFilter}
                 onChange={(e) => setVolunteerFilter(e.target.value)}
               />
               <input
                 type="text"
-                placeholder="Filtrer par Village"
+                placeholder="Filtrer par commune de résidence"
                 className="w-full md:w-1/2 px-4 py-2 rounded-md border dark:border-gray-700 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-300"
                 value={volunteerVillageFilter}
                 onChange={(e) => setVolunteerVillageFilter(e.target.value)}
@@ -510,7 +501,7 @@ const AdminDashboard = ({ handleLogout }) => {
                                 </div>
                                 <p className="dark:text-gray-300">
                                   <span className="font-semibold dark:text-gray-100">
-                                    Fichier de Charte:
+                                    Charte bénévole:
                                   </span>
                                   {volunteer.charter_file_path ? (
                                     <a
@@ -526,12 +517,12 @@ const AdminDashboard = ({ handleLogout }) => {
                                       Voir / Télécharger
                                     </a>
                                   ) : (
-                                    "Aucun fichier de charte téléchargé"
+                                    "Aucune charte bénévole téléversée"
                                   )}
                                 </p>
                                 <p className="dark:text-gray-300">
                                   <span className="font-semibold dark:text-gray-100">
-                                    Fichier d&#39;Assurance:
+                                    Responsabilité civile:
                                   </span>
                                   {volunteer.insurance_file_path ? (
                                     <a
@@ -547,7 +538,7 @@ const AdminDashboard = ({ handleLogout }) => {
                                       Voir / Télécharger
                                     </a>
                                   ) : (
-                                    "Aucun fichier d'assurance téléchargé"
+                                    "Aucun fichier de responsabilitié civile téléversé "
                                   )}
                                 </p>
                               </td>
@@ -657,14 +648,14 @@ const AdminDashboard = ({ handleLogout }) => {
             <div className="mb-4 flex space-x-2">
               <input
                 type="text"
-                placeholder="Filtrer par Nom d'Utilisateur"
+                placeholder="Filtrer par nom d'utilisateur"
                 className="w-full md:w-1/2 px-4 py-2 rounded-md border dark:border-gray-700 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-300"
                 value={userFilter}
                 onChange={(e) => setUserFilter(e.target.value)}
               />
               <input
                 type="text"
-                placeholder="Filtrer par Village"
+                placeholder="Filtrer par commune de résidence"
                 className="w-full md:w-1/2 px-4 py-2 rounded-md border dark:border-gray-700 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-300"
                 value={userVillageFilter}
                 onChange={(e) => setUserVillageFilter(e.target.value)}
@@ -690,7 +681,6 @@ const AdminDashboard = ({ handleLogout }) => {
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Email</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Rôle</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Village</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -700,16 +690,48 @@ const AdminDashboard = ({ handleLogout }) => {
                         <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300">{user.email}</td>
                         <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300">{user.role}</td>
                         <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300">{user.village}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section className="mb-8">
+          <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
+              <FontAwesomeIcon icon={faMapMarkerAlt} className="mr-2" /> Demandes d’Autres Communes
+            </h2>
+
+            {otherVillageLoading ? (
+              <div className="dark:text-gray-300">Chargement des demandes...</div>
+            ) : otherVillageError ? (
+              <div className="text-red-500 dark:text-red-400">Erreur: {otherVillageError}</div>
+            ) : otherVillageRequests && otherVillageRequests.length === 0 ? (
+              <p className="text-gray-500 text-center dark:text-gray-400">Aucune demande trouvée.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full table-auto border-collapse">
+                  <thead className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Nom</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Email</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Téléphone</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Commune Souhaitée</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Date de Demande</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                    {otherVillageRequests.map((request) => (
+                      <tr key={request.id} className="hover:bg-gray-100 dark:hover:bg-gray-900">
+                        <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300">{request.name}</td>
+                        <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300">{request.email}</td>
+                        <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300">{request.phone_number}</td>
+                        <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300">{request.desired_village}</td>
                         <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300">
-                          <select
-                            value={user.role}
-                            onChange={(e) => handleRoleChange(user.id, user.username, e.target.value)}
-                            className="mt-1 px-3 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow-sm border rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 block text-xs"
-                          >
-                            <option value="client">Client</option>
-                            <option value="volunteer">Bénévole</option>
-                            {user.role === "admin" && <option value="admin">Admin</option>}
-                          </select>
+                          {moment(request.request_date).format("DD/MM/YYYY HH:mm")}
                         </td>
                       </tr>
                     ))}
