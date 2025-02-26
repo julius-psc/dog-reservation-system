@@ -19,6 +19,26 @@ module.exports = (
   connectedClients,
   WebSocket
 ) => {
+
+  // New endpoint: GET /volunteer/info (to fetch volunteer's own village)
+  router.get("/volunteer/info", authenticate, authorizeVolunteer, async (req, res) => {
+    try {
+      const volunteerId = req.user.userId;
+      const volunteer = await pool.query(
+        "SELECT village FROM users WHERE id = $1",
+        [volunteerId]
+      );
+      if (volunteer.rows.length > 0) {
+        res.json({ village: volunteer.rows[0].village });
+      } else {
+        res.status(404).json({ error: "Volunteer not found" });
+      }
+    } catch (error) {
+      console.error("Error fetching volunteer info:", error);
+      res.status(500).json({ error: "Failed to fetch volunteer info" });
+    }
+  });
+
   // Existing endpoint: GET /volunteer/availabilities
   router.get("/volunteer/availabilities", authenticate, async (req, res) => {
     try {
@@ -116,6 +136,26 @@ module.exports = (
           return res
             .status(400)
             .json({ error: "Villages covered must be an array." });
+        }
+
+        // Fetch volunteer's own village to ensure it's included
+        const volunteer = await pool.query(
+          "SELECT village, villages_covered FROM users WHERE id = $1",
+          [volunteerId]
+        );
+        const volunteerVillage = volunteer.rows[0].village;
+        const existingVillages = volunteer.rows[0].villages_covered || [];
+
+        // If villages are already set, prevent further updates
+        if (existingVillages.length > 0) {
+          return res
+            .status(403)
+            .json({ error: "Villages covered can only be set once." });
+        }
+
+        // Ensure volunteer's village is included
+        if (!villagesCovered.includes(volunteerVillage)) {
+          villagesCovered.unshift(volunteerVillage); // Add it at the start if not present
         }
 
         const villagesCoveredJSON = JSON.stringify(villagesCovered);

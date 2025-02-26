@@ -40,7 +40,7 @@ const HolidayButton = () => {
         setError(null);
         try {
             const token = Cookies.get('token');
-            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/volunteer/holiday-mode`, {
+            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/volunteer/holiday-mode`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -140,7 +140,7 @@ const HolidayButton = () => {
             </button>
 
             {isConfirmationVisible && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div className="fixed inset-0 bg-primary-yellow bg-opacity-50 flex items-center justify-center z-50">
                     <div className="relative bg-white rounded-xl p-8 max-w-md w-full mx-4 transform animate-bounce-gentle">
                         {showParticles && <Particles />}
                         <div className="text-center space-y-6">

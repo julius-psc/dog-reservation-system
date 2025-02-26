@@ -1,13 +1,17 @@
 import { Link } from "react-router-dom";
+import bal1 from '../../assets/landing-page/images/bal_1.png';
+import bal2 from '../../assets/landing-page/images/bal_2.png';
+import bal3 from '../../assets/landing-page/images/bal_3.png';
+import bal4 from '../../assets/landing-page/images/bal_4.png';
+import bal5 from '../../assets/landing-page/images/bal_5.png';
 
 const Benefits = () => {
-  // Array of Unsplash images from your original articles (kept as-is)
   const images = [
-    "https://images.unsplash.com/photo-1530700131180-d43d9b8cc41f?q=80&w=3468&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
-    "https://images.unsplash.com/photo-1560743173-567a3b5658b1?q=80&w=3538&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
-    "https://images.unsplash.com/photo-1505475082603-e217c4a87795?q=80&w=3540&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
-    "https://images.unsplash.com/photo-1610706467969-fc5b687ab1cb?q=80&w=3542&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
-    "https://images.unsplash.com/photo-1532983523122-9f7448e9e6cd?q=80&w=3348&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+    bal1,
+    bal2,
+    bal3,
+    bal4,
+    bal5,
   ];
 
   return (
@@ -27,9 +31,6 @@ const Benefits = () => {
         <div className="bg-white shadow-md rounded-lg p-6 mb-8 dark:bg-gray-800 dark:shadow-none">
           <p className="text-gray-700 text-base leading-relaxed dark:text-gray-400">
             Promener un chien offre de nombreux bienfaits pour l’animal. C&#39;est une activité essentielle pour maintenir une bonne santé physique et mentale. Les promenades doivent être adaptées à l’âge, la race et la santé du chien.
-          </p>
-          <p className="text-gray-500 text-sm italic mt-2 dark:text-gray-400">
-            © Lilou-Ann Mossmann
           </p>
 
           {/* Benefits List */}
@@ -69,13 +70,15 @@ const Benefits = () => {
           {images.map((image, index) => (
             <div
               key={index}
-              className="bg-white shadow-md rounded-lg overflow-hidden dark:bg-gray-800 dark:shadow-none"
+              className="bg-white shadow-md rounded-lg overflow-hidden dark:bg-gray-800 dark:shadow-none p-4"
             >
-              <img
-                className="h-48 w-full object-cover"
-                src={image}
-                alt={`Image de promenade ${index + 1}`}
-              />
+              <div className="overflow-hidden">
+                <img
+                  className="w-full h-64 object-cover"
+                  src={image}
+                  alt={`Image de promenade ${index + 1}`}
+                />
+              </div>
             </div>
           ))}
         </div>

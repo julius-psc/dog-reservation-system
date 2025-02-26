@@ -20,13 +20,13 @@ import {
   faExclamationTriangle,
   faPaw,
   faEuroSign,
-  faFlagCheckered, // Added for "completed" status
+  faFlagCheckered,
 } from "@fortawesome/free-solid-svg-icons";
 
 // Initialize Stripe with your Publishable Key
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
-// Payment Form Component
+// Payment Form Component (unchanged)
 const PaymentForm = ({ onSuccess, onCancel }) => {
   const stripe = useStripe();
   const elements = useElements();
@@ -83,7 +83,7 @@ const PaymentForm = ({ onSuccess, onCancel }) => {
 
   return (
     <div className="p-6 bg-white dark:bg-gray-800 rounded-lg shadow-xl">
-      <h3 className="text-lg font-semibold mb-4 dark:text-white">Payer l&#39;abonnement (10€)</h3>
+      <h3 className="text-lg font-semibold mb-4 dark:text-white"> Pour devenir bénévole promeneur vous devez vous acquitter dans les meilleurs délais de l’adhésion annuelle (9 euros)</h3>
       <form onSubmit={handleSubmit} className="space-y-4 w-100">
         <CardElement
           className="p-2 border rounded dark:bg-gray-700 dark:text-white"
@@ -147,6 +147,7 @@ const VolunteerDashboard = ({ handleLogout }) => {
   const [loadingSubscription, setLoadingSubscription] = useState(true);
   const [errorSubscription, setErrorSubscription] = useState(null);
   const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [volunteerVillage, setVolunteerVillage] = useState(null);
 
   const villageOptions = [
     "Anisy", "Mathieu", "Epron", "Cambes-en-Plaine", "Authie", "Saint-Contest",
@@ -159,7 +160,7 @@ const VolunteerDashboard = ({ handleLogout }) => {
     accepted: "Accepté",
     rejected: "Refusée",
     cancelled: "Annulée",
-    completed: "Terminé", // Added for "completed" status
+    completed: "Terminé",
   };
 
   const fetchSubscriptionStatus = useCallback(async () => {
@@ -246,29 +247,49 @@ const VolunteerDashboard = ({ handleLogout }) => {
     }
   }, []);
 
-  const fetchVillagesCovered = useCallback(async () => {
+  const fetchVolunteerData = useCallback(async () => {
     setLoadingVillages(true);
     setErrorVillages(null);
     const token = Cookies.get("token");
     if (!token) {
-      console.error("No token found");
+      setErrorVillages("Authentication required");
+      setLoadingVillages(false);
       return;
     }
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/volunteer/villages-covered`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      const [villageResponse, villagesCoveredResponse] = await Promise.all([
+        fetch(`${import.meta.env.VITE_API_BASE_URL}/volunteer/info`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch(`${import.meta.env.VITE_API_BASE_URL}/volunteer/villages-covered`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ]);
+
+      if (!villageResponse.ok) {
+        const errorData = await villageResponse.json();
+        throw new Error(errorData.error || "Failed to fetch volunteer info");
       }
-      const data = await response.json();
-      const fetchedVillages = data.villages_covered || [];
-      setVillagesCovered(fetchedVillages);
-      setHasVillagesCoveredBeenSet(fetchedVillages.length > 0);
+      const villageData = await villageResponse.json();
+      setVolunteerVillage(villageData.village);
+
+      if (!villagesCoveredResponse.ok) {
+        const errorData = await villagesCoveredResponse.json();
+        throw new Error(errorData.error || "Failed to fetch villages covered");
+      }
+      const villagesData = await villagesCoveredResponse.json();
+      const fetchedVillages = villagesData.villages_covered || [];
+
+      if (fetchedVillages.length === 0 && villageData.village) {
+        await updateVillages([villageData.village]);
+      } else {
+        setVillagesCovered(fetchedVillages);
+        setHasVillagesCoveredBeenSet(fetchedVillages.length > 0);
+      }
     } catch (error) {
-      console.error("Error fetching villages covered:", error);
+      console.error("Error fetching volunteer data:", error);
       setErrorVillages(error.message);
-      setActionMessage(`Échec du chargement des villages: ${error.message}`);
+      setActionMessage(`Échec du chargement des données: ${error.message}`);
       setActionType("error");
     } finally {
       setLoadingVillages(false);
@@ -278,9 +299,9 @@ const VolunteerDashboard = ({ handleLogout }) => {
   useEffect(() => {
     fetchAvailabilities();
     fetchReservations();
-    fetchVillagesCovered();
+    fetchVolunteerData();
     fetchSubscriptionStatus();
-  }, [fetchAvailabilities, fetchReservations, fetchVillagesCovered, fetchSubscriptionStatus]);
+  }, [fetchAvailabilities, fetchReservations, fetchVolunteerData, fetchSubscriptionStatus]);
 
   useEffect(() => {
     if (actionMessage) {
@@ -330,15 +351,30 @@ const VolunteerDashboard = ({ handleLogout }) => {
   };
 
   const getSubscriptionMessage = () => {
-    if (!subscriptionStatus.paid) {
+    if (subscriptionStatus.paid) {
+      // Use current year or expiry year (commented alternative below)
+      const currentYear = moment().year();
+      return {
+        message: `Votre cotisation annuelle ${currentYear} est acquittée et nous vous en remercions.`,
+        type: "success",
+        action: false,
+      };
+      // Alternative: Use expiry year
+      // const expiryYear = subscriptionStatus.expiryDate ? subscriptionStatus.expiryDate.year() : moment().year();
+      // return {
+      //   message: `Votre cotisation annuelle ${expiryYear} est acquittée et nous vous en remercions.`,
+      //   type: "success",
+      //   action: false,
+      // };
+    }
+
+    if (!subscriptionStatus.expiryDate) {
       return {
         message: "Votre abonnement de 10€/an est requis. Veuillez payer maintenant.",
         type: "error",
         action: true,
       };
     }
-
-    if (!subscriptionStatus.expiryDate) return null;
 
     const daysUntilExpiry = subscriptionStatus.expiryDate.diff(moment(), "days");
     const gracePeriodEnd = subscriptionStatus.expiryDate.clone().add(21, "days");
@@ -390,6 +426,11 @@ const VolunteerDashboard = ({ handleLogout }) => {
   };
 
   const handleRemoveVillage = async (villageToRemove) => {
+    if (villageToRemove === volunteerVillage) {
+      setActionMessage("Vous ne pouvez pas supprimer votre village par défaut.");
+      setActionType("error");
+      return;
+    }
     const updatedVillages = villagesCovered.filter((village) => village !== villageToRemove);
     await updateVillages(updatedVillages);
   };
@@ -511,7 +552,9 @@ const VolunteerDashboard = ({ handleLogout }) => {
             className={`mb-6 p-4 rounded-md shadow-lg ${
               subscriptionMessage.type === "error"
                 ? "bg-red-500 dark:bg-red-700"
-                : "bg-yellow-500 dark:bg-yellow-700"
+                : subscriptionMessage.type === "warning"
+                ? "bg-yellow-500 dark:bg-yellow-700"
+                : "bg-green-500 dark:bg-green-700"
             } text-white flex items-center justify-between`}
           >
             <div className="flex items-center">
@@ -545,41 +588,66 @@ const VolunteerDashboard = ({ handleLogout }) => {
           <section className="bg-white shadow rounded-lg p-6 dark:bg-gray-800">
             <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
               <FontAwesomeIcon icon={faMapMarkerAlt} className="mr-2" />
-              Villages de promenade
+              Communes de promenades 
             </h3>
             <div className="mt-4 space-y-4 dark:text-gray-300">
               {!hasVillagesCoveredBeenSet ? (
-                <div>
-                  <label
-                    htmlFor="villageSelect"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-                  >
-                    Choisir votre village (choix définitif)
-                  </label>
-                  <div className="flex">
-                    <select
-                      id="villageSelect"
-                      className="mt-1 block w-full py-2 px-3 rounded-md border-gray-300 shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-700 dark:text-gray-300 mr-2"
-                      value={selectedVillage}
-                      onChange={(e) => setSelectedVillage(e.target.value)}
-                      disabled={hasVillagesCoveredBeenSet}
+                <>
+                  <p className="text-sm text-red-600 dark:text-red-400 mb-2">
+                    Attention : Vous ne pouvez définir vos villages qu’une seule fois de manière permanente.
+                  </p>
+                  <div>
+                    <label
+                      htmlFor="villageSelect"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
                     >
-                      <option value="">Sélectionner un village</option>
-                      {villageOptions.map((village) => (
-                        <option key={village} value={village}>
-                          {village}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      onClick={handleAddVillage}
-                      className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline text-sm cursor-pointer"
-                      disabled={!selectedVillage || hasVillagesCoveredBeenSet}
-                    >
-                      Ajouter
-                    </button>
+                      Sélectionner une commune (votre commune par défaut: {volunteerVillage})
+                    </label>
+                    <div className="flex">
+                      <select
+                        id="villageSelect"
+                        className="mt-1 block w-full py-2 px-3 rounded-md border-gray-300 shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-700 dark:text-gray-300 mr-2"
+                        value={selectedVillage}
+                        onChange={(e) => setSelectedVillage(e.target.value)}
+                        disabled={hasVillagesCoveredBeenSet}
+                      >
+                        <option value="">Choisir votre (ou vos) commune(s) de promenades </option>
+                        {villageOptions
+                          .filter((village) => village !== volunteerVillage)
+                          .map((village) => (
+                            <option key={village} value={village}>
+                              {village}
+                            </option>
+                          ))}
+                      </select>
+                      <button
+                        onClick={handleAddVillage}
+                        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline text-sm cursor-pointer"
+                        disabled={!selectedVillage || hasVillagesCoveredBeenSet}
+                      >
+                        Ajouter
+                      </button>
+                    </div>
                   </div>
-                </div>
+                  {villagesCovered.length > 0 && (
+                    <div className="mt-2">
+                      <ul className="list-disc ml-6">
+                        {villagesCovered.map((village) => (
+                          <li key={village} className="flex items-center justify-between dark:text-gray-300 my-2">
+                            {village} {village === volunteerVillage && "(Votre village)"}
+                            <button
+                              onClick={() => handleRemoveVillage(village)}
+                              className="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded focus:outline-none focus:shadow-outline text-xs cursor-pointer"
+                              disabled={village === volunteerVillage || hasVillagesCoveredBeenSet}
+                            >
+                              Enlever
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </>
               ) : (
                 <div>
                   <p className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -590,7 +658,7 @@ const VolunteerDashboard = ({ handleLogout }) => {
                       <ul className="list-disc ml-6">
                         {villagesCovered.map((village) => (
                           <li key={village} className="dark:text-gray-300 my-2">
-                            {village}
+                            {village} {village === volunteerVillage && "(Votre village)"}
                           </li>
                         ))}
                       </ul>
@@ -599,25 +667,6 @@ const VolunteerDashboard = ({ handleLogout }) => {
                   <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">
                     Villages de promenade définis, modifications impossibles.
                   </p>
-                </div>
-              )}
-
-              {villagesCovered.length > 0 && !hasVillagesCoveredBeenSet && (
-                <div className="mt-2">
-                  <ul className="list-disc ml-6">
-                    {villagesCovered.map((village) => (
-                      <li key={village} className="flex items-center justify-between dark:text-gray-300 my-2">
-                        {village}
-                        <button
-                          onClick={() => handleRemoveVillage(village)}
-                          className="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded focus:outline-none focus:shadow-outline text-xs cursor-pointer"
-                          disabled={hasVillagesCoveredBeenSet}
-                        >
-                          Enlever
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
                 </div>
               )}
             </div>
