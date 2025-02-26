@@ -78,7 +78,7 @@ const AdminDashboard = ({ handleLogout }) => {
         setLoading(false);
       }
     };
-
+  
     const fetchAllReservations = async () => {
       const token = Cookies.get("token");
       if (!token) {
@@ -103,7 +103,7 @@ const AdminDashboard = ({ handleLogout }) => {
         setReservationsLoading(false);
       }
     };
-
+  
     const fetchAllUsers = async () => {
       const token = Cookies.get("token");
       if (!token) {
@@ -128,7 +128,7 @@ const AdminDashboard = ({ handleLogout }) => {
         setUsersLoading(false);
       }
     };
-
+  
     const fetchOtherVillageRequests = async () => {
       const token = Cookies.get("token");
       if (!token) {
@@ -153,12 +153,12 @@ const AdminDashboard = ({ handleLogout }) => {
         setOtherVillageLoading(false);
       }
     };
-
+  
     fetchVolunteers();
     fetchAllReservations();
     fetchAllUsers();
     fetchOtherVillageRequests();
-  });
+  }, [API_BASE_URL]); 
 
   if (loading || usersLoading || reservationsLoading || otherVillageLoading) {
     return (

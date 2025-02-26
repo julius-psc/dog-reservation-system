@@ -293,7 +293,7 @@ module.exports = (
     try {
       const { village } = req.user;
       const { startDate, endDate } = req.query;
-
+  
       let query = `
         SELECT
             TO_CHAR(r.reservation_date, 'YYYY-MM-DD') as reservation_date,
@@ -309,21 +309,18 @@ module.exports = (
         JOIN dogs d ON r.dog_id = d.id
         JOIN users v ON r.volunteer_id = v.id
         WHERE r.volunteer_id IN (SELECT id FROM users WHERE role = 'volunteer' AND village = $1)
+          AND r.status IN ('pending', 'accepted')
       `;
       const queryParams = [village];
-
+  
       if (startDate && endDate) {
         query += " AND r.reservation_date BETWEEN $2 AND $3";
         queryParams.push(startDate, endDate);
-      } else if (endDate) {
-        query += " AND r.reservation_date <= $2";
-        queryParams.push(endDate);
       }
-
+  
       query += " ORDER BY r.reservation_date, r.start_time";
-
+  
       const reservations = await pool.query(query, queryParams);
-
       res.json(reservations.rows || []);
     } catch (err) {
       console.error("Error fetching client reservations:", err);

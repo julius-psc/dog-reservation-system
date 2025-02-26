@@ -17,9 +17,9 @@ import {
   faCheck,
   faCalendarCheck,
   faBan,
-  faFlagCheckered, // Added for "completed" status
+  faFlagCheckered,
 } from "@fortawesome/free-solid-svg-icons";
-import Maintenance from './recycled/Maintenance'
+import Maintenance from './recycled/Maintenance';
 
 const ClientDashboard = ({ handleLogout }) => {
   const [protectedError] = useState("");
@@ -31,33 +31,16 @@ const ClientDashboard = ({ handleLogout }) => {
   const [reservationLoading, setReservationLoading] = useState(false);
   const [selectedDog, setSelectedDog] = useState(null);
   const [personalReservations, setPersonalReservations] = useState([]);
-  const [personalReservationsLoading, setPersonalReservationsLoading] =
-    useState(true);
-  const [personalReservationsError, setPersonalReservationsError] =
-    useState(null);
+  const [personalReservationsLoading, setPersonalReservationsLoading] = useState(true);
+  const [personalReservationsError, setPersonalReservationsError] = useState(null);
   const [reservations, setReservations] = useState([]);
   const [reservationsLoading, setReservationsLoading] = useState(true);
   const [reservationsError, setReservationsError] = useState(null);
   const [selectedDate, setSelectedDate] = useState(moment().toDate());
-  const [currentWeekStart, setCurrentWeekStart] = useState(
-    moment().startOf("isoWeek")
-  );
+  const [currentWeekStart, setCurrentWeekStart] = useState(moment().startOf("isoWeek"));
   const [isCurrentWeekDisplayed, setIsCurrentWeekDisplayed] = useState(true);
   const [isConfirmationVisible, setIsConfirmationVisible] = useState(false);
   const [confirmationDetails, setConfirmationDetails] = useState(null);
-
-  const getWebSocketUrl = () => {
-    const isProduction = import.meta.env.PROD;
-    if (isProduction) {
-      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL.replace(
-        /^http(s?):\/\//,
-        ""
-      );
-      return `wss://${apiBaseUrl}`;
-    } else {
-      return "ws://localhost:8081";
-    }
-  };
 
   const fetchDogData = useCallback(async () => {
     try {
@@ -67,12 +50,9 @@ const ClientDashboard = ({ handleLogout }) => {
         return;
       }
 
-      const response = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL}/fetchDog`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/fetchDog`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
       if (!response.ok) {
         console.error("Error fetching dogs:", await response.text());
@@ -86,7 +66,6 @@ const ClientDashboard = ({ handleLogout }) => {
 
       if (dogData.length > 0 && !selectedDog) {
         setSelectedDog(dogData[0]);
-        console.log("Initial dog selected:", dogData[0]);
       }
     } catch (error) {
       console.error("Error fetching dog data:", error);
@@ -109,34 +88,28 @@ const ClientDashboard = ({ handleLogout }) => {
 
     try {
       const token = Cookies.get("token");
-      const response = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL}/addDog`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            name: dogData.name,
-            breed: dogData.breed,
-            age: ageAsNumber,
-          }),
-        }
-      );
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/addDog`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: dogData.name,
+          breed: dogData.breed,
+          age: ageAsNumber,
+        }),
+      });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(
-          errorData.error || `Erreur HTTP ! statut : ${response.status}`
-        );
+        throw new Error(errorData.error || `Erreur HTTP ! statut : ${response.status}`);
       }
 
       const newDogData = await response.json();
       setDogs((prevDogs) => [...prevDogs, newDogData]);
       setShowDogForm(false);
       setSelectedDog(newDogData);
-      console.log("Nouveau chien ajouté et sélectionné:", newDogData);
       toast.success("Informations sur le chien ajoutées avec succès !");
       setDogData({ name: "", breed: "", age: "" });
     } catch (error) {
@@ -158,12 +131,12 @@ const ClientDashboard = ({ handleLogout }) => {
       );
 
       const availabilityPromises = days.map((date) =>
-        fetch(
-          `${import.meta.env.VITE_API_BASE_URL}/client/volunteers?date=${date}`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        ).then((res) => res.json())
+        fetch(`${import.meta.env.VITE_API_BASE_URL}/client/volunteers?date=${date}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }).then((res) => {
+          if (!res.ok) throw new Error(`Failed to fetch slots for ${date}`);
+          return res.json();
+        })
       );
 
       const allAvailabilities = await Promise.all(availabilityPromises);
@@ -171,19 +144,14 @@ const ClientDashboard = ({ handleLogout }) => {
       const mergedSlots = {};
       days.forEach((date, index) => {
         const dayOfWeek = moment(date).isoWeekday() - 1;
-        mergedSlots[dayOfWeek] =
-          allAvailabilities[index].mergedAvailabilities[dayOfWeek] || [];
+        mergedSlots[dayOfWeek] = allAvailabilities[index].mergedAvailabilities[dayOfWeek] || [];
       });
 
       setAllAvailableSlots(mergedSlots);
+      setAvailableSlotsError(null);
     } catch (error) {
-      console.error(
-        "Erreur lors de la récupération des disponibilités:",
-        error
-      );
-      setAvailableSlotsError(
-        error.message || "Une erreur inattendue est survenue."
-      );
+      console.error("Erreur lors de la récupération des disponibilités:", error);
+      setAvailableSlotsError(error.message || "Une erreur inattendue est survenue.");
     }
   }, [currentWeekStart]);
 
@@ -193,39 +161,20 @@ const ClientDashboard = ({ handleLogout }) => {
     const token = Cookies.get("token");
 
     try {
-      let url = `${
-        import.meta.env.VITE_API_BASE_URL
-      }/client/personal-reservations`;
-      const queryParams = new URLSearchParams();
-      queryParams.append(
-        "endDate",
-        moment().endOf("week").format("YYYY-MM-DD")
-      );
-      url += "?" + queryParams.toString();
-
+      const url = `${import.meta.env.VITE_API_BASE_URL}/client/personal-reservations?endDate=${moment().endOf("week").format("YYYY-MM-DD")}`;
       const response = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error(
-          "Échec de la récupération des réservations personnelles:",
-          response
-        );
-        throw new Error(
-          errorData.error ||
-            "Échec de la récupération des réservations personnelles"
-        );
+        throw new Error(errorData.error || "Échec de la récupération des réservations personnelles");
       }
 
       const personalReservationsData = await response.json();
       setPersonalReservations(personalReservationsData);
     } catch (err) {
-      console.error(
-        "Erreur lors de la récupération des réservations personnelles:",
-        err
-      );
+      console.error("Erreur lors de la récupération des réservations personnelles:", err);
       setPersonalReservationsError(err.message);
     } finally {
       setPersonalReservationsLoading(false);
@@ -238,34 +187,17 @@ const ClientDashboard = ({ handleLogout }) => {
     const token = Cookies.get("token");
 
     try {
-      let url = `${import.meta.env.VITE_API_BASE_URL}/client/all-reservations`;
-      const queryParams = new URLSearchParams();
-      queryParams.append(
-        "startDate",
-        moment(currentWeekStart).format("YYYY-MM-DD")
-      );
-      queryParams.append(
-        "endDate",
-        moment(currentWeekStart).endOf("isoWeek").format("YYYY-MM-DD")
-      );
-      url += "?" + queryParams.toString();
-
+      const url = `${import.meta.env.VITE_API_BASE_URL}/client/all-reservations?startDate=${moment(currentWeekStart).format("YYYY-MM-DD")}&endDate=${moment(currentWeekStart).endOf("isoWeek").format("YYYY-MM-DD")}`;
       const response = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(
-          errorData.error || "Échec de la récupération des réservations"
-        );
+        throw new Error(errorData.error || "Échec de la récupération des réservations");
       }
 
       const reservationsData = await response.json();
-      console.log(
-        "Données des réservations depuis le backend:",
-        reservationsData
-      );
       setReservations(reservationsData);
     } catch (err) {
       console.error("Erreur lors de la récupération des réservations:", err);
@@ -276,7 +208,6 @@ const ClientDashboard = ({ handleLogout }) => {
   }, [currentWeekStart]);
 
   const handleReservation = async (volunteerId, startTime, dayIndex) => {
-    console.log("Chien sélectionné avant la réservation:", selectedDog);
     if (!selectedDog) {
       toast.error("Veuillez sélectionner un chien pour la réservation.");
       return;
@@ -289,85 +220,44 @@ const ClientDashboard = ({ handleLogout }) => {
 
     try {
       const token = Cookies.get("token");
-
       const startMoment = moment(startTime, "HH:mm");
-      let endMoment = startMoment.clone().add(1, "hour");
+      const endMoment = startMoment.clone().add(1, "hour");
 
-      const startTimeFormatted = startMoment.format("HH:mm");
-      const endTimeFormatted = endMoment.format("HH:mm");
-
-      const response = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL}/reservations`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            volunteerId: volunteerId,
-            reservationDate: formattedDate,
-            startTime: startTimeFormatted,
-            endTime: endTimeFormatted,
-            dogId: selectedDog.id,
-          }),
-        }
-      );
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/reservations`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          volunteerId,
+          reservationDate: formattedDate,
+          startTime: startMoment.format("HH:mm"),
+          endTime: endMoment.format("HH:mm"),
+          dogId: selectedDog.id,
+        }),
+      });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(
-          errorData.error || "Échec de la création de la réservation"
-        );
+        throw new Error(errorData.error || "Échec de la création de la réservation");
       }
 
       const reservationData = await response.json();
-      setReservations((prevReservations) => [
-        ...prevReservations,
-        reservationData,
-      ]);
-
-      toast.success(
-        "Demande de réservation envoyée. Veuillez attendre la confirmation du bénévole."
-      );
-
-      const wsUrl = getWebSocketUrl();
-      const ws = new WebSocket(wsUrl);
-
-      ws.onopen = () => {
-        ws.send(
-          JSON.stringify({
-            type: "reservation_update",
-            reservation: reservationData,
-          })
-        );
-        ws.close();
-      };
-
-      ws.onerror = (error) => {
-        console.error("WebSocket error in reservation broadcast:", error);
-      };
+      setReservations((prev) => [...prev, reservationData]);
+      toast.success("Demande de réservation envoyée. Veuillez attendre la confirmation du bénévole.");
     } catch (error) {
       console.error("Erreur lors de la création de la réservation:", error);
-      toast.error(
-        `Erreur lors de la création de la réservation: ${error.message}`
-      );
+      toast.error(`Erreur lors de la création de la réservation: ${error.message}`);
     } finally {
       setReservationLoading(false);
-      fetchAvailableSlots();
-      fetchReservations();
-      fetchPersonalReservations();
+      await Promise.all([fetchAvailableSlots(), fetchReservations(), fetchPersonalReservations()]);
     }
-    console.log("ID du chien envoyé:", selectedDog?.id);
   };
 
   const handleConfirmReservation = () => {
     if (confirmationDetails) {
-      handleReservation(
-        confirmationDetails.volunteerId,
-        confirmationDetails.startTime,
-        confirmationDetails.dayIndex
-      );
+      handleReservation(confirmationDetails.volunteerId, confirmationDetails.startTime, confirmationDetails.dayIndex);
       setIsConfirmationVisible(false);
       setConfirmationDetails(null);
     }
@@ -384,135 +274,49 @@ const ClientDashboard = ({ handleLogout }) => {
 
   const goToPreviousWeek = () => {
     if (!isCurrentWeekDisplayed) {
-      setCurrentWeekStart(
-        moment(currentWeekStart).subtract(1, "week").startOf("isoWeek")
-      );
-      setIsCurrentWeekDisplayed(
-        moment(currentWeekStart).subtract(1, "week").isSame(moment(), "week")
-      );
+      setCurrentWeekStart(moment(currentWeekStart).subtract(1, "week").startOf("isoWeek"));
+      setIsCurrentWeekDisplayed(moment(currentWeekStart).subtract(1, "week").isSame(moment(), "week"));
     }
   };
 
   const goToNextWeek = () => {
-    setCurrentWeekStart(
-      moment(currentWeekStart).add(1, "week").startOf("isoWeek")
-    );
-    setIsCurrentWeekDisplayed(
-      moment(currentWeekStart).add(1, "week").isSame(moment(), "week")
-    );
+    setCurrentWeekStart(moment(currentWeekStart).add(1, "week").startOf("isoWeek"));
+    setIsCurrentWeekDisplayed(moment(currentWeekStart).add(1, "week").isSame(moment(), "week"));
   };
 
-  const daysOfWeek = [
-    "Lundi",
-    "Mardi",
-    "Mercredi",
-    "Jeudi",
-    "Vendredi",
-    "Samedi",
-    "Dimanche",
-  ];
+  const daysOfWeek = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
 
   useEffect(() => {
     fetchDogData();
   }, [fetchDogData]);
 
+  // Initial fetch and polling setup
   useEffect(() => {
-    fetchAvailableSlots();
-    fetchReservations();
-    fetchPersonalReservations();
-    setIsCurrentWeekDisplayed(
-      moment(currentWeekStart).isSame(moment(), "week")
-    );
-  }, [
-    fetchAvailableSlots,
-    fetchReservations,
-    fetchPersonalReservations,
-    currentWeekStart,
-  ]);
-
-  useEffect(() => {
-    const wsUrl = getWebSocketUrl();
-    let ws;
-
-    const connectWebSocket = () => {
-      ws = new WebSocket(wsUrl);
-
-      ws.onopen = () => {
-        console.log("Connected to WebSocket server at", wsUrl);
-        const token = Cookies.get("token");
-        if (token) {
-          ws.send(
-            JSON.stringify({ type: "join_village", village: "client_village" })
-          );
-        }
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          console.log("WebSocket message received:", data);
-
-          if (data.type === "reservation_update") {
-            fetchAvailableSlots();
-            fetchReservations();
-            fetchPersonalReservations();
-          }
-        } catch (error) {
-          console.error("Error parsing WebSocket message:", error);
-        }
-      };
-
-      ws.onclose = () => {
-        console.log("Disconnected from WebSocket server");
-        setTimeout(connectWebSocket, 5000);
-      };
-
-      ws.onerror = (error) => {
-        console.error("WebSocket error:", error);
-        ws.close();
-      };
+    const fetchAllData = async () => {
+      await Promise.all([fetchAvailableSlots(), fetchReservations(), fetchPersonalReservations()]);
     };
+    fetchAllData();
 
-    connectWebSocket();
-
-    return () => {
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.close();
-      }
-    };
-  }, [fetchAvailableSlots, fetchReservations, fetchPersonalReservations]);
-
-  useEffect(() => {}, [
-    personalReservationsLoading,
-    personalReservationsError,
-    personalReservations,
-  ]);
+    // Polling every 30 seconds
+    const interval = setInterval(fetchAllData, 30000);
+    return () => clearInterval(interval);
+  }, [currentWeekStart, fetchAvailableSlots, fetchReservations, fetchPersonalReservations]);
 
   const isSlotReserved = useCallback(
     (currentDate, slot, dayIndex) => {
-      const slotDate = moment(currentWeekStart)
-        .add(dayIndex, "days")
-        .format("YYYY-MM-DD");
+      const slotDate = moment(currentWeekStart).add(dayIndex, "days").format("YYYY-MM-DD");
       const slotStart = moment(`${slotDate} ${slot.time}`, "YYYY-MM-DD HH:mm");
       const slotEnd = slotStart.clone().add(1, "hour");
 
       return reservations.some((reservation) => {
-        const reservationDate = reservation.reservation_date;
-        const reservationStart = moment(
-          `${reservationDate} ${reservation.start_time}`,
-          "YYYY-MM-DD HH:mm"
-        );
-        const reservationEnd = moment(
-          `${reservationDate} ${reservation.end_time}`,
-          "YYYY-MM-DD HH:mm"
-        );
+        const reservationStart = moment(`${reservation.reservation_date} ${reservation.start_time}`, "YYYY-MM-DD HH:mm");
+        const reservationEnd = moment(`${reservation.reservation_date} ${reservation.end_time}`, "YYYY-MM-DD HH:mm");
 
         return (
-          reservationDate === slotDate &&
+          reservation.reservation_date === slotDate &&
           slotStart.isBefore(reservationEnd) &&
           slotEnd.isAfter(reservationStart) &&
-          (reservation.status === "pending" ||
-            reservation.status === "accepted")
+          (reservation.status === "pending" || reservation.status === "accepted")
         );
       });
     },
@@ -530,40 +334,21 @@ const ClientDashboard = ({ handleLogout }) => {
     setIsConfirmationVisible(true);
   };
 
+  // Rest of the render logic remains the same, just remove WebSocket-related code
   if (availableSlotsError || reservationsError || personalReservationsError) {
     return (
       <div className="container mx-auto p-6 dark:bg-gray-900">
         <div className="bg-white rounded-lg shadow-xl p-8 text-center dark:bg-gray-800">
-          <FontAwesomeIcon
-            icon={faExclamationTriangle}
-            className="text-red-500 text-4xl mb-4"
-          />
-          {availableSlotsError && (
-            <p className="text-red-600 dark:text-red-400 mb-2">
-              Erreur de créneaux horaires: {availableSlotsError}
-            </p>
-          )}
-          {reservationsError && (
-            <p className="text-red-600 dark:text-red-400 mb-2">
-              Erreur de réservations: {reservationsError}
-            </p>
-          )}
-          {personalReservationsError && (
-            <p className="text-red-600 dark:text-red-400">
-              Erreur de réservations personnelles: {personalReservationsError}
-            </p>
-          )}
+          <FontAwesomeIcon icon={faExclamationTriangle} className="text-red-500 text-4xl mb-4" />
+          {availableSlotsError && <p className="text-red-600 dark:text-red-400 mb-2">Erreur de créneaux horaires: {availableSlotsError}</p>}
+          {reservationsError && <p className="text-red-600 dark:text-red-400 mb-2">Erreur de réservations: {reservationsError}</p>}
+          {personalReservationsError && <p className="text-red-600 dark:text-red-400">Erreur de réservations personnelles: {personalReservationsError}</p>}
         </div>
       </div>
     );
   }
 
-  if (
-    reservationsLoading ||
-    personalReservationsLoading ||
-    !dogs ||
-    !allAvailableSlots
-  ) {
+  if (reservationsLoading || personalReservationsLoading || !dogs || !allAvailableSlots) {
     return (
       <div className="flex justify-center items-center h-screen bg-gray-100 dark:bg-gray-900">
         <ClipLoader color={"#3b82f6"} loading={true} size={50} />
@@ -594,16 +379,10 @@ const ClientDashboard = ({ handleLogout }) => {
               <FontAwesomeIcon icon={faDog} className="mr-2" />
               Informations sur mon chien
             </h3>
-
             {showDogForm ? (
               <form onSubmit={handleDogFormSubmit} className="space-y-4">
                 <div>
-                  <label
-                    htmlFor="dogName"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    Nom du chien
-                  </label>
+                  <label htmlFor="dogName" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Nom du chien</label>
                   <input
                     type="text"
                     id="dogName"
@@ -616,12 +395,7 @@ const ClientDashboard = ({ handleLogout }) => {
                   />
                 </div>
                 <div>
-                  <label
-                    htmlFor="breed"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    Race
-                  </label>
+                  <label htmlFor="breed" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Race</label>
                   <input
                     type="text"
                     id="breed"
@@ -634,12 +408,7 @@ const ClientDashboard = ({ handleLogout }) => {
                   />
                 </div>
                 <div>
-                  <label
-                    htmlFor="age"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    Âge
-                  </label>
+                  <label htmlFor="age" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Âge</label>
                   <input
                     type="number"
                     id="age"
@@ -648,13 +417,7 @@ const ClientDashboard = ({ handleLogout }) => {
                     value={dogData.age}
                     onChange={(e) => {
                       const value = e.target.value;
-                      // Allow empty input or whole numbers between 0 and 20
-                      if (
-                        value === "" ||
-                        (/^\d+$/.test(value) &&
-                          Number(value) >= 0 &&
-                          Number(value) <= 20)
-                      ) {
+                      if (value === "" || (/^\d+$/.test(value) && Number(value) >= 0 && Number(value) <= 20)) {
                         handleDogFormChange(e);
                       }
                     }}
@@ -679,37 +442,15 @@ const ClientDashboard = ({ handleLogout }) => {
                 {dogs.length > 0 && (
                   <div className="space-y-3">
                     {dogs.map((dog) => (
-                      <div
-                        key={dog.id}
-                        className="p-4 border rounded-md border-gray-200 dark:border-gray-700 dark:bg-gray-900"
-                      >
-                        <p className="dark:text-gray-300 text-sm">
-                          <span className="font-semibold dark:text-gray-100">
-                            Nom:
-                          </span>{" "}
-                          {dog.name}
-                        </p>
-                        <p className="dark:text-gray-300 text-sm">
-                          <span className="font-semibold dark:text-gray-100">
-                            Race:
-                          </span>{" "}
-                          {dog.breed}
-                        </p>
-                        <p className="dark:text-gray-300 text-sm">
-                          <span className="font-semibold dark:text-gray-100">
-                            Âge:
-                          </span>{" "}
-                          {dog.age}
-                        </p>
+                      <div key={dog.id} className="p-4 border rounded-md border-gray-200 dark:border-gray-700 dark:bg-gray-900">
+                        <p className="dark:text-gray-300 text-sm"><span className="font-semibold dark:text-gray-100">Nom:</span> {dog.name}</p>
+                        <p className="dark:text-gray-300 text-sm"><span className="font-semibold dark:text-gray-100">Race:</span> {dog.breed}</p>
+                        <p className="dark:text-gray-300 text-sm"><span className="font-semibold dark:text-gray-100">Âge:</span> {dog.age}</p>
                       </div>
                     ))}
                   </div>
                 )}
-                {protectedError && (
-                  <p className="text-red-500 dark:text-red-400">
-                    {protectedError}
-                  </p>
-                )}
+                {protectedError && <p className="text-red-500 dark:text-red-400">{protectedError}</p>}
                 <button
                   onClick={() => setShowDogForm(true)}
                   className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline text-sm"
@@ -731,18 +472,14 @@ const ClientDashboard = ({ handleLogout }) => {
                 <select
                   value={selectedDog ? selectedDog.id : ""}
                   onChange={(e) => {
-                    const selectedDogData = dogs.find(
-                      (dog) => dog.id === e.target.value
-                    );
+                    const selectedDogData = dogs.find((dog) => dog.id === e.target.value);
                     setSelectedDog(selectedDogData);
                   }}
                   className="block w-full py-2 px-3 rounded-md border-gray-300 shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-700 dark:text-gray-300"
                 >
                   <option value="">Sélectionner un chien</option>
                   {dogs.map((dog) => (
-                    <option key={dog.id} value={dog.id}>
-                      {dog.name} ({dog.breed})
-                    </option>
+                    <option key={dog.id} value={dog.id}>{dog.name} ({dog.breed})</option>
                   ))}
                 </select>
               </div>
@@ -755,11 +492,7 @@ const ClientDashboard = ({ handleLogout }) => {
               <FontAwesomeIcon icon={faCalendarAlt} className="mr-2" />
               Créneaux horaires disponibles
             </h3>
-            {availableSlotsError && (
-              <p className="text-red-500 dark:text-red-400">
-                {availableSlotsError}
-              </p>
-            )}
+            {availableSlotsError && <p className="text-red-500 dark:text-red-400">{availableSlotsError}</p>}
             <div className="mb-4 flex justify-center space-x-3">
               <button
                 onClick={goToPreviousWeek}
@@ -785,80 +518,45 @@ const ClientDashboard = ({ handleLogout }) => {
             </div>
             <div className="flex flex-col">
               {daysOfWeek.map((dayName, dayIndex) => {
-                const currentDate = moment(currentWeekStart).add(
-                  dayIndex,
-                  "days"
-                );
+                const currentDate = moment(currentWeekStart).add(dayIndex, "days");
                 const isBeforeToday = currentDate.isBefore(moment(), "day");
 
-                if (isBeforeToday) {
-                  return null;
-                }
+                if (isBeforeToday) return null;
 
-                const isPastDay = currentDate.isBefore(
-                  moment().subtract(2, "days"),
-                  "day"
-                );
+                const isPastDay = currentDate.isBefore(moment().subtract(2, "days"), "day");
 
                 return (
                   <div key={dayIndex} className="mb-5">
-                    <h4 className="text-lg font-semibold mb-2 dark:text-white">
-                      {dayName} ({currentDate.format("DD/MM")})
-                    </h4>
-                    {allAvailableSlots[dayIndex] &&
-                    allAvailableSlots[dayIndex].length > 0 ? (
+                    <h4 className="text-lg font-semibold mb-2 dark:text-white">{dayName} ({currentDate.format("DD/MM")})</h4>
+                    {allAvailableSlots[dayIndex] && allAvailableSlots[dayIndex].length > 0 ? (
                       <div className="flex flex-wrap">
                         {allAvailableSlots[dayIndex].map((slot) => {
-                          const isReserved =
-                            slot.isReserved ||
-                            isSlotReserved(currentDate, slot, dayIndex);
-                          const isPastSlot =
-                            isPastDay ||
-                            moment(
-                              `${currentDate.format("YYYY-MM-DD")} ${
-                                slot.time
-                              }`,
-                              "YYYY-MM-DD HH:mm"
-                            ).isBefore(moment());
+                          const isReserved = isSlotReserved(currentDate, slot, dayIndex);
+                          const isPastSlot = isPastDay || moment(`${currentDate.format("YYYY-MM-DD")} ${slot.time}`, "YYYY-MM-DD HH:mm").isBefore(moment());
 
                           return (
                             <button
                               key={`${dayIndex}-${slot.time}`}
                               className={`inline-block rounded-md border px-3 py-2 mr-2 mb-2 text-xs sm:text-sm
-                                ${
-                                  isReserved || isPastSlot
-                                    ? "opacity-50 cursor-not-allowed bg-gray-200 border-gray-300 text-gray-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400"
-                                    : "border-blue-500 bg-white hover:bg-blue-100 dark:border-blue-400 dark:bg-gray-800 dark:hover:bg-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-500"
-                                }`}
+                                ${isReserved || isPastSlot
+                                  ? "opacity-50 cursor-not-allowed bg-gray-200 border-gray-300 text-gray-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400"
+                                  : "border-blue-500 bg-white hover:bg-blue-100 dark:border-blue-400 dark:bg-gray-800 dark:hover:bg-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-500"}`}
                               onClick={() => {
-                                if (
-                                  !isPastSlot &&
-                                  !isReserved &&
-                                  !reservationLoading
-                                ) {
-                                  showConfirmation(
-                                    slot.volunteerIds[0],
-                                    slot.time,
-                                    dayIndex
-                                  );
+                                if (!isPastSlot && !isReserved && !reservationLoading) {
+                                  showConfirmation(slot.volunteerIds[0], slot.time, dayIndex);
                                 } else if (isReserved) {
                                   toast.error("Ce créneau est déjà réservé.");
                                 }
                               }}
-                              disabled={
-                                isReserved || isPastSlot || reservationLoading
-                              }
+                              disabled={isReserved || isPastSlot || reservationLoading}
                             >
-                              {slot.time}
-                              {isReserved && " (Réservé)"}
+                              {slot.time}{isReserved && " (Réservé)"}
                             </button>
                           );
                         })}
                       </div>
                     ) : (
-                      <p className="text-gray-500 dark:text-gray-400 text-sm">
-                        Pas de créneaux disponibles le {dayName}.
-                      </p>
+                      <p className="text-gray-500 dark:text-gray-400 text-sm">Pas de créneaux disponibles le {dayName}.</p>
                     )}
                   </div>
                 );
@@ -870,22 +568,11 @@ const ClientDashboard = ({ handleLogout }) => {
               <div className="fixed inset-0 bg-gray-500 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex justify-center items-center p-4">
                 <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 space-y-4">
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
-                    <FontAwesomeIcon
-                      icon={faExclamationTriangle}
-                      className="mr-2 text-yellow-500"
-                    />
+                    <FontAwesomeIcon icon={faExclamationTriangle} className="mr-2 text-yellow-500" />
                     Confirmer la réservation ?
                   </h3>
                   <p className="text-gray-700 dark:text-gray-300 text-sm">
-                    Êtes-vous sûr de vouloir réserver le créneau de{" "}
-                    <span className="font-semibold">
-                      {confirmationDetails.startTime}
-                    </span>{" "}
-                    le{" "}
-                    <span className="font-semibold">
-                      {confirmationDetails.date}
-                    </span>{" "}
-                    ?
+                    Êtes-vous sûr de vouloir réserver le créneau de <span className="font-semibold">{confirmationDetails.startTime}</span> le <span className="font-semibold">{confirmationDetails.date}</span> ?
                   </p>
                   <div className="flex justify-end space-x-4">
                     <button
@@ -917,32 +604,16 @@ const ClientDashboard = ({ handleLogout }) => {
                 <ClipLoader color={"#3b82f6"} loading={true} size={30} />
               </div>
             ) : personalReservationsError ? (
-              <p className="text-red-500 dark:text-red-400 text-sm">
-                {personalReservationsError}
-              </p>
+              <p className="text-red-500 dark:text-red-400 text-sm">{personalReservationsError}</p>
             ) : personalReservations.length === 0 ? (
-              <p className="text-gray-500 dark:text-gray-400 text-sm">
-                Pas encore de réservations.
-              </p>
+              <p className="text-gray-500 dark:text-gray-400 text-sm">Pas encore de réservations.</p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="min-w-full table-auto border-collapse w-full">
                   <thead className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
                     <tr>
-                      {[
-                        "Bénévole",
-                        "Chien",
-                        "Jour",
-                        "Heure de début",
-                        "Heure de fin",
-                        "Statut",
-                      ].map((header) => (
-                        <th
-                          key={header}
-                          className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider"
-                        >
-                          {header}
-                        </th>
+                      {["Bénévole", "Chien", "Jour", "Heure de début", "Heure de fin", "Statut"].map((header) => (
+                        <th key={header} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">{header}</th>
                       ))}
                     </tr>
                   </thead>
@@ -954,34 +625,23 @@ const ClientDashboard = ({ handleLogout }) => {
                       switch (reservation.status) {
                         case "accepted":
                           statusColor = "bg-green-200 text-green-800";
-                          statusIcon = (
-                            <FontAwesomeIcon icon={faCheck} className="mr-1" />
-                          );
+                          statusIcon = <FontAwesomeIcon icon={faCheck} className="mr-1" />;
                           statusName = "Approuvé";
                           break;
                         case "pending":
                           statusColor = "bg-yellow-200 text-yellow-800";
-                          statusIcon = (
-                            <FontAwesomeIcon icon={faClock} className="mr-1" />
-                          );
+                          statusIcon = <FontAwesomeIcon icon={faClock} className="mr-1" />;
                           statusName = "En attente";
                           break;
                         case "rejected":
                         case "cancelled":
                           statusColor = "bg-red-200 text-red-800";
-                          statusIcon = (
-                            <FontAwesomeIcon icon={faBan} className="mr-1" />
-                          );
+                          statusIcon = <FontAwesomeIcon icon={faBan} className="mr-1" />;
                           statusName = "Rejeté";
                           break;
                         case "completed":
                           statusColor = "bg-blue-200 text-blue-800";
-                          statusIcon = (
-                            <FontAwesomeIcon
-                              icon={faFlagCheckered}
-                              className="mr-1"
-                            />
-                          );
+                          statusIcon = <FontAwesomeIcon icon={faFlagCheckered} className="mr-1" />;
                           statusName = "Terminé";
                           break;
                         default:
@@ -991,34 +651,15 @@ const ClientDashboard = ({ handleLogout }) => {
                       }
 
                       return (
-                        <tr
-                          key={reservation.id}
-                          className="hover:bg-gray-100 dark:hover:bg-gray-900"
-                        >
-                          <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300 text-sm">
-                            {reservation.volunteer_name}
-                          </td>
-                          <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300 text-sm">
-                            {reservation.dog_name}
-                          </td>
-                          <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300 text-sm">
-                            {moment(
-                              reservation.reservation_date,
-                              "YYYY-MM-DD"
-                            ).format("DD/MM/YYYY")}
-                          </td>
-                          <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300 text-sm">
-                            {reservation.start_time}
-                          </td>
-                          <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300 text-sm">
-                            {reservation.end_time}
-                          </td>
+                        <tr key={reservation.id} className="hover:bg-gray-100 dark:hover:bg-gray-900">
+                          <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300 text-sm">{reservation.volunteer_name}</td>
+                          <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300 text-sm">{reservation.dog_name}</td>
+                          <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300 text-sm">{moment(reservation.reservation_date, "YYYY-MM-DD").format("DD/MM/YYYY")}</td>
+                          <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300 text-sm">{reservation.start_time}</td>
+                          <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300 text-sm">{reservation.end_time}</td>
                           <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300 text-sm font-semibold text-center">
-                            <span
-                              className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-bold ${statusColor}`}
-                            >
-                              {statusIcon}
-                              {statusName}
+                            <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-bold ${statusColor}`}>
+                              {statusIcon}{statusName}
                             </span>
                           </td>
                         </tr>
