@@ -70,7 +70,7 @@ module.exports = (
       ]);
 
       if (overlapResult.rows.length > 0) {
-        throw new Error("Ce créneau est déjà réservé. Veuillez choisir une autre horaire.");
+        throw new Error("This slot is already reserved. Please choose another time.");
       }
 
       const clientOverlapQuery = `
@@ -93,7 +93,7 @@ module.exports = (
       ]);
 
       if (clientOverlapResult.rows.length > 0) {
-        throw new Error("Vous avez déjà une résérvation à ce créneau.");
+        throw new Error("You already have a reservation for this slot.");
       }
 
       const insertQuery = `
@@ -134,6 +134,7 @@ module.exports = (
           d.name as dog_name,
           u_vol.username as volunteer_name,
           u_vol.email as volunteer_email,
+          u_vol.village as village,
           u_cli.username as client_name
         FROM reservations r
         JOIN dogs d ON r.dog_id = d.id
@@ -164,7 +165,7 @@ module.exports = (
 
       const reservationData = newReservationDetails.rows[0];
       connectedClients.forEach((ws) => {
-        if (ws.readyState === WebSocket.OPEN) {
+        if (ws.readyState === WebSocket.OPEN && ws.village === reservationData.village) {
           ws.send(
             JSON.stringify({
               type: "reservation_update",
@@ -188,102 +189,50 @@ module.exports = (
   });
 
   // FETCH PERSONAL RESERVATIONS
-  router.get(
-    "/client/personal-reservations",
-    authenticate,
-    async (req, res) => {
-      try {
-        let clientId;
-        if (req.user && req.user.id) {
-          clientId = req.user.id;
-        } else if (req.user && req.user.userId) {
-          clientId = req.user.userId;
-        } else if (req.user && req.user._id) {
-          clientId = req.user._id;
-        } else {
-          return res
-            .status(400)
-            .json({ error: "Could not identify user ID from token." });
-        }
-
-        const query = `
-            SELECT
-                TO_CHAR(r.reservation_date, 'YYYY-MM-DD') as reservation_date,
-                TO_CHAR(r.start_time, 'HH24:MI') as start_time,
-                TO_CHAR(r.end_time, 'HH24:MI') as end_time,
-                r.volunteer_id,
-                r.id,
-                d.name AS dog_name,
-                v.username AS volunteer_name,
-                r.status,
-                r.client_id
-            FROM reservations r
-            JOIN dogs d ON r.dog_id = d.id
-            JOIN users v ON r.volunteer_id = v.id
-            WHERE r.client_id = $1
-            ORDER BY r.reservation_date, r.start_time
-          `;
-
-        const queryParams = [clientId];
-        const reservationsResult = await pool.query(query, queryParams);
-        const reservations = reservationsResult.rows;
-
-        // Dynamically update status to "completed" for past accepted reservations
-        const now = moment();
-        const updatedReservations = reservations.map((reservation) => {
-          const endDateTime = moment(
-            `${reservation.reservation_date} ${reservation.end_time}`,
-            "YYYY-MM-DD HH:mm"
-          );
-          if (endDateTime.isBefore(now) && reservation.status === "accepted") {
-            return { ...reservation, status: "completed" };
-          }
-          return reservation;
-        });
-
-        res.json(updatedReservations || []);
-      } catch (err) {
-        console.error("Error fetching personal client reservations:", err);
-        res.status(500).json({ error: "Internal Server Error" });
-      }
-    }
-  );
-
-  // FETCH ALL RESERVATIONS IN THE SAME VILLAGE
-  router.get("/client/village-reservations", authenticate, async (req, res) => {
+  router.get("/client/personal-reservations", authenticate, async (req, res) => {
     try {
-      const { village } = req.user;
-      const { startDate, endDate } = req.query;
+      let clientId = req.user.userId || req.user.id || req.user._id;
+      if (!clientId) {
+        return res.status(400).json({ error: "Could not identify user ID from token." });
+      }
 
-      let query = `
+      const query = `
         SELECT
             TO_CHAR(r.reservation_date, 'YYYY-MM-DD') as reservation_date,
             TO_CHAR(r.start_time, 'HH24:MI') as start_time,
             TO_CHAR(r.end_time, 'HH24:MI') as end_time,
             r.volunteer_id,
             r.id,
-            r.status
+            d.name AS dog_name,
+            v.username AS volunteer_name,
+            v.village AS village,
+            r.status,
+            r.client_id
         FROM reservations r
+        JOIN dogs d ON r.dog_id = d.id
         JOIN users v ON r.volunteer_id = v.id
-        WHERE v.role = 'volunteer' AND v.village = $1
+        WHERE r.client_id = $1
+        ORDER BY r.reservation_date, r.start_time
       `;
-      const queryParams = [village];
 
-      if (startDate && endDate) {
-        query += " AND r.reservation_date BETWEEN $2 AND $3";
-        queryParams.push(startDate, endDate);
-      } else {
-        query += " AND r.reservation_date BETWEEN $2 AND $3";
-        queryParams.push(moment().startOf("month").format("YYYY-MM-DD"), moment().endOf("month").format("YYYY-MM-DD"));
-      }
+      const reservationsResult = await pool.query(query, [clientId]);
+      const reservations = reservationsResult.rows;
 
-      query += " ORDER BY r.reservation_date, r.start_time";
+      const now = moment();
+      const updatedReservations = reservations.map((reservation) => {
+        const endDateTime = moment(
+          `${reservation.reservation_date} ${reservation.end_time}`,
+          "YYYY-MM-DD HH:mm"
+        );
+        if (endDateTime.isBefore(now) && reservation.status === "accepted") {
+          return { ...reservation, status: "completed" };
+        }
+        return reservation;
+      });
 
-      const reservations = await pool.query(query, queryParams);
-
-      res.json(reservations.rows || []);
+      res.json(updatedReservations || []);
     } catch (err) {
-      console.error("Error fetching village reservations:", err);
+      console.error("Error fetching personal client reservations:", err);
       res.status(500).json({ error: "Internal Server Error" });
     }
   });
@@ -293,7 +242,7 @@ module.exports = (
     try {
       const { village } = req.user;
       const { startDate, endDate } = req.query;
-  
+
       let query = `
         SELECT
             TO_CHAR(r.reservation_date, 'YYYY-MM-DD') as reservation_date,
@@ -312,14 +261,14 @@ module.exports = (
           AND r.status IN ('pending', 'accepted')
       `;
       const queryParams = [village];
-  
+
       if (startDate && endDate) {
         query += " AND r.reservation_date BETWEEN $2 AND $3";
         queryParams.push(startDate, endDate);
       }
-  
+
       query += " ORDER BY r.reservation_date, r.start_time";
-  
+
       const reservations = await pool.query(query, queryParams);
       res.json(reservations.rows || []);
     } catch (err) {
@@ -401,7 +350,6 @@ module.exports = (
   router.get("/client/volunteers", authenticate, async (req, res) => {
     try {
       const clientVillage = req.user.village;
-      const context = req.query.context;
       const date = req.query.date;
 
       if (!date) {
@@ -413,7 +361,7 @@ module.exports = (
         return res.status(400).json({ error: "Invalid date format. Use YYYY-MM-DD." });
       }
 
-      let volunteersQuery = `
+      const volunteersQuery = `
         SELECT
             u.id,
             u.username,
@@ -427,19 +375,9 @@ module.exports = (
         WHERE u.role = 'volunteer'
           AND u.volunteer_status = 'approved'
           AND u.holiday_mode IS NOT TRUE
+          AND u.villages_covered @> jsonb_build_array(CAST($2 AS TEXT))
+        GROUP BY u.id, u.username, u.email, u.villages_covered
       `;
-
-      const queryParams = [dayOfWeek];
-
-      if (context === "client") {
-        volunteersQuery += ` AND u.villages_covered @> jsonb_build_array(CAST($2 AS TEXT))`;
-        queryParams.push(clientVillage);
-      } else if (context === "volunteer") {
-        volunteersQuery += " AND u.id = $2";
-        queryParams.push(req.user.userId);
-      }
-
-      volunteersQuery += " GROUP BY u.id, u.username, u.email, u.villages_covered";
 
       const reservationsQuery = `
         SELECT
@@ -448,24 +386,23 @@ module.exports = (
             TO_CHAR(r.end_time, 'HH24:MI') as end_time,
             r.volunteer_id,
             r.id,
-            d.name AS dog_name,
-            v.username AS volunteer_name,
             r.status
         FROM reservations r
-        JOIN dogs d ON r.dog_id = d.id
         JOIN users v ON r.volunteer_id = v.id
         WHERE r.reservation_date = $1
           AND v.role = 'volunteer'
-          AND (v.village = $2 OR v.villages_covered @> jsonb_build_array($2::TEXT))
+          AND v.villages_covered @> jsonb_build_array($2::TEXT)
+          AND r.status IN ('pending', 'accepted')
       `;
 
-      const reservationsParams = [date, clientVillage];
-      const volunteers = await pool.query(volunteersQuery, queryParams);
-      const reservations = await pool.query(reservationsQuery, reservationsParams);
+      const [volunteersResult, reservationsResult] = await Promise.all([
+        pool.query(volunteersQuery, [dayOfWeek, clientVillage]),
+        pool.query(reservationsQuery, [date, clientVillage]),
+      ]);
 
       res.json({
-        mergedAvailabilities: mergeAvailabilities(volunteers.rows, reservations.rows, date),
-        reservations: reservations.rows,
+        mergedAvailabilities: mergeAvailabilities(volunteersResult.rows, reservationsResult.rows, date),
+        reservations: reservationsResult.rows,
       });
     } catch (err) {
       console.error("Error fetching volunteers:", err);
@@ -527,13 +464,13 @@ module.exports = (
 
       if (typeof autreCommuneNom !== "string" || typeof autreCommuneVillageSouhaite !== "string") {
         return res.status(400).json({
-          error: "Type de données incorrectes dans 'Autres communes'",
+          error: "Incorrect data type in 'Autres communes'",
         });
       }
 
       if (!autreCommuneEmail.includes("@") || typeof autreCommuneEmail !== "string") {
         return res.status(400).json({
-          error: "Format de l'email incorrect pour 'Autres communes'",
+          error: "Invalid email format for 'Autres communes'",
         });
       }
 
@@ -555,7 +492,7 @@ module.exports = (
       console.log("New 'autres communes' request logged:", newRequest.rows[0]);
 
       res.status(201).json({
-        message: "Demande pour autres communes enregistrée avec succès. Nous vous contacterons bientôt.",
+        message: "Request for other villages recorded successfully. We will contact you soon.",
       });
     } catch (error) {
       console.error("Error handling 'autres communes' request:", error);
@@ -570,21 +507,21 @@ module.exports = (
     try {
       const { amount } = req.body;
       if (!amount || isNaN(amount) || amount < 1) {
-        return res.status(400).json({ error: "Montant de don invalide. Minimum 1 EUR." });
+        return res.status(400).json({ error: "Invalid donation amount. Minimum 1 EUR." });
       }
       const amountInCents = Math.round(amount * 100);
       const paymentIntent = await stripe.paymentIntents.create({
         amount: amountInCents,
         currency: "eur",
         payment_method_types: ["card"],
-        description: "Don à Chiens en Cavale",
+        description: "Donation to Chiens en Cavale",
       });
       res.json({
         clientSecret: paymentIntent.client_secret,
       });
     } catch (error) {
-      console.error("Erreur lors de la création de l'intention de paiement:", error);
-      res.status(500).json({ error: "Échec du traitement du don" });
+      console.error("Error creating payment intent:", error);
+      res.status(500).json({ error: "Failed to process donation" });
     }
   });
 

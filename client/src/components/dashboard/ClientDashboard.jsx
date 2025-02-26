@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo, memo } from "react";
 import Cookies from "js-cookie";
 import PropTypes from "prop-types";
 import moment from "moment";
@@ -19,9 +19,8 @@ import {
   faBan,
   faFlagCheckered,
 } from "@fortawesome/free-solid-svg-icons";
-import Maintenance from './recycled/Maintenance';
 
-const ClientDashboard = ({ handleLogout }) => {
+const ClientDashboard = memo(({ handleLogout }) => {
   const [protectedError] = useState("");
   const [showDogForm, setShowDogForm] = useState(false);
   const [dogData, setDogData] = useState({ name: "", breed: "", age: "" });
@@ -41,6 +40,7 @@ const ClientDashboard = ({ handleLogout }) => {
   const [isCurrentWeekDisplayed, setIsCurrentWeekDisplayed] = useState(true);
   const [isConfirmationVisible, setIsConfirmationVisible] = useState(false);
   const [confirmationDetails, setConfirmationDetails] = useState(null);
+  const [village, setVillage] = useState(null);
 
   const fetchDogData = useCallback(async () => {
     try {
@@ -73,55 +73,31 @@ const ClientDashboard = ({ handleLogout }) => {
     }
   }, [selectedDog]);
 
-  const handleDogFormChange = (e) => {
-    setDogData({ ...dogData, [e.target.name]: e.target.value });
-  };
-
-  const handleDogFormSubmit = async (e) => {
-    e.preventDefault();
-    const ageAsNumber = Number(dogData.age);
-
-    if (isNaN(ageAsNumber) || ageAsNumber < 0) {
-      toast.error("Veuillez entrer un nombre non négatif valide pour l'âge.");
-      return;
-    }
-
+  const fetchVillage = useCallback(async () => {
     try {
       const token = Cookies.get("token");
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/addDog`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          name: dogData.name,
-          breed: dogData.breed,
-          age: ageAsNumber,
-        }),
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/client/personal-reservations`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `Erreur HTTP ! statut : ${response.status}`);
+      const data = await response.json();
+      if (data.length > 0 && data[0].village) {
+        setVillage(data[0].village);
+      } else {
+        const userResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL}/fetchUser`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const userData = await userResponse.json();
+        setVillage(userData.village);
       }
-
-      const newDogData = await response.json();
-      setDogs((prevDogs) => [...prevDogs, newDogData]);
-      setShowDogForm(false);
-      setSelectedDog(newDogData);
-      toast.success("Informations sur le chien ajoutées avec succès !");
-      setDogData({ name: "", breed: "", age: "" });
     } catch (error) {
-      console.error("Erreur lors de l'ajout du chien:", error);
-      toast.error(`Erreur lors de l'ajout du chien: ${error.message}`);
+      console.error("Error fetching village:", error);
     }
-  };
+  }, []);
 
   const fetchAvailableSlots = useCallback(async () => {
     const token = Cookies.get("token");
     if (!token) {
-      setAvailableSlotsError("Token non trouvé. Veuillez vous connecter.");
+      setAvailableSlotsError("Token not found. Please log in.");
       return;
     }
 
@@ -150,8 +126,8 @@ const ClientDashboard = ({ handleLogout }) => {
       setAllAvailableSlots(mergedSlots);
       setAvailableSlotsError(null);
     } catch (error) {
-      console.error("Erreur lors de la récupération des disponibilités:", error);
-      setAvailableSlotsError(error.message || "Une erreur inattendue est survenue.");
+      console.error("Error fetching availabilities:", error);
+      setAvailableSlotsError(error.message || "An unexpected error occurred.");
     }
   }, [currentWeekStart]);
 
@@ -168,13 +144,13 @@ const ClientDashboard = ({ handleLogout }) => {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Échec de la récupération des réservations personnelles");
+        throw new Error(errorData.error || "Failed to fetch personal reservations");
       }
 
       const personalReservationsData = await response.json();
       setPersonalReservations(personalReservationsData);
     } catch (err) {
-      console.error("Erreur lors de la récupération des réservations personnelles:", err);
+      console.error("Error fetching personal reservations:", err);
       setPersonalReservationsError(err.message);
     } finally {
       setPersonalReservationsLoading(false);
@@ -194,22 +170,22 @@ const ClientDashboard = ({ handleLogout }) => {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Échec de la récupération des réservations");
+        throw new Error(errorData.error || "Failed to fetch reservations");
       }
 
       const reservationsData = await response.json();
       setReservations(reservationsData);
     } catch (err) {
-      console.error("Erreur lors de la récupération des réservations:", err);
+      console.error("Error fetching reservations:", err);
       setReservationsError(err.message);
     } finally {
       setReservationsLoading(false);
     }
   }, [currentWeekStart]);
 
-  const handleReservation = async (volunteerId, startTime, dayIndex) => {
+  const handleReservation = useCallback(async (volunteerId, startTime, dayIndex) => {
     if (!selectedDog) {
-      toast.error("Veuillez sélectionner un chien pour la réservation.");
+      toast.error("Please select a dog for the reservation.");
       return;
     }
 
@@ -240,67 +216,162 @@ const ClientDashboard = ({ handleLogout }) => {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Échec de la création de la réservation");
+        throw new Error(errorData.error || "Failed to create reservation");
       }
 
       const reservationData = await response.json();
-      setReservations((prev) => [...prev, reservationData]);
-      toast.success("Demande de réservation envoyée. Veuillez attendre la confirmation du bénévole.");
+      setReservations((prev) => [...prev, reservationData.reservation]);
+      toast.success("Reservation request sent. Please wait for volunteer confirmation.");
     } catch (error) {
-      console.error("Erreur lors de la création de la réservation:", error);
-      toast.error(`Erreur lors de la création de la réservation: ${error.message}`);
+      console.error("Error creating reservation:", error);
+      toast.error(`Error creating reservation: ${error.message}`);
     } finally {
       setReservationLoading(false);
       await Promise.all([fetchAvailableSlots(), fetchReservations(), fetchPersonalReservations()]);
     }
-  };
+  }, [selectedDog, currentWeekStart, fetchAvailableSlots, fetchReservations, fetchPersonalReservations]);
 
-  const handleConfirmReservation = () => {
+  const handleConfirmReservation = useCallback(() => {
     if (confirmationDetails) {
       handleReservation(confirmationDetails.volunteerId, confirmationDetails.startTime, confirmationDetails.dayIndex);
       setIsConfirmationVisible(false);
       setConfirmationDetails(null);
     }
-  };
+  }, [confirmationDetails, handleReservation]);
 
-  const handleCancelConfirmation = () => {
+  const handleCancelConfirmation = useCallback(() => {
     setIsConfirmationVisible(false);
     setConfirmationDetails(null);
-  };
+  }, []);
 
-  const handleDateChange = (date) => {
+  const handleDateChange = useCallback((date) => {
     setSelectedDate(date);
-  };
+  }, []);
 
-  const goToPreviousWeek = () => {
+  const goToPreviousWeek = useCallback(() => {
     if (!isCurrentWeekDisplayed) {
-      setCurrentWeekStart(moment(currentWeekStart).subtract(1, "week").startOf("isoWeek"));
-      setIsCurrentWeekDisplayed(moment(currentWeekStart).subtract(1, "week").isSame(moment(), "week"));
+      const newWeekStart = moment(currentWeekStart).subtract(1, "week").startOf("isoWeek");
+      setCurrentWeekStart(newWeekStart);
+      setIsCurrentWeekDisplayed(newWeekStart.isSame(moment(), "week"));
     }
-  };
+  }, [isCurrentWeekDisplayed, currentWeekStart]);
 
-  const goToNextWeek = () => {
-    setCurrentWeekStart(moment(currentWeekStart).add(1, "week").startOf("isoWeek"));
-    setIsCurrentWeekDisplayed(moment(currentWeekStart).add(1, "week").isSame(moment(), "week"));
-  };
+  const goToNextWeek = useCallback(() => {
+    const newWeekStart = moment(currentWeekStart).add(1, "week").startOf("isoWeek");
+    setCurrentWeekStart(newWeekStart);
+    setIsCurrentWeekDisplayed(newWeekStart.isSame(moment(), "week"));
+  }, [currentWeekStart]);
 
-  const daysOfWeek = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
+  const handleDogFormChange = useCallback((e) => {
+    setDogData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  }, []);
+
+  const handleDogFormSubmit = useCallback(async (e) => {
+    e.preventDefault();
+    const ageAsNumber = Number(dogData.age);
+
+    if (isNaN(ageAsNumber) || ageAsNumber < 0) {
+      toast.error("Please enter a valid non-negative number for age.");
+      return;
+    }
+
+    try {
+      const token = Cookies.get("token");
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/addDog`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: dogData.name,
+          breed: dogData.breed,
+          age: ageAsNumber,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      const newDogData = await response.json();
+      setDogs((prevDogs) => [...prevDogs, newDogData]);
+      setShowDogForm(false);
+      setSelectedDog(newDogData);
+      toast.success("Dog information added successfully!");
+      setDogData({ name: "", breed: "", age: "" });
+    } catch (error) {
+      console.error("Error adding dog:", error);
+      toast.error(`Error adding dog: ${error.message}`);
+    }
+  }, [dogData]);
+
+  const daysOfWeek = useMemo(() => ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"], []);
 
   useEffect(() => {
     fetchDogData();
-  }, [fetchDogData]);
+    fetchVillage();
+  }, [fetchDogData, fetchVillage]);
 
-  // Initial fetch and polling setup
   useEffect(() => {
+    console.log("Fetching data for week starting:", currentWeekStart.format("YYYY-MM-DD"));
     const fetchAllData = async () => {
-      await Promise.all([fetchAvailableSlots(), fetchReservations(), fetchPersonalReservations()]);
+      try {
+        await Promise.all([fetchReservations(), fetchAvailableSlots(), fetchPersonalReservations()]);
+      } catch (error) {
+        console.error("Error in fetchAllData:", error);
+      }
     };
     fetchAllData();
-
-    // Polling every 30 seconds
-    const interval = setInterval(fetchAllData, 30000);
-    return () => clearInterval(interval);
   }, [currentWeekStart, fetchAvailableSlots, fetchReservations, fetchPersonalReservations]);
+
+  useEffect(() => {
+    const token = Cookies.get("token");
+    if (!token) return;
+
+    let ws;
+    const wsUrl = import.meta.env.VITE_WS_BASE_URL || "ws://localhost:8081";
+
+    const connectWebSocket = () => {
+      ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        console.log("WebSocket connected to", wsUrl);
+        if (village) {
+          ws.send(JSON.stringify({ type: "join_village", village }));
+          console.log(`Sent join_village for: ${village}`);
+        }
+      };
+
+      ws.onmessage = (event) => {
+        const message = JSON.parse(event.data);
+        if (message.type === "reservation_update") {
+          console.log("Received reservation update:", message.reservation);
+          setReservations((prev) => [...prev, message.reservation]);
+          fetchAvailableSlots();
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error("WebSocket error:", error);
+      };
+
+      ws.onclose = (event) => {
+        console.log("WebSocket closed:", event.code, event.reason);
+        setTimeout(connectWebSocket, 1000);
+      };
+    };
+
+    connectWebSocket();
+
+    return () => {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.close(1000, "Component unmounting");
+        console.log("WebSocket cleanup: closed connection");
+      }
+    };
+  }, [village, fetchAvailableSlots]); // Stable dependencies
 
   const isSlotReserved = useCallback(
     (currentDate, slot, dayIndex) => {
@@ -323,7 +394,7 @@ const ClientDashboard = ({ handleLogout }) => {
     [currentWeekStart, reservations]
   );
 
-  const showConfirmation = (volunteerId, startTime, dayIndex) => {
+  const showConfirmation = useCallback((volunteerId, startTime, dayIndex) => {
     const reservationDate = moment(currentWeekStart).add(dayIndex, "days");
     setConfirmationDetails({
       volunteerId,
@@ -332,17 +403,16 @@ const ClientDashboard = ({ handleLogout }) => {
       date: reservationDate.format("DD/MM/YYYY"),
     });
     setIsConfirmationVisible(true);
-  };
+  }, [currentWeekStart]);
 
-  // Rest of the render logic remains the same, just remove WebSocket-related code
   if (availableSlotsError || reservationsError || personalReservationsError) {
     return (
       <div className="container mx-auto p-6 dark:bg-gray-900">
         <div className="bg-white rounded-lg shadow-xl p-8 text-center dark:bg-gray-800">
           <FontAwesomeIcon icon={faExclamationTriangle} className="text-red-500 text-4xl mb-4" />
-          {availableSlotsError && <p className="text-red-600 dark:text-red-400 mb-2">Erreur de créneaux horaires: {availableSlotsError}</p>}
-          {reservationsError && <p className="text-red-600 dark:text-red-400 mb-2">Erreur de réservations: {reservationsError}</p>}
-          {personalReservationsError && <p className="text-red-600 dark:text-red-400">Erreur de réservations personnelles: {personalReservationsError}</p>}
+          {availableSlotsError && <p className="text-red-600 dark:text-red-400 mb-2">Slots Error: {availableSlotsError}</p>}
+          {reservationsError && <p className="text-red-600 dark:text-red-400 mb-2">Reservations Error: {reservationsError}</p>}
+          {personalReservationsError && <p className="text-red-600 dark:text-red-400">Personal Reservations Error: {personalReservationsError}</p>}
         </div>
       </div>
     );
@@ -358,7 +428,6 @@ const ClientDashboard = ({ handleLogout }) => {
 
   return (
     <div className="bg-gray-100 dark:bg-gray-900 min-h-screen font-sans">
-      <Maintenance />
       <header className="bg-white dark:bg-gray-800 shadow-md py-6">
         <div className="container mx-auto px-4 flex justify-between items-center">
           <div>
@@ -373,21 +442,20 @@ const ClientDashboard = ({ handleLogout }) => {
 
       <main className="container mx-auto mt-8 px-4 pb-8">
         <div className="grid grid-cols-1 gap-6">
-          {/* Dog Information Section */}
           <section className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
             <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
               <FontAwesomeIcon icon={faDog} className="mr-2" />
-              Informations sur mon chien
+              Mes profiles chiens
             </h3>
             {showDogForm ? (
               <form onSubmit={handleDogFormSubmit} className="space-y-4">
                 <div>
-                  <label htmlFor="dogName" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Nom du chien</label>
+                  <label htmlFor="dogName" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Dog Name</label>
                   <input
                     type="text"
                     id="dogName"
                     name="name"
-                    placeholder="Nom du chien"
+                    placeholder="Dog Name"
                     value={dogData.name}
                     onChange={handleDogFormChange}
                     required
@@ -400,7 +468,7 @@ const ClientDashboard = ({ handleLogout }) => {
                     type="text"
                     id="breed"
                     name="breed"
-                    placeholder="Race"
+                    placeholder="Breed"
                     value={dogData.breed}
                     onChange={handleDogFormChange}
                     required
@@ -408,19 +476,14 @@ const ClientDashboard = ({ handleLogout }) => {
                   />
                 </div>
                 <div>
-                  <label htmlFor="age" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Âge</label>
+                  <label htmlFor="age" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Age</label>
                   <input
                     type="number"
                     id="age"
                     name="age"
-                    placeholder="Âge"
+                    placeholder="Age"
                     value={dogData.age}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      if (value === "" || (/^\d+$/.test(value) && Number(value) >= 0 && Number(value) <= 20)) {
-                        handleDogFormChange(e);
-                      }
-                    }}
+                    onChange={handleDogFormChange}
                     min="0"
                     max="20"
                     step="1"
@@ -433,7 +496,7 @@ const ClientDashboard = ({ handleLogout }) => {
                     type="submit"
                     className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline text-sm"
                   >
-                    Soumettre les infos du chien
+                    Submit Dog Info
                   </button>
                 </div>
               </form>
@@ -455,18 +518,17 @@ const ClientDashboard = ({ handleLogout }) => {
                   onClick={() => setShowDogForm(true)}
                   className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline text-sm"
                 >
-                  Ajouter un autre chien
+                  Ajouter un autre profil chien
                 </button>
               </div>
             )}
           </section>
 
-          {/* Dog Selection Section */}
           {dogs.length > 0 && (
             <section className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
               <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
                 <FontAwesomeIcon icon={faDog} className="mr-2" />
-                Sélectionner un chien pour la réservation
+                Choix du chien pour la réservation
               </h3>
               <div className="mt-2">
                 <select
@@ -477,7 +539,7 @@ const ClientDashboard = ({ handleLogout }) => {
                   }}
                   className="block w-full py-2 px-3 rounded-md border-gray-300 shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-700 dark:text-gray-300"
                 >
-                  <option value="">Sélectionner un chien</option>
+                  <option value="">Select a Dog</option>
                   {dogs.map((dog) => (
                     <option key={dog.id} value={dog.id}>{dog.name} ({dog.breed})</option>
                   ))}
@@ -486,11 +548,10 @@ const ClientDashboard = ({ handleLogout }) => {
             </section>
           )}
 
-          {/* Available Time Slots Section */}
           <section className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
             <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
               <FontAwesomeIcon icon={faCalendarAlt} className="mr-2" />
-              Créneaux horaires disponibles
+              Créneaux disponibles
             </h3>
             {availableSlotsError && <p className="text-red-500 dark:text-red-400">{availableSlotsError}</p>}
             <div className="mb-4 flex justify-center space-x-3">
@@ -507,13 +568,13 @@ const ClientDashboard = ({ handleLogout }) => {
                 dateFormat="dd/MM/yyyy"
                 className="mt-1 py-2 px-3 rounded-md border-gray-200 bg-white text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 text-center"
                 minDate={moment().add(2, "days").toDate()}
-                placeholderText="Choisir une date"
+                placeholderText="Choose a date"
               />
               <button
                 onClick={goToNextWeek}
                 className="bg-gray-400 hover:bg-gray-500 text-gray-900 dark:text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline text-sm"
               >
-                Semaine suivante
+                Semaine prochaine
               </button>
             </div>
             <div className="flex flex-col">
@@ -545,47 +606,46 @@ const ClientDashboard = ({ handleLogout }) => {
                                 if (!isPastSlot && !isReserved && !reservationLoading) {
                                   showConfirmation(slot.volunteerIds[0], slot.time, dayIndex);
                                 } else if (isReserved) {
-                                  toast.error("Ce créneau est déjà réservé.");
+                                  toast.error("This slot is already reserved.");
                                 }
                               }}
                               disabled={isReserved || isPastSlot || reservationLoading}
                             >
-                              {slot.time}{isReserved && " (Réservé)"}
+                              {slot.time}{isReserved && " (Créneau réservé)"}
                             </button>
                           );
                         })}
                       </div>
                     ) : (
-                      <p className="text-gray-500 dark:text-gray-400 text-sm">Pas de créneaux disponibles le {dayName}.</p>
+                      <p className="text-gray-500 dark:text-gray-400 text-sm">Pas de disponibilités le {dayName}.</p>
                     )}
                   </div>
                 );
               })}
             </div>
 
-            {/* Confirmation Dialog Section */}
             {isConfirmationVisible && confirmationDetails && (
               <div className="fixed inset-0 bg-gray-500 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex justify-center items-center p-4">
                 <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 space-y-4">
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
                     <FontAwesomeIcon icon={faExclamationTriangle} className="mr-2 text-yellow-500" />
-                    Confirmer la réservation ?
+                    Confirm Reservation?
                   </h3>
                   <p className="text-gray-700 dark:text-gray-300 text-sm">
-                    Êtes-vous sûr de vouloir réserver le créneau de <span className="font-semibold">{confirmationDetails.startTime}</span> le <span className="font-semibold">{confirmationDetails.date}</span> ?
+                    Are you sure you want to reserve the slot at <span className="font-semibold">{confirmationDetails.startTime}</span> on <span className="font-semibold">{confirmationDetails.date}</span>?
                   </p>
                   <div className="flex justify-end space-x-4">
                     <button
                       onClick={handleCancelConfirmation}
                       className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline text-sm"
                     >
-                      Annuler
+                      Cancel
                     </button>
                     <button
                       onClick={handleConfirmReservation}
                       className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline text-sm"
                     >
-                      Confirmer
+                      Confirm
                     </button>
                   </div>
                 </div>
@@ -593,11 +653,10 @@ const ClientDashboard = ({ handleLogout }) => {
             )}
           </section>
 
-          {/* My Reservations Section */}
           <section className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
             <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
               <FontAwesomeIcon icon={faCalendarCheck} className="mr-2" />
-              Mes Réservations
+              Mes réservations
             </h3>
             {personalReservationsLoading ? (
               <div className="flex justify-center">
@@ -606,13 +665,13 @@ const ClientDashboard = ({ handleLogout }) => {
             ) : personalReservationsError ? (
               <p className="text-red-500 dark:text-red-400 text-sm">{personalReservationsError}</p>
             ) : personalReservations.length === 0 ? (
-              <p className="text-gray-500 dark:text-gray-400 text-sm">Pas encore de réservations.</p>
+              <p className="text-gray-500 dark:text-gray-400 text-sm">Aucune réservation.</p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="min-w-full table-auto border-collapse w-full">
                   <thead className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
                     <tr>
-                      {["Bénévole", "Chien", "Jour", "Heure de début", "Heure de fin", "Statut"].map((header) => (
+                      {["Bénévole", "Chien", "Jour", "Heure du début", "Heure de fin", "Statut"].map((header) => (
                         <th key={header} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">{header}</th>
                       ))}
                     </tr>
@@ -626,7 +685,7 @@ const ClientDashboard = ({ handleLogout }) => {
                         case "accepted":
                           statusColor = "bg-green-200 text-green-800";
                           statusIcon = <FontAwesomeIcon icon={faCheck} className="mr-1" />;
-                          statusName = "Approuvé";
+                          statusName = "Accepté";
                           break;
                         case "pending":
                           statusColor = "bg-yellow-200 text-yellow-800";
@@ -642,7 +701,7 @@ const ClientDashboard = ({ handleLogout }) => {
                         case "completed":
                           statusColor = "bg-blue-200 text-blue-800";
                           statusIcon = <FontAwesomeIcon icon={faFlagCheckered} className="mr-1" />;
-                          statusName = "Terminé";
+                          statusName = "Complété";
                           break;
                         default:
                           statusColor = "";
@@ -674,7 +733,9 @@ const ClientDashboard = ({ handleLogout }) => {
       </main>
     </div>
   );
-};
+});
+
+ClientDashboard.displayName = "ClientDashboard";
 
 ClientDashboard.propTypes = {
   handleLogout: PropTypes.func.isRequired,

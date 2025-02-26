@@ -303,16 +303,6 @@ const VolunteerDashboard = ({ handleLogout }) => {
     fetchSubscriptionStatus();
   }, [fetchAvailabilities, fetchReservations, fetchVolunteerData, fetchSubscriptionStatus]);
 
-  useEffect(() => {
-    if (actionMessage) {
-      const timer = setTimeout(() => {
-        setActionMessage(null);
-        setActionType(null);
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [actionMessage]);
-
   const handleAvailabilitySaved = () => {
     setShowAvailabilityForm(false);
     fetchAvailabilities();
@@ -359,13 +349,6 @@ const VolunteerDashboard = ({ handleLogout }) => {
         type: "success",
         action: false,
       };
-      // Alternative: Use expiry year
-      // const expiryYear = subscriptionStatus.expiryDate ? subscriptionStatus.expiryDate.year() : moment().year();
-      // return {
-      //   message: `Votre cotisation annuelle ${expiryYear} est acquittée et nous vous en remercions.`,
-      //   type: "success",
-      //   action: false,
-      // };
     }
 
     if (!subscriptionStatus.expiryDate) {

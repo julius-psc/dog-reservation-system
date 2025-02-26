@@ -84,10 +84,10 @@ const isProduction = process.env.NODE_ENV === "production";
 let wss;
 
 if (isProduction) {
-  // In production (Render), attach WebSocket to the same HTTP server
+  // In production, attach WebSocket to the same HTTP server
   wss = new WebSocket.Server({ server });
 } else {
-  // Locally, use a separate port (8081)
+  // In development, use a separate port (8081)
   wss = new WebSocket.Server({ port: 8081 });
 }
 
@@ -103,10 +103,15 @@ wss.on("connection", (ws) => {
       if (parsedMessage.type === "join_village") {
         ws.village = parsedMessage.village;
         connectedClients.add(ws);
+        console.log(`Client joined village: ${ws.village}`);
       }
     } catch (error) {
-      console.error("Error parsing message or joining village", error);
+      console.error("Error parsing message or joining village:", error);
     }
+  });
+
+  ws.on("error", (error) => {
+    console.error("WebSocket error:", error);
   });
 
   ws.on("close", () => {
@@ -125,8 +130,16 @@ const authenticate = (req, res, next) => {
       if (err) {
         return res.status(403).json({ error: "Invalid token" });
       }
-      req.user = user;
-      next();
+      // Ensure village is included in the user object
+      pool.query("SELECT village FROM users WHERE id = $1", [user.userId], (err, result) => {
+        if (err || result.rows.length === 0) {
+          console.error("Error fetching user village:", err);
+          req.user = user; // Proceed without village if not found
+        } else {
+          req.user = { ...user, village: result.rows[0].village };
+        }
+        next();
+      });
     });
   } else {
     res.status(401).json({ error: "No token provided" });
@@ -154,16 +167,33 @@ const volunteerRoutes = require("./routes/volunteerRoutes");
 const clientRoutes = require("./routes/clientRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 
-// Mount route modules with /api prefix
+// Mount route modules
 app.use("/", authRoutes(pool, bcrypt, jwt, sendPasswordResetEmail));
 app.use("/", volunteerRoutes(pool, authenticate, authorizeVolunteer, isValidTime, moment, connectedClients, WebSocket));
 app.use("/", clientRoutes(pool, authenticate, moment, connectedClients, WebSocket, isValidTime));
 app.use("/", adminRoutes(pool, authenticate, authorizeAdmin));
 
+// Fetch User Endpoint (for village retrieval)
+app.get("/fetchUser", authenticate, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const userResult = await pool.query("SELECT village FROM users WHERE id = $1", [userId]);
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    res.json(userResult.rows[0]);
+  } catch (error) {
+    console.error("Error fetching user:", error);
+    res.status(500).json({ error: "Failed to fetch user data" });
+  }
+});
+
 // Start the server
 server.listen(port, () => {
   console.log(`Server listening on port ${port}`);
-  if (!isProduction) {
+  if (isProduction) {
+    console.log(`WebSocket server running on wss://yourdomain.com`); // Replace with actual domain
+  } else {
     console.log(`WebSocket server running on ws://localhost:8081`);
   }
 });
