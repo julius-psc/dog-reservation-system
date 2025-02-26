@@ -144,7 +144,7 @@ module.exports = (pool, bcrypt, jwt, sendPasswordResetEmail) => {
         [resetToken, resetTokenExpiration, user.id]
       );
 
-      const resetLink = `/reset-password/${resetToken}`;
+      const resetLink = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
 
       await sendPasswordResetEmail(user.email, resetLink);
 

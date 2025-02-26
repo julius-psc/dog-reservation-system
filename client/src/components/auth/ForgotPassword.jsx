@@ -40,12 +40,12 @@ const ForgotPassword = ({ onBackToLogin }) => {
     <form onSubmit={handleForgotPasswordSubmit} className="mt-8 grid grid-cols-6 gap-6">
       <div className="col-span-6">
         <label htmlFor="forgot-username" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
-          Username or Email
+          Nom d&#39;utilisateur ou email
         </label>
         <input
           type="text"
           id="forgot-username"
-          placeholder="Your username or email"
+          placeholder="Votre nom d'utilisateur ou email"
           value={usernameOrEmail}
           onChange={(e) => setUsernameOrEmail(e.target.value)}
           required
@@ -57,9 +57,9 @@ const ForgotPassword = ({ onBackToLogin }) => {
         <button
           type="submit"
           disabled={requestSent}
-          className="inline-block shrink-0 rounded-md border border-pink-500 bg-pink-400 px-12 py-3 text-sm font-medium text-white transition hover:bg-transparent hover:text-blue-600 focus:ring-3 focus:outline-hidden w-full dark:border-pink-400 dark:bg-pink-400 dark:hover:bg-transparent dark:hover:text-blue-500 disabled:opacity-50"
+          className="inline-block shrink-0 rounded-md border border-primary-pink bg-primary-pink px-12 py-3 text-sm font-medium text-white transition hover:bg-transparent hover:text-primary-pink  cursor-pointer focus:ring-3 focus:outline-hidden w-full dark:border-pink-400 dark:bg-pink-400 dark:hover:bg-transparent dark:hover:text-blue-500 disabled:opacity-50"
         >
-          {requestSent ? "Sending Email..." : "Reset Password"}
+          {requestSent ? "Envoi du mail..." : "Réinitialiser votre mot de passe"}
         </button>
       </div>
       <div className="col-span-6 text-center">
@@ -68,7 +68,7 @@ const ForgotPassword = ({ onBackToLogin }) => {
           onClick={onBackToLogin}
           className="mt-2 text-sm text-gray-500 underline dark:text-gray-400"
         >
-          Back to Login
+          Retour à la connexion
         </button>
       </div>
     </form>

@@ -214,7 +214,7 @@ function Navbar() {
                 Faire un don
               </Link>
               <a
-                href="mailto:contact@chiensencavale.com"
+                href="mailto:contact.chiensencavale@gmail.com"
                 className="text-primary-black dark:text-white hover:text-primary-pink dark:hover:text-primary-pink transition duration-200 text-sm"
                 onClick={toggleMobileMenu}
               >

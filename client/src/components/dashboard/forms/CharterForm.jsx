@@ -289,10 +289,10 @@ const CharterFormComponent = ({ onCharterComplete, volunteerStatus }) => {
                                 <p className='text-gray-600 text-md'>
                                     En attendant, n&#39;hésitez pas à nous contacter à{' '}
                                     <a
-                                        href='mailto:contact@chiensencavale.com'
+                                        href='mailto:contact.chiensencavale@gmail.com'
                                         className='text-primary-yellow hover:underline font-medium focus:outline-none focus:ring-2 focus:ring-primary-yellow focus:ring-opacity-50 transition-colors duration-300'
                                     >
-                                        contact@chiensencavale.com
+                                        contact.chiensencavale@gmail.com
                                     </a>{' '}
                                     si vous avez des questions.
                                 </p>
