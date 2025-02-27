@@ -1,5 +1,5 @@
-import { Link } from 'react-router-dom';
-import logo from '../../assets/landing-page/icons/landing-page-circular-logo.png';
+import { Link } from "react-router-dom";
+import logo from "../../assets/landing-page/icons/landing-page-circular-logo.png";
 
 const Footer = () => {
   return (
@@ -11,25 +11,53 @@ const Footer = () => {
 
         {/* Links Column */}
         <div className="md:w-1/3 md:mb-0 mt-6">
-          <h3 className="text-xl font-semibold text-primary-pink dark:text-primary-pink">Liens rapides</h3>
+          <h3 className="text-xl font-semibold text-primary-pink dark:text-primary-pink">
+            Liens rapides
+          </h3>
           <div className="flex flex-col">
-            <Link to="/about" className="hover:text-primary-pink dark:hover:text-primary-pink mb-2">A Propos</Link>
-            <Link to="/services" className="hover:text-primary-pink dark:hover:text-primary-pink mb-2">Les bienfaits des promenades</Link>
-            <Link to="/donate" className="hover:text-primary-pink dark:hover:text-primary-pink">Faire un don</Link>
+            <Link
+              to="/about"
+              className="hover:text-primary-pink dark:hover:text-primary-pink mb-2"
+            >
+              A Propos
+            </Link>
+            <Link
+              to="/services"
+              className="hover:text-primary-pink dark:hover:text-primary-pink mb-2"
+            >
+              Les bienfaits des promenades
+            </Link>
+            <Link
+              to="/donate"
+              className="hover:text-primary-pink dark:hover:text-primary-pink"
+            >
+              Faire un don
+            </Link>
           </div>
         </div>
 
         {/* Contact Column */}
         <div className="md:w-1/3">
-          <h3 className="text-xl font-semibold mt-6 text-primary-pink dark:text-primary-pink">Nous contacter</h3>
+          <h3 className="text-xl font-semibold mt-6 text-primary-pink dark:text-primary-pink">
+            Nous contacter
+          </h3>
           <div className="flex flex-col">
             <div className="flex items-center mb-2">
-              <a href="YOUR_FACEBOOK_PAGE_URL" target="_blank" rel="noopener noreferrer" className="hover:text-primary-pink dark:hover:text-primary-pink">
+              <a
+                href="https://www.facebook.com/profile.php?id=61572840741270
+"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-primary-pink dark:hover:text-primary-pink"
+              >
                 Facebook
               </a>
             </div>
             <div className="flex items-center">
-              <a href="mailto:YOUR_EMAIL_ADDRESS" className="hover:text-primary-pink dark:hover:text-primary-pink">
+              <a
+                href="mailto:contact.chiensencavale@gmail.com"
+                className="hover:text-primary-pink dark:hover:text-primary-pink"
+              >
                 Email
               </a>
             </div>
@@ -38,10 +66,13 @@ const Footer = () => {
       </div>
       <div className="container mx-auto w-11/12 md:w-10/12 px-10 pb-4 text-center text-sm">
         <p>&copy; 2024 Chiens en Cavale</p>
-        <p className="text-xs">Association à but non lucratif pour la promenade de chiens</p>
+        <p className="text-xs">
+          Association à but non lucratif pour la promenade de chiens
+        </p>
+        <p className="text-xs">SIREN 94120905800010</p>
       </div>
     </footer>
   );
 };
 
-export default Footer;  
+export default Footer;
