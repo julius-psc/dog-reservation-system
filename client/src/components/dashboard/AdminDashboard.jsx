@@ -18,7 +18,7 @@ import {
   faCheck,
   faBan,
   faMapMarkerAlt,
-  faFlagCheckered, // Added for "completed" status
+  faFlagCheckered,
 } from "@fortawesome/free-solid-svg-icons";
 
 import LogoutButton from "./recycled/LogoutButton";
@@ -38,11 +38,13 @@ const AdminDashboard = ({ handleLogout }) => {
   const [otherVillageError, setOtherVillageError] = useState(null);
 
   const [expandedVolunteerId, setExpandedVolunteerId] = useState(null);
+  const [expandedUserId, setExpandedUserId] = useState(null); // New state for expanding user rows
   const [volunteerFilter, setVolunteerFilter] = useState("");
   const [volunteerVillageFilter, setVolunteerVillageFilter] = useState("");
   const [reservationStatusFilter, setReservationStatusFilter] = useState("all");
   const [userVillageFilter, setUserVillageFilter] = useState("");
   const [userFilter, setUserFilter] = useState("");
+  const [userRoleFilter, setUserRoleFilter] = useState("all"); // New state for role filter
 
   const isProduction = import.meta.env.MODE === "production";
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
@@ -78,7 +80,7 @@ const AdminDashboard = ({ handleLogout }) => {
         setLoading(false);
       }
     };
-  
+
     const fetchAllReservations = async () => {
       const token = Cookies.get("token");
       if (!token) {
@@ -103,7 +105,7 @@ const AdminDashboard = ({ handleLogout }) => {
         setReservationsLoading(false);
       }
     };
-  
+
     const fetchAllUsers = async () => {
       const token = Cookies.get("token");
       if (!token) {
@@ -128,7 +130,7 @@ const AdminDashboard = ({ handleLogout }) => {
         setUsersLoading(false);
       }
     };
-  
+
     const fetchOtherVillageRequests = async () => {
       const token = Cookies.get("token");
       if (!token) {
@@ -153,12 +155,12 @@ const AdminDashboard = ({ handleLogout }) => {
         setOtherVillageLoading(false);
       }
     };
-  
+
     fetchVolunteers();
     fetchAllReservations();
     fetchAllUsers();
     fetchOtherVillageRequests();
-  }, [API_BASE_URL]); 
+  }, [API_BASE_URL]);
 
   if (loading || usersLoading || reservationsLoading || otherVillageLoading) {
     return (
@@ -186,6 +188,10 @@ const AdminDashboard = ({ handleLogout }) => {
     setExpandedVolunteerId(expandedVolunteerId === volunteerId ? null : volunteerId);
   };
 
+  const handleUserRowClick = (userId) => {
+    setExpandedUserId(expandedUserId === userId ? null : userId);
+  };
+
   const handleVolunteerStatusChange = async (volunteerId, newStatus) => {
     try {
       const token = Cookies.get("token");
@@ -210,6 +216,11 @@ const AdminDashboard = ({ handleLogout }) => {
       setVolunteers((prevVolunteers) =>
         prevVolunteers.map((vol) =>
           vol.id === volunteerId ? updatedVolunteer.volunteer : vol
+        )
+      );
+      setAllUsers((prevUsers) =>
+        prevUsers.map((user) =>
+          user.id === volunteerId ? { ...user, volunteer_status: newStatus } : user
         )
       );
       toast.success(`Statut du bénévole mis à jour en ${newStatus}.`);
@@ -265,7 +276,8 @@ const AdminDashboard = ({ handleLogout }) => {
         const villageMatch = user.village
           ? user.village.toLowerCase().includes(userVillageFilter.toLowerCase())
           : false;
-        return usernameMatch && villageMatch;
+        const roleMatch = userRoleFilter === "all" || user.role === userRoleFilter;
+        return usernameMatch && villageMatch && roleMatch;
       })
     : [];
 
@@ -539,7 +551,7 @@ const AdminDashboard = ({ handleLogout }) => {
                                       Voir / Télécharger
                                     </a>
                                   ) : (
-                                    "Aucun fichier de responsabilitié civile téléversé "
+                                    "Aucun fichier de responsabilité civile téléversé"
                                   )}
                                 </p>
                               </td>
@@ -570,7 +582,7 @@ const AdminDashboard = ({ handleLogout }) => {
                 <option value="pending">En attente</option>
                 <option value="accepted">Accepté</option>
                 <option value="rejected">Rejeté</option>
-                <option value="completed">Terminé</option> {/* Added "completed" option */}
+                <option value="completed">Terminé</option>
               </select>
             </div>
 
@@ -619,8 +631,8 @@ const AdminDashboard = ({ handleLogout }) => {
                                 : reservation.status === "rejected"
                                 ? "bg-red-200 text-red-800"
                                 : reservation.status === "completed"
-                                ? "bg-blue-200 text-blue-800" // Added for "completed"
-                                : "bg-yellow-200 text-yellow-800" // pending
+                                ? "bg-blue-200 text-blue-800"
+                                : "bg-yellow-200 text-yellow-800"
                             }`}
                           >
                             {reservation.status === "pending" && (
@@ -633,7 +645,7 @@ const AdminDashboard = ({ handleLogout }) => {
                               <FontAwesomeIcon icon={faBan} className="mr-1" />
                             )}
                             {reservation.status === "completed" && (
-                              <FontAwesomeIcon icon={faFlagCheckered} className="mr-1" /> // Added for "completed"
+                              <FontAwesomeIcon icon={faFlagCheckered} className="mr-1" />
                             )}
                             {reservation.status}
                           </span>
@@ -652,21 +664,31 @@ const AdminDashboard = ({ handleLogout }) => {
             <h2 className="text-xl font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
               <FontAwesomeIcon icon={faUsers} className="mr-2" /> Liste des Utilisateurs
             </h2>
-            <div className="mb-4 flex space-x-2">
+            <div className="mb-4 flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
               <input
                 type="text"
                 placeholder="Filtrer par nom d'utilisateur"
-                className="w-full md:w-1/2 px-4 py-2 rounded-md border dark:border-gray-700 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-300"
+                className="w-full sm:w-1/3 px-4 py-2 rounded-md border dark:border-gray-700 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-300"
                 value={userFilter}
                 onChange={(e) => setUserFilter(e.target.value)}
               />
               <input
                 type="text"
                 placeholder="Filtrer par commune de résidence"
-                className="w-full md:w-1/2 px-4 py-2 rounded-md border dark:border-gray-700 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-300"
+                className="w-full sm:w-1/3 px-4 py-2 rounded-md border dark:border-gray-700 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-300"
                 value={userVillageFilter}
                 onChange={(e) => setUserVillageFilter(e.target.value)}
               />
+              <select
+                value={userRoleFilter}
+                onChange={(e) => setUserRoleFilter(e.target.value)}
+                className="w-full sm:w-1/3 px-4 py-2 rounded-md border dark:border-gray-700 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-300"
+              >
+                <option value="all">Tous les rôles</option>
+                <option value="admin">Admin</option>
+                <option value="client">Client</option>
+                <option value="volunteer">Bénévole</option>
+              </select>
             </div>
 
             {usersLoading ? (
@@ -692,12 +714,118 @@ const AdminDashboard = ({ handleLogout }) => {
                   </thead>
                   <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                     {filteredUsers.map((user) => (
-                      <tr key={user.id} className="hover:bg-gray-100 dark:hover:bg-gray-900">
-                        <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300">{user.username}</td>
-                        <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300">{user.email}</td>
-                        <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300">{user.role}</td>
-                        <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300">{user.village}</td>
-                      </tr>
+                      <React.Fragment key={user.id}>
+                        <tr
+                          className="hover:bg-gray-100 dark:hover:bg-gray-900 cursor-pointer"
+                          onClick={() => handleUserRowClick(user.id)}
+                        >
+                          <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300">{user.username}</td>
+                          <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300">{user.email}</td>
+                          <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300">{user.role}</td>
+                          <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300">{user.village}</td>
+                        </tr>
+                        {expandedUserId === user.id && (
+                          <tr>
+                            <td colSpan="4" className="p-4 bg-gray-50 dark:bg-gray-700">
+                              <p className="dark:text-gray-300">
+                                <span className="font-semibold dark:text-gray-100">Email:</span> {user.email}
+                              </p>
+                              <p className="dark:text-gray-300">
+                                <span className="font-semibold dark:text-gray-100">Rôle:</span> {user.role}
+                              </p>
+                              <p className="dark:text-gray-300">
+                                <span className="font-semibold dark:text-gray-100">Village:</span> {user.village}
+                              </p>
+                              {user.role === "client" && (
+                                <p className="dark:text-gray-300">
+                                  <span className="font-semibold dark:text-gray-100">Charte du propriétaire:</span>{" "}
+                                  {user.client_charter_file_path ? (
+                                    <a
+                                      href={
+                                        isProduction
+                                          ? user.client_charter_file_path
+                                          : `${API_BASE_URL}${user.client_charter_file_path}`
+                                      }
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-blue-600 hover:underline dark:text-blue-500"
+                                    >
+                                      Voir / Télécharger
+                                    </a>
+                                  ) : (
+                                    "Aucune charte téléversée"
+                                  )}
+                                </p>
+                              )}
+                              {user.role === "volunteer" && (
+                                <>
+                                  <p className="dark:text-gray-300">
+                                    <span className="font-semibold dark:text-gray-100">Statut:</span>{" "}
+                                    <span
+                                      className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-bold ${
+                                        user.volunteer_status === "approved"
+                                          ? "bg-green-200 text-green-800"
+                                          : user.volunteer_status === "rejected"
+                                          ? "bg-red-200 text-red-800"
+                                          : "bg-yellow-200 text-yellow-800"
+                                      }`}
+                                    >
+                                      {user.volunteer_status === "pending" && (
+                                        <FontAwesomeIcon icon={faClock} className="mr-1" />
+                                      )}
+                                      {user.volunteer_status === "approved" && (
+                                        <FontAwesomeIcon icon={faCheck} className="mr-1" />
+                                      )}
+                                      {user.volunteer_status === "rejected" && (
+                                        <FontAwesomeIcon icon={faBan} className="mr-1" />
+                                      )}
+                                      {user.volunteer_status}
+                                    </span>
+                                  </p>
+                                  <p className="dark:text-gray-300">
+                                    <span className="font-semibold dark:text-gray-100">Charte bénévole:</span>{" "}
+                                    {user.charter_file_path ? (
+                                      <a
+                                        href={
+                                          isProduction
+                                            ? user.charter_file_path
+                                            : `${API_BASE_URL}${user.charter_file_path}`
+                                        }
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-blue-600 hover:underline dark:text-blue-500"
+                                      >
+                                        Voir / Télécharger
+                                      </a>
+                                    ) : (
+                                      "Aucune charte téléversée"
+                                    )}
+                                  </p>
+                                  <p className="dark:text-gray-300">
+                                    <span className="font-semibold dark:text-gray-100">Responsabilité civile:</span>{" "}
+                                    {user.insurance_file_path ? (
+                                      <a
+                                        href={
+                                          isProduction
+                                            ? user.insurance_file_path
+                                            : `${API_BASE_URL}${user.insurance_file_path}`
+                                        }
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-blue-600 hover:underline dark:text-blue-500"
+                                      >
+                                        Voir / Télécharger
+                                      </a>
+                                    ) : (
+                                      "Aucun fichier téléversé"
+                                    )}
+                                  </p>
+                                </>
+                              )}
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
                     ))}
                   </tbody>
                 </table>

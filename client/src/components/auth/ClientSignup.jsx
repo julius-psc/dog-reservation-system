@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from 'react-router-dom';
 import toast from "react-hot-toast";
+import charte from '../../assets/dashboard/attestation_propriétaire.pdf';
 
 const ClientSignup = () => {
   const navigate = useNavigate();
@@ -16,6 +17,7 @@ const ClientSignup = () => {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [signupError, setSignupError] = useState("");
   const [validationErrors, setValidationErrors] = useState({});
+  const [charteSigned, setCharteSigned] = useState(false); // New state for checkbox
 
   const villageOptions = [
     "Anisy", "Mathieu", "Epron", "Cambes-en-Plaine", "Authie",
@@ -38,7 +40,7 @@ const ClientSignup = () => {
   };
 
   const validatePhoneNumber = (phoneNumber) => {
-    const regex = /^[0-9]{10}$/; // Exige exactement 10 chiffres
+    const regex = /^[0-9]{10}$/;
     return regex.test(phoneNumber) ? null : "Numéro de téléphone invalide (10 chiffres requis)";
   };
 
@@ -54,22 +56,24 @@ const ClientSignup = () => {
     return password.length >= 6 ? null : "Mot de passe doit avoir au moins 6 caractères";
   };
 
+  const validateCharteSigned = (checked) => {
+    return checked ? null : "Vous devez confirmer avoir signé la charte";
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSignupError("");
     setValidationErrors({});
 
     let errors = {};
-
-    // Validation commune à tous les cas
     errors.username = validateUsername(username) || validateRequired(username);
     errors.password = validatePassword(password) || validateRequired(password);
     errors.email = validateEmail(email) || validateRequired(email);
     errors.village = validateRequired(village);
     errors.address = validateRequired(address);
     errors.phoneNumber = validatePhoneNumber(phoneNumber) || validateRequired(phoneNumber);
+    errors.charteSigned = validateCharteSigned(charteSigned); // New validation
 
-    // Validation spécifique pour "Autres communes"
     if (showAutresCommunesForm) {
       errors.autreCommuneVillageSouhaite = validateRequired(autreCommuneVillageSouhaite);
     }
@@ -86,9 +90,9 @@ const ClientSignup = () => {
     if (showAutresCommunesForm) {
       endpoint = `${import.meta.env.VITE_API_BASE_URL}/client/other-village`;
       registrationData = {
-        autreCommuneNom: username, // Réutilise username comme nom
-        autreCommuneEmail: email,  // Réutilise email
-        autreCommuneTelephone: phoneNumber, // Réutilise phoneNumber
+        autreCommuneNom: username,
+        autreCommuneEmail: email,
+        autreCommuneTelephone: phoneNumber,
         autreCommuneVillageSouhaite,
         village: "Autres communes",
         role: "client"
@@ -119,6 +123,7 @@ const ClientSignup = () => {
       setUsername(""); setPassword(""); setEmail(""); setVillage("");
       setShowAutresCommunesForm(false); setAutreCommuneVillageSouhaite("");
       setRole("client"); setAddress(""); setPhoneNumber("");
+      setCharteSigned(false); // Reset checkbox
       setValidationErrors({});
 
       const successMessage = showAutresCommunesForm
@@ -143,6 +148,14 @@ const ClientSignup = () => {
     } else {
       setValidationErrors(prevErrors => ({ ...prevErrors, [e.target.name]: null }));
     }
+  };
+
+  const handleCheckboxChange = (e) => {
+    setCharteSigned(e.target.checked);
+    setValidationErrors(prevErrors => ({
+      ...prevErrors,
+      charteSigned: validateCharteSigned(e.target.checked)
+    }));
   };
 
   return (
@@ -296,6 +309,32 @@ const ClientSignup = () => {
                   {validationErrors.autreCommuneVillageSouhaite && <p className="mt-1 text-xs text-red-500 dark:text-red-400">{validationErrors.autreCommuneVillageSouhaite}</p>}
                 </div>
               )}
+
+              {/* Charter Download and Checkbox Section */}
+              <div className="col-span-6">
+                <p className="text-sm text-gray-700 dark:text-gray-200 mb-2">
+                  Veuillez télécharger la{' '}
+                  <a href={charte} download="charte_du_propriétaire.pdf" className="text-primary-pink underline hover:text-pink-700 dark:text-primary-pink dark:hover:text-pink-500">
+                    Charte du Propriétaire
+                  </a>{' '}
+                  et la signer.
+                </p>
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    name="charteSigned"
+                    checked={charteSigned}
+                    onChange={handleCheckboxChange}
+                    className="rounded border-gray-300 text-primary-pink focus:ring-primary-pink dark:bg-gray-800 dark:border-gray-600"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-200">
+                    J&#39;ai téléchargé et signé la charte
+                  </span>
+                </label>
+                {validationErrors.charteSigned && (
+                  <p className="mt-1 text-xs text-red-500 dark:text-red-400">{validationErrors.charteSigned}</p>
+                )}
+              </div>
 
               <div className="col-span-6">
                 <button

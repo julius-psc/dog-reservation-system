@@ -2,6 +2,9 @@ const express = require("express");
 const router = express.Router();
 const { sendReservationRequestEmailToVolunteer } = require('../email/emailService'); 
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
+const path = require("path");
+const fs = require("fs").promises;
 
 module.exports = (
   pool,
@@ -11,6 +14,19 @@ module.exports = (
   WebSocket,
   isValidTime
 ) => {
+
+  // AWS S3 Configuration
+  const isProduction = process.env.NODE_ENV === "production";
+  const s3Client = isProduction
+    ? new S3Client({
+        region: process.env.AWS_REGION || "us-east-1",
+        credentials: {
+          accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+          secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+        },
+      })
+    : null;
+
   // CREATE A CLIENT RESERVATION
   router.post("/reservations", authenticate, async (req, res) => {
     const client = await pool.connect();
@@ -522,6 +538,86 @@ module.exports = (
     } catch (error) {
       console.error("Error creating payment intent:", error);
       res.status(500).json({ error: "Failed to process donation" });
+    }
+  });
+
+  // SUBMIT CLIENT CHARTER
+  router.post("/client/submit-charter", authenticate, async (req, res) => {
+    try {
+      const userId = req.user.userId;
+
+      if (!req.files || !req.files.charter) {
+        return res.status(400).json({ error: "Veuillez téléverser le fichier de la charte." });
+      }
+
+      const charterFile = req.files.charter;
+      const charterFilename = `client_charter_${userId}_${Date.now()}${path.extname(charterFile.name)}`;
+
+      let charterPath;
+
+      if (isProduction) {
+        const uploadToS3 = async (file, key) => {
+          const params = {
+            Bucket: process.env.S3_BUCKET_NAME,
+            Key: `client_charters/${key}`, // Store in a separate folder for clients
+            Body: file.data,
+            ContentType: file.mimetype,
+          };
+          const command = new PutObjectCommand(params);
+          await s3Client.send(command);
+          return `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION || "us-east-1"}.amazonaws.com/client_charters/${key}`;
+        };
+
+        charterPath = await uploadToS3(charterFile, charterFilename);
+      } else {
+        const chartersUploadDir = path.join(__dirname, "forms", "client_charters");
+        await fs.mkdir(chartersUploadDir, { recursive: true });
+        charterPath = `/client_charters/${charterFilename}`;
+        const charterFullPath = path.join(chartersUploadDir, charterFilename);
+        await charterFile.mv(charterFullPath);
+        console.log(`Charter saved to: ${charterFullPath}`);
+      }
+
+      // Update user's record with the client_charter_file_path
+      const result = await pool.query(
+        "UPDATE users SET client_charter_file_path = $1 WHERE id = $2 RETURNING *",
+        [charterPath, userId]
+      );
+
+      res.json({
+        message: "Charte soumise avec succès !",
+        user: result.rows[0],
+      });
+    } catch (error) {
+      console.error("Erreur lors de la soumission de la charte :", error);
+      res.status(500).json({
+        error: error.message || "Échec du traitement du document",
+      });
+    }
+  });
+
+  // CHARTER STATUS
+  router.get("/client/charter-status", authenticate, async (req, res) => {
+    try {
+      const userId = req.user.userId;
+      const result = await pool.query(
+        "SELECT client_charter_file_path FROM users WHERE id = $1",
+        [userId]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: "Utilisateur non trouvé" });
+      }
+
+      const clientCharterPath = result.rows[0].client_charter_file_path;
+      res.json({
+        client_charter_file_path: clientCharterPath,
+        // Optionally extract filename if stored in a specific format
+        client_charter_filename: clientCharterPath ? path.basename(clientCharterPath) : null,
+      });
+    } catch (error) {
+      console.error("Erreur lors de la récupération du statut de la charte :", error);
+      res.status(500).json({ error: "Échec de la récupération du statut de la charte" });
     }
   });
 

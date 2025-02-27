@@ -29,6 +29,7 @@ const About = () => {
               Cavale crée du lien en réunissant passionnés d’animaux et personnes
               en difficulté
             </span>.
+            
           </p>
         </div>
         <div className="flex items-center justify-center bg-white w-1/3 ml-8 h-60 rounded-tl-4xl rounded-bl-4xl shadow-[0_3px_4px_rgba(0,0,0,0.25)]">

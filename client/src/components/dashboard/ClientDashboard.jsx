@@ -4,6 +4,7 @@ import PropTypes from "prop-types";
 import moment from "moment";
 import DatePicker from "react-datepicker";
 import LogoutButton from "./recycled/LogoutButton";
+import ClientCharterForm from "./forms/ClientCharterForm";
 import "react-datepicker/dist/react-datepicker.css";
 import toast from "react-hot-toast";
 import { ClipLoader } from "react-spinners";
@@ -441,11 +442,12 @@ const ClientDashboard = memo(({ handleLogout }) => {
       </header>
 
       <main className="container mx-auto mt-8 px-4 pb-8">
+        <ClientCharterForm/>
         <div className="grid grid-cols-1 gap-6">
           <section className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
             <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
               <FontAwesomeIcon icon={faDog} className="mr-2" />
-              Mes profiles chiens
+              Mes profils chiens
             </h3>
             {showDogForm ? (
               <form onSubmit={handleDogFormSubmit} className="space-y-4">
