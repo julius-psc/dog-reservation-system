@@ -16,13 +16,7 @@ const Footer = () => {
           </h3>
           <div className="flex flex-col">
             <Link
-              to="/about"
-              className="hover:text-primary-pink dark:hover:text-primary-pink mb-2"
-            >
-              A Propos
-            </Link>
-            <Link
-              to="/services"
+              to="/benefits"
               className="hover:text-primary-pink dark:hover:text-primary-pink mb-2"
             >
               Les bienfaits des promenades
