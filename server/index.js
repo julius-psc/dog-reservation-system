@@ -82,20 +82,12 @@ const server = http.createServer(app);
 
 // Initialize WebSocket server
 const isProduction = process.env.NODE_ENV === "production";
-let wss;
-
-if (isProduction) {
-  // In production, attach WebSocket to the same HTTP server
-  wss = new WebSocket.Server({ server });
-} else {
-  // In development, use a separate port (8081)
-  wss = new WebSocket.Server({ port: 8081 });
-}
+const wss = new WebSocket.Server({ server }); // Always attach to HTTP server
 
 const connectedClients = new Set();
 
 wss.on("connection", (ws) => {
-  console.log("Client connected");
+  console.log("Client connected to WebSocket server");
 
   ws.on("message", (message) => {
     console.log(`Received: ${message}`);
@@ -131,11 +123,10 @@ const authenticate = (req, res, next) => {
       if (err) {
         return res.status(403).json({ error: "Invalid token" });
       }
-      // Ensure village is included in the user object
       pool.query("SELECT village FROM users WHERE id = $1", [user.userId], (err, result) => {
         if (err || result.rows.length === 0) {
           console.error("Error fetching user village:", err);
-          req.user = user; // Proceed without village if not found
+          req.user = user;
         } else {
           req.user = { ...user, village: result.rows[0].village };
         }
@@ -192,9 +183,5 @@ app.get("/fetchUser", authenticate, async (req, res) => {
 // Start the server
 server.listen(port, () => {
   console.log(`Server listening on port ${port}`);
-  if (isProduction) {
-    console.log(`WebSocket server running on wss://yourdomain.com`); // Replace with actual domain
-  } else {
-    console.log(`WebSocket server running on ws://localhost:8081`);
-  }
+  console.log(`WebSocket server running on ${isProduction ? "wss://chiensencavale.com" : "ws://localhost:" + port}`);
 });

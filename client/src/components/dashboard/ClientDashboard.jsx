@@ -330,15 +330,15 @@ const ClientDashboard = memo(({ handleLogout }) => {
   useEffect(() => {
     const token = Cookies.get("token");
     if (!token) return;
-  
+
     let ws;
-    // Use the same origin as the API in production, fallback to local dev
-    const wsUrl = import.meta.env.VITE_WS_BASE_URL || 
-                  (import.meta.env.PROD ? `wss://${window.location.hostname}` : "ws://localhost:8081");
-  
+    // Align WebSocket URL with API base URL, replacing http with ws
+    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
+    const wsUrl = apiBaseUrl.replace(/^http/, "ws").replace(/^https/, "wss");
+
     const connectWebSocket = () => {
       ws = new WebSocket(wsUrl);
-  
+
       ws.onopen = () => {
         console.log("WebSocket connected to", wsUrl);
         if (village) {
@@ -346,7 +346,7 @@ const ClientDashboard = memo(({ handleLogout }) => {
           console.log(`Sent join_village for: ${village}`);
         }
       };
-  
+
       ws.onmessage = (event) => {
         const message = JSON.parse(event.data);
         if (message.type === "reservation_update") {
@@ -355,19 +355,19 @@ const ClientDashboard = memo(({ handleLogout }) => {
           fetchAvailableSlots();
         }
       };
-  
+
       ws.onerror = (error) => {
         console.error("WebSocket error:", error);
       };
-  
+
       ws.onclose = (event) => {
         console.log("WebSocket closed:", event.code, event.reason);
         setTimeout(connectWebSocket, 1000);
       };
     };
-  
+
     connectWebSocket();
-  
+
     return () => {
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.close(1000, "Component unmounting");
@@ -444,7 +444,7 @@ const ClientDashboard = memo(({ handleLogout }) => {
       </header>
 
       <main className="container mx-auto mt-8 px-4 pb-8">
-        <ClientCharterForm/>
+        <ClientCharterForm />
         <div className="grid grid-cols-1 gap-6">
           <section className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
             <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
