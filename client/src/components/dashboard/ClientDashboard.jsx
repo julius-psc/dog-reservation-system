@@ -330,13 +330,15 @@ const ClientDashboard = memo(({ handleLogout }) => {
   useEffect(() => {
     const token = Cookies.get("token");
     if (!token) return;
-
+  
     let ws;
-    const wsUrl = import.meta.env.VITE_WS_BASE_URL || "ws://localhost:8081";
-
+    // Use the same origin as the API in production, fallback to local dev
+    const wsUrl = import.meta.env.VITE_WS_BASE_URL || 
+                  (import.meta.env.PROD ? `wss://${window.location.hostname}` : "ws://localhost:8081");
+  
     const connectWebSocket = () => {
       ws = new WebSocket(wsUrl);
-
+  
       ws.onopen = () => {
         console.log("WebSocket connected to", wsUrl);
         if (village) {
@@ -344,7 +346,7 @@ const ClientDashboard = memo(({ handleLogout }) => {
           console.log(`Sent join_village for: ${village}`);
         }
       };
-
+  
       ws.onmessage = (event) => {
         const message = JSON.parse(event.data);
         if (message.type === "reservation_update") {
@@ -353,26 +355,26 @@ const ClientDashboard = memo(({ handleLogout }) => {
           fetchAvailableSlots();
         }
       };
-
+  
       ws.onerror = (error) => {
         console.error("WebSocket error:", error);
       };
-
+  
       ws.onclose = (event) => {
         console.log("WebSocket closed:", event.code, event.reason);
         setTimeout(connectWebSocket, 1000);
       };
     };
-
+  
     connectWebSocket();
-
+  
     return () => {
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.close(1000, "Component unmounting");
         console.log("WebSocket cleanup: closed connection");
       }
     };
-  }, [village, fetchAvailableSlots]); // Stable dependencies
+  }, [village, fetchAvailableSlots]);
 
   const isSlotReserved = useCallback(
     (currentDate, slot, dayIndex) => {
