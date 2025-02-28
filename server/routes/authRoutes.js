@@ -181,5 +181,30 @@ module.exports = (pool, bcrypt, jwt, sendPasswordResetEmail) => {
     }
   });
 
+  // Fetch all villages from volunteers
+  router.get("/villages", async (req, res) => {
+    try {
+      const query = `
+        SELECT DISTINCT village_name
+        FROM (
+          SELECT jsonb_array_elements_text(
+            jsonb_build_array(village) || 
+            COALESCE(villages_covered, '[]'::jsonb)
+          ) AS village_name
+          FROM users
+          WHERE role = 'volunteer'
+        ) AS villages
+        WHERE village_name IS NOT NULL
+      `;
+      const result = await pool.query(query);
+      
+      const villages = result.rows.map(row => row.village_name);
+      res.json({ villages });
+    } catch (error) {
+      console.error("Error fetching villages:", error);
+      res.status(500).json({ error: "Failed to fetch villages", details: error.message });
+    }
+  });
+
   return router;
 };

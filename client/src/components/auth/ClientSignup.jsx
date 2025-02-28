@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react"; // Added useMemo
 import { useNavigate } from 'react-router-dom';
 import toast from "react-hot-toast";
 import charte from '../../assets/dashboard/attestation_propriétaire.pdf';
@@ -18,13 +18,36 @@ const ClientSignup = () => {
   const [signupError, setSignupError] = useState("");
   const [validationErrors, setValidationErrors] = useState({});
   const [charteSigned, setCharteSigned] = useState(false);
+  const [allVillages, setAllVillages] = useState([]);
 
-  const villageOptions = [
+  // Memoized static village options
+  const staticVillageOptions = useMemo(() => [
     "Anisy", "Mathieu", "Epron", "Cambes-en-Plaine", "Authie",
     "Saint-Contest", "Banville", "Biéville-Beuville", "Périers-sur-le-Dan",
     "Blainville-sur-Orne", "Caen", "Douvres-la-Délivrande",
     "Hérouville-Saint-Clair", "Ouistreham", "Vire", "Autres communes"
-  ];
+  ], []); // Empty dependency array since it’s static
+
+  // Fetch villages from the server when the component mounts
+  useEffect(() => {
+    const fetchVillages = async () => {
+      try {
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/villages`);
+        if (!response.ok) {
+          throw new Error("Failed to fetch villages");
+        }
+        const data = await response.json();
+        const volunteerVillages = data.villages || [];
+        const combinedVillages = [...new Set([...staticVillageOptions, ...volunteerVillages])].sort();
+        setAllVillages(combinedVillages);
+      } catch (error) {
+        console.error("Error fetching villages:", error);
+        setAllVillages(staticVillageOptions);
+      }
+    };
+
+    fetchVillages();
+  }, [staticVillageOptions]); // staticVillageOptions is memoized, so it won’t change
 
   useEffect(() => {
     if (signupError) {
@@ -120,7 +143,6 @@ const ClientSignup = () => {
         throw new Error(errorMessage);
       }
 
-      // Clear form fields
       setUsername("");
       setPassword("");
       setEmail("");
@@ -138,7 +160,6 @@ const ClientSignup = () => {
         : "Inscription réussie ! Vous serez redirigé vers la page de connexion dans 3 secondes.";
       toast.success(successMessage);
 
-      // Redirect to /login after 3 seconds
       setTimeout(() => {
         navigate('/login');
       }, 3000);
@@ -274,7 +295,7 @@ const ClientSignup = () => {
                     className="mt-1 py-2 px-3 w-full rounded-md border-gray-200 bg-white text-sm text-gray-700 shadow-xs dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 appearance-none"
                   >
                     <option value="" disabled>Sélectionnez votre commune</option>
-                    {villageOptions.map((option) => (
+                    {allVillages.map((option) => (
                       <option key={option} value={option}>{option}</option>
                     ))}
                   </select>
@@ -322,7 +343,6 @@ const ClientSignup = () => {
                 </div>
               )}
 
-              {/* Charter Download and Checkbox Section */}
               <div className="col-span-6">
                 <p className="text-sm text-gray-700 dark:text-gray-200 mb-2">
                   Veuillez télécharger la{' '}

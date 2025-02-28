@@ -137,6 +137,7 @@ const VolunteerDashboard = ({ handleLogout }) => {
   const [actionType, setActionType] = useState(null);
   const [villagesCovered, setVillagesCovered] = useState([]);
   const [selectedVillage, setSelectedVillage] = useState("");
+  const [customVillage, setCustomVillage] = useState(""); // New state for custom input
   const [hasVillagesCoveredBeenSet, setHasVillagesCoveredBeenSet] = useState(false);
   const [loadingVillages, setLoadingVillages] = useState(true);
   const [errorVillages, setErrorVillages] = useState(null);
@@ -395,15 +396,22 @@ const VolunteerDashboard = ({ handleLogout }) => {
 
   const daysOfWeekLabels = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
 
-  const handleAddVillage = () => {
-    if (!selectedVillage.trim()) return;
-    if (villagesCovered.includes(selectedVillage)) {
-      setActionMessage(`Le village "${selectedVillage}" est déjà dans votre liste.`);
+  const handleAddVillage = (source) => {
+    let villageToAdd = source === "dropdown" ? selectedVillage : customVillage.trim();
+    
+    if (!villageToAdd) {
+      setActionMessage("Veuillez sélectionner ou entrer un nom de village valide.");
+      setActionType("error");
+      return;
+    }
+    if (villagesCovered.includes(villageToAdd)) {
+      setActionMessage(`Le village "${villageToAdd}" est déjà dans votre liste.`);
       setActionType("warning");
       return;
     }
-    setVillagesCovered([...villagesCovered, selectedVillage.trim()]);
-    setSelectedVillage("");
+    setVillagesCovered([...villagesCovered, villageToAdd]);
+    if (source === "dropdown") setSelectedVillage("");
+    if (source === "custom") setCustomVillage(""); // Clear custom input after adding
   };
 
   const handleRemoveVillage = (villageToRemove) => {
@@ -591,31 +599,52 @@ const VolunteerDashboard = ({ handleLogout }) => {
                       htmlFor="villageSelect"
                       className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
                     >
-                      Sélectionner une commune (votre commune par défaut: {volunteerVillage})
+                      Sélectionner ou ajouter une commune (votre commune par défaut: {volunteerVillage})
                     </label>
-                    <div className="flex space-x-2">
-                      <select
-                        id="villageSelect"
-                        className="mt-1 block w-full py-2 px-3 rounded-md border-gray-300 shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-700 dark:text-gray-300"
-                        value={selectedVillage}
-                        onChange={(e) => setSelectedVillage(e.target.value)}
-                      >
-                        <option value="">Choisir une commune</option>
-                        {villageOptions
-                          .filter((village) => village !== volunteerVillage)
-                          .map((village) => (
-                            <option key={village} value={village}>
-                              {village}
-                            </option>
-                          ))}
-                      </select>
-                      <button
-                        onClick={handleAddVillage}
-                        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline text-sm cursor-pointer"
-                        disabled={!selectedVillage}
-                      >
-                        Ajouter
-                      </button>
+                    <div className="space-y-4">
+                      {/* Dropdown Section */}
+                      <div className="flex space-x-2">
+                        <select
+                          id="villageSelect"
+                          className="mt-1 block w-full py-2 px-3 rounded-md border-gray-300 shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-700 dark:text-gray-300"
+                          value={selectedVillage}
+                          onChange={(e) => setSelectedVillage(e.target.value)}
+                        >
+                          <option value="">Choisir une commune</option>
+                          {villageOptions
+                            .filter((village) => village !== volunteerVillage)
+                            .map((village) => (
+                              <option key={village} value={village}>
+                                {village}
+                              </option>
+                            ))}
+                        </select>
+                        <button
+                          onClick={() => handleAddVillage("dropdown")}
+                          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline text-sm cursor-pointer"
+                          disabled={!selectedVillage}
+                        >
+                          Ajouter
+                        </button>
+                      </div>
+                      {/* Custom Input Section */}
+                      <div className="flex space-x-2">
+                        <input
+                          id="customVillageInput"
+                          type="text"
+                          className="mt-1 block w-full py-2 px-3 rounded-md border-gray-300 shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-700 dark:text-gray-300"
+                          value={customVillage}
+                          onChange={(e) => setCustomVillage(e.target.value)}
+                          placeholder="Ou entrez une commune personnalisée"
+                        />
+                        <button
+                          onClick={() => handleAddVillage("custom")}
+                          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline text-sm cursor-pointer"
+                          disabled={!customVillage.trim()}
+                        >
+                          Ajouter
+                        </button>
+                      </div>
                     </div>
                   </div>
                   {villagesCovered.length > 0 && (
