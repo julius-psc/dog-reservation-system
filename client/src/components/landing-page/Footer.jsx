@@ -10,7 +10,7 @@ const Footer = () => {
         </div>
 
         {/* Links Column */}
-        <div className="md:w-1/3 mb-0 lg:mb-4 mt-0">
+        <div className="md:w-1/3 mb-4 mt-6">
           <h3 className="text-xl font-semibold text-primary-pink dark:text-primary-pink">
             Liens rapides
           </h3>
