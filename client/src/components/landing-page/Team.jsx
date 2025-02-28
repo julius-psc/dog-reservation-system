@@ -66,41 +66,43 @@ const Team = () => {
 
   if (loading) {
     return (
-      <section className="bg-secondary-pink w-screen py-40 relative overflow-hidden text-primary-black">
+      <section className="bg-secondary-pink w-screen py-16 md:py-40 relative overflow-hidden text-primary-black">
         <img
-          className="absolute bottom-10 left-40 z-0"
+          className="absolute bottom-10 left-40 z-0 hidden md:block"
           src={paws}
           alt="Paws background pattern"
         />
-        <div className="relative z-10">
-          <h1 className="text-primary-pink font-semibold text-4xl pl-20 mb-8">
+        <div className="relative z-10 px-6 md:px-20">
+          <h1 className="text-primary-pink font-semibold text-3xl md:text-4xl mb-8">
             Notre association
           </h1>
 
-          <div className="flex justify-center mb-16">
+          <div className="flex flex-wrap justify-center mb-8 md:mb-16">
             {[1, 2, 3, 4].map((index) => (
-              <div key={index} className="mx-4 flex flex-col items-center">
-                <Skeleton variant="circular" width={70} height={70} />
+              <div key={index} className="mx-4 my-2 flex flex-col items-center">
+                <Skeleton variant="circular" width={100} height={100} />
                 <Skeleton variant="text" width={100} />
                 <Skeleton variant="text" width={80} />
               </div>
             ))}
           </div>
 
-          <div className="flex justify-center items-center">
-            <p className="text-primary-black text-xl mr-8">
+          <div className="flex flex-col justify-center items-center">
+            <p className="text-primary-black text-lg md:text-xl mb-4">
               et le réseau des{" "}
               <span className="font-bold text-primary-pink">bénévoles</span>!
             </p>
-            {[1, 2, 3, 4, 5, 6, 7].map((index) => (
-              <Skeleton
-                key={index}
-                variant="circular"
-                width={20}
-                height={20}
-                style={{ marginLeft: index > 0 ? "-8px" : "0px" }}
-              />
-            ))}
+            <div className="flex flex-wrap justify-center">
+              {[1, 2, 3, 4, 5, 6, 7].map((index) => (
+                <Skeleton
+                  key={index}
+                  variant="circular"
+                  width={40}
+                  height={40}
+                  style={{ margin: "4px" }}
+                />
+              ))}
+            </div>
           </div>
         </div>
       </section>
@@ -116,62 +118,64 @@ const Team = () => {
   }
 
   return (
-    <section className="bg-secondary-pink w-screen pt-40 pb-20 relative overflow-hidden text-primary-black">
+    <section className="bg-secondary-pink w-screen pt-16 md:pt-40 pb-20 relative overflow-hidden text-primary-black">
       <img
-        className="absolute bottom-10 left-40 z-0"
+        className="absolute bottom-10 left-40 z-0 hidden md:block"
         src={paws}
         alt="Paws background pattern"
       />
-      <div className="relative z-10">
-        <h1 className="text-primary-pink font-semibold text-4xl pl-20 mb-8">
+      <div className="relative z-10 px-6 md:px-20">
+        <h1 className="text-primary-pink font-semibold text-3xl md:text-4xl mb-8">
           Notre association
         </h1>
 
-        <div className="flex justify-center mb-16">
+        <div className="flex flex-wrap justify-center mb-8 md:mb-16">
           {admins.map((admin, index) => (
-            <div key={index} className="mx-4 flex flex-col items-center">
-              <div className="rounded-full bg-white w-70 h-70 shadow-md overflow-hidden">
+            <div key={index} className="mx-4 my-2 flex flex-col items-center">
+              <div className="rounded-full bg-white w-[140px] h-[140px] md:w-[70px] md:h-[70px] lg:w-[180px] lg:h-[180px] shadow-md overflow-hidden">
                 <img
                   src={admin.image}
                   alt={`Admin ${index + 1}`}
                   className="w-full h-full object-cover"
                 />
               </div>
-              <p className="mt-2 text-center text-lg text-primary-black">
+              <p className="mt-2 text-center text-lg md:text-base text-primary-black">
                 {admin.name}
               </p>
-              <p className="text-center text-md opacity-70 text-primary-pink">
+              <p className="text-center text-md md:text-sm opacity-70 text-primary-pink">
                 {admin.role}
               </p>
             </div>
           ))}
         </div>
 
-        <div className="flex justify-center items-center">
-          <p className="text-primary-black text-xl mr-8">
+        <div className="flex flex-col justify-center items-center">
+          <p className="text-primary-black text-xl md:text-xl mb-4">
             et le réseau des{" "}
             <span className="font-bold text-primary-pink">bénévoles</span>!
           </p>
-          {members.map((avatar, index) => (
-            <div
-              key={index}
-              className={`rounded-full w-20 h-20 shadow-md relative overflow-hidden ${
-                index > 0 ? "-ml-8" : ""
-              }`}
-            >
-              <img
-                src={avatar}
-                alt={`Member ${index + 1}`}
-                className="w-full h-full object-cover"
-              />
-            </div>
-          ))}
+          <div className="flex flex-wrap justify-center">
+            {members.map((avatar, index) => (
+              <div
+                key={index}
+                className="rounded-full w-[40px] h-[40px] md:w-[50px] md:h-[50px] shadow-md overflow-hidden m-2"
+              >
+                <img
+                  src={avatar}
+                  alt={`Member ${index + 1}`}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="flex justify-center items-center mt-20">
+
+        <div className="flex justify-center items-center mt-8 md:mt-20">
           <iframe
             src="https://www.google.com/maps/d/u/0/embed?mid=14msch42jhWHs_xkxjKK-WVUtPpTPrSc&ehbc=2E312F"
-            width="640"
+            width="100%"
             height="480"
+            className="max-w-[640px] w-full"
           ></iframe>
         </div>
       </div>

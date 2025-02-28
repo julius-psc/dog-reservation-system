@@ -1,7 +1,5 @@
 import { Link } from "react-router-dom";
-import { Pie } from "react-chartjs-2";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
-import Navbar from "../../landing-page/Navbar";
 import { useState } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
@@ -113,43 +111,6 @@ const Donate = () => {
   const [customAmount, setCustomAmount] = useState("");
   const [showCustomInput, setShowCustomInput] = useState(false);
 
-  // Expense data (labels translated to French)
-  const expensesData = {
-    labels: [
-      "Assurance MAIF",
-      "Kit promeneur",
-      "Affiches",
-      "Hébergement du site",
-      "Compte bancaire",
-    ],
-    datasets: [
-      {
-        label: "Dépenses annuelles (€)",
-        data: [84, 3.7 * (16 + 37) + 4.4, 42, 37, 9 * 12],
-        backgroundColor: [
-          "rgba(30, 144, 255, 0.8)",
-          "rgba(0, 191, 255, 0.8)",
-          "rgba(0, 255, 255, 0.8)",
-          "rgba(127, 255, 212, 0.8)",
-          "rgba(152, 251, 152, 0.8)",
-        ],
-        borderColor: [
-          "rgba(30, 144, 255, 1)",
-          "rgba(0, 191, 255, 1)",
-          "rgba(0, 255, 255, 1)",
-          "rgba(127, 255, 212, 1)",
-          "rgba(152, 251, 152, 1)",
-        ],
-        borderWidth: 1,
-      },
-    ],
-  };
-
-  const chartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-  };
-
   const handleDonateSuccess = () => {
     alert("Merci pour votre don !");
     setSelectedAmount(null);
@@ -165,11 +126,10 @@ const Donate = () => {
     setSelectedAmount(null);
   };
 
-  const donationAmounts = [2, 5, 10, 20, 50, 100];
+  const donationAmounts = [5, 10, 15, 20, 50, 100];
 
   return (
     <section className="bg-white dark:bg-gray-900">
-      <Navbar />
       <div className="lg:grid lg:min-h-screen lg:grid-cols-12">
         <aside className="relative block h-16 lg:order-last lg:col-span-5 lg:h-full xl:col-span-6">
           <img
@@ -204,13 +164,6 @@ const Donate = () => {
                 multirisques pour nos bénévoles, frais bancaires, impressions de
                 supports de communication, et bien plus encore.
               </p>
-
-              <div
-                className="chart-container"
-                style={{ position: "relative", height: "300px", width: "100%" }}
-              >
-                <Pie data={expensesData} options={chartOptions} />
-              </div>
             </div>
 
             <div className="mt-8">

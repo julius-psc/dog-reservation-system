@@ -119,7 +119,7 @@ function Navbar() {
   return (
     <nav className="py-4 md:py-5 lg:py-6 w-full fixed top-0 z-[100] flex justify-center items-center">
       <div
-        className={`container max-w-4xl flex items-center justify-between bg-white dark:bg-gray-800 pr-4 md:pr-5 lg:pr-6 pt-2 md:pt-3 pb-5 md:pb-4 lg:pb-5 px-4 md:px-5 lg:px-6 ${
+        className={`container max-w-4xl flex items-center justify-between bg-white dark:bg-gray-800 pr-4 md:pr-5 lg:pr-6 pt-4 md:pt-3 pb-5 md:pb-4 lg:pb-5 px-4 md:px-5 lg:px-6 ${
           isMobileMenuOpen ? 'mx-0 rounded-t-4xl' : 'mx-4 rounded-4xl'
         }`}
       >

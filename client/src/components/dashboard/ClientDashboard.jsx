@@ -217,15 +217,14 @@ const ClientDashboard = memo(({ handleLogout }) => {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to create reservation");
+        throw new Error(errorData.error || "Impossible de créer une réservation");
       }
 
       const reservationData = await response.json();
       setReservations((prev) => [...prev, reservationData.reservation]);
-      toast.success("Reservation request sent. Please wait for volunteer confirmation.");
+      toast.success("Demande de réservation envoyée. Veuillez attendre la confirmation d'un bénévole.");
     } catch (error) {
-      console.error("Error creating reservation:", error);
-      toast.error(`Error creating reservation: ${error.message}`);
+      toast.error(`Erreur lors de la création de la réservation: ${error.message}`);
     } finally {
       setReservationLoading(false);
       await Promise.all([fetchAvailableSlots(), fetchReservations(), fetchPersonalReservations()]);
@@ -561,7 +560,7 @@ const ClientDashboard = memo(({ handleLogout }) => {
             <div className="mb-4 flex justify-center space-x-3">
               <button
                 onClick={goToPreviousWeek}
-                className="bg-gray-400 hover:bg-gray-500 text-gray-900 dark:text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline text-sm"
+                className="bg-primary-pink hover:bg-pink-500 text-white cursor-pointer dark:text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline text-sm"
                 disabled={isCurrentWeekDisplayed}
               >
                 Semaine précédente
@@ -576,7 +575,7 @@ const ClientDashboard = memo(({ handleLogout }) => {
               />
               <button
                 onClick={goToNextWeek}
-                className="bg-gray-400 hover:bg-gray-500 text-gray-900 dark:text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline text-sm"
+                className="bg-primary-pink hover:bg-pink-500 cursor-pointer text-white dark:text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline text-sm"
               >
                 Semaine prochaine
               </button>

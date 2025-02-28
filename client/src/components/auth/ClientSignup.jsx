@@ -17,7 +17,7 @@ const ClientSignup = () => {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [signupError, setSignupError] = useState("");
   const [validationErrors, setValidationErrors] = useState({});
-  const [charteSigned, setCharteSigned] = useState(false); // New state for checkbox
+  const [charteSigned, setCharteSigned] = useState(false);
 
   const villageOptions = [
     "Anisy", "Mathieu", "Epron", "Cambes-en-Plaine", "Authie",
@@ -72,7 +72,7 @@ const ClientSignup = () => {
     errors.village = validateRequired(village);
     errors.address = validateRequired(address);
     errors.phoneNumber = validatePhoneNumber(phoneNumber) || validateRequired(phoneNumber);
-    errors.charteSigned = validateCharteSigned(charteSigned); // New validation
+    errors.charteSigned = validateCharteSigned(charteSigned);
 
     if (showAutresCommunesForm) {
       errors.autreCommuneVillageSouhaite = validateRequired(autreCommuneVillageSouhaite);
@@ -120,16 +120,28 @@ const ClientSignup = () => {
         throw new Error(errorMessage);
       }
 
-      setUsername(""); setPassword(""); setEmail(""); setVillage("");
-      setShowAutresCommunesForm(false); setAutreCommuneVillageSouhaite("");
-      setRole("client"); setAddress(""); setPhoneNumber("");
-      setCharteSigned(false); // Reset checkbox
+      // Clear form fields
+      setUsername("");
+      setPassword("");
+      setEmail("");
+      setVillage("");
+      setShowAutresCommunesForm(false);
+      setAutreCommuneVillageSouhaite("");
+      setRole("client");
+      setAddress("");
+      setPhoneNumber("");
+      setCharteSigned(false);
       setValidationErrors({});
 
       const successMessage = showAutresCommunesForm
-        ? "Demande envoyée avec succès!"
-        : "Inscription réussie!";
+        ? "Demande envoyée avec succès ! Vous serez redirigé vers la page de connexion dans 3 secondes."
+        : "Inscription réussie ! Vous serez redirigé vers la page de connexion dans 3 secondes.";
       toast.success(successMessage);
+
+      // Redirect to /login after 3 seconds
+      setTimeout(() => {
+        navigate('/login');
+      }, 3000);
 
     } catch (error) {
       console.error("Signup Error:", error);

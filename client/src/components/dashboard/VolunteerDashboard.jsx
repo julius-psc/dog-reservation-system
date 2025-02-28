@@ -353,7 +353,7 @@ const VolunteerDashboard = ({ handleLogout }) => {
 
     if (!subscriptionStatus.expiryDate) {
       return {
-        message: "Votre abonnement de 10€/an est requis. Veuillez payer maintenant.",
+        message: "Merci de vous acquitter de votre cotisation annuelle (9€)",
         type: "error",
         action: true,
       };
@@ -547,9 +547,9 @@ const VolunteerDashboard = ({ handleLogout }) => {
             {subscriptionMessage.action && (
               <button
                 onClick={() => setShowPaymentForm(true)}
-                className="bg-white text-black px-4 py-2 rounded hover:bg-gray-200"
+                className="bg-white text-red-500 px-4 py-2 rounded hover:bg-gray-200"
               >
-                {subscriptionStatus.paid ? "Renouveler" : "Payer maintenant"}
+                {subscriptionStatus.paid ? "Renouveler" : "Payer ici"}
               </button>
             )}
           </div>

@@ -8,7 +8,7 @@ const AvailabilityForm = ({ onAvailabilitySaved }) => {
         Array(7).fill(null).map((_, i) => ({
             dayOfWeek: i + 1,
             timeRanges: [{ startTime: '', endTime: '' }],
-            enabled: true,
+            enabled: false,
         }))
     );
 

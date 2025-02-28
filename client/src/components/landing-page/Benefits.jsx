@@ -18,7 +18,7 @@ const Benefits = () => {
     <div className="font-sans antialiased bg-gray-100 text-gray-900 py-6 dark:bg-gray-900 dark:text-white">
       <div className="max-w-7xl mx-auto px-6">
         {/* Title */}
-        <h1 className="text-center text-3xl font-bold text-gray-800 mb-8 dark:text-gray-100">
+        <h1 className="text-center text-3xl font-bold text-primary-pink mb-8 dark:text-gray-100">
           Les bienfaits des promenades sur le chien
         </h1>
 

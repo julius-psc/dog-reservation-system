@@ -3,23 +3,23 @@ import funnyDog from "../../assets/landing-page/icons/landing-page-dog-funny.png
 
 const Hero = () => {
   return (
-    <section className="bg-secondary-pink h-screen w-screen pl-20 pt-60 relative">
+    <section className="bg-secondary-pink h-screen w-screen pl-10 lg:pl-20 pt-28 lg:pt-60 relative">
       <img
         className="absolute -top-30 left-40 z-0"
         src={paws}
         alt="Paws background pattern"
       />
       <img
-        className="absolute bottom-0 right-20 h-auto w-200 z-10"
+        className="absolute bottom-0 right-0 sm:right-2 lg:right-6 h-auto w-110 sm:w-160 lg:w-200 z-10"
         src={funnyDog}
         alt="Funny dog photo"
       />
-      <div className="z-10 relative">
-        <h1 className="text-7xl leading-22 text-primary-pink font-semibold">
-          Besoin d&#39;un coup de<br></br>{" "}
+      <div className="z-10 relative  mr-20 lg:mr-0">
+        <h1 className="text-5xl sm:text-5xl lg:text-7xl leading-13 sm:leading-18 lg:leading-22 text-primary-pink font-semibold">
+          Besoin d&#39;un coup de<br className="hidden sm:visible"></br>{" "}
           patte ?
         </h1>
-        <p className="text-2xl w-1/2 leading-9 text-primary-black">
+        <p className="text-xl sm:text-2xl w-full lg:w-1/2 leading-8 sm:leading-9 text-primary-black">
           Vous rencontrez des difficultés pour sortir votre chien ? Que ce soit
           temporaire ou permanent (handicap, douleurs, mobilité réduite,
           grossesse, accident de vie,...), notre réseau de bénévoles passionés

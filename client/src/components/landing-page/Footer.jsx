@@ -6,11 +6,11 @@ const Footer = () => {
     <footer className="bg-secondary-pink w-screen relative overflow-hidden text-primary-black dark:text-white">
       <div className="bg-white dark:bg-gray-800 my-8 container mx-auto md:w-10/12 flex flex-col md:flex-row justify-between items-start px-10 py-4 rounded-2xl">
         <div className="md:w-1/3 mb-8 md:mb-0">
-          <img src={logo} alt="Chiens en Cavale Logo" className="w-40 mb-4" />
+          <img src={logo} alt="Chiens en Cavale Logo" className="w-40 mb-0 lg:mb-4" />
         </div>
 
         {/* Links Column */}
-        <div className="md:w-1/3 md:mb-0 mt-6">
+        <div className="md:w-1/3 mb-0 lg:mb-4 mt-0">
           <h3 className="text-xl font-semibold text-primary-pink dark:text-primary-pink">
             Liens rapides
           </h3>
