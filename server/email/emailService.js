@@ -230,6 +230,44 @@ async function sendReservationRequestEmailToVolunteer(volunteerEmail, volunteerN
   }
 }
 
+// ADMIN NOTIFICATION EMAIL FOR DOCUMENT SUBMISSION
+async function sendAdminDocumentSubmissionEmail(adminEmail, volunteerName, charterPath, insurancePath) {
+  try {
+    // Construct the path to your email template file (optional)
+    const templatePath = path.join(__dirname, "..", "templates", "adminDocumentSubmissionEmail.html");
+    let htmlContent;
+
+    // Check if the template exists, otherwise use a plain text fallback
+    if (fs.existsSync(templatePath)) {
+      const emailTemplate = fs.readFileSync(templatePath, "utf8");
+      htmlContent = emailTemplate
+        .replace("${volunteerName}", volunteerName)
+        .replace("${charterPath}", charterPath)
+        .replace("${insurancePath}", insurancePath);
+    } else {
+      // Plain text fallback if no template is provided
+      htmlContent = `
+        <p>A volunteer has submitted their documents:</p>
+        <p><strong>Volunteer Name:</strong> ${volunteerName}</p>
+        <p><strong>Charter File:</strong> <a href="${charterPath}">${charterPath}</a></p>
+        <p><strong>Insurance File:</strong> <a href="${insurancePath}">${insurancePath}</a></p>
+        <p>Please review them at your earliest convenience.</p>
+      `;
+    }
+
+    await transporter.sendMail({
+      from: `"Chiens en Cavale" <${process.env.EMAIL_USER}>`,
+      to: adminEmail,
+      subject: "New Volunteer Document Submission",
+      html: htmlContent,
+    });
+    console.log(`Admin notification email sent to ${adminEmail}`);
+  } catch (error) {
+    console.error("Error sending admin document submission email:", error);
+    throw error; // Optionally re-throw to handle it in the calling function
+  }
+}
+
 
 module.exports = {
   sendPasswordResetEmail: sendPasswordResetEmail,
@@ -237,5 +275,6 @@ module.exports = {
   sendReservationApprovedEmail,
   sendVolunteerConfirmationEmail,
   sendReservationRejectedEmail,
-  sendReservationRequestEmailToVolunteer
+  sendReservationRequestEmailToVolunteer,
+  sendAdminDocumentSubmissionEmail
 };

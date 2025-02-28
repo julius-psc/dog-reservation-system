@@ -10,7 +10,7 @@ const Hero = () => {
         alt="Paws background pattern"
       />
       <img
-        className="absolute bottom-0 right-0 sm:right-2 lg:right-6 h-auto w-110 sm:w-160 lg:w-200 z-10"
+        className="absolute bottom-0 right-0 sm:right-2 lg:right-6 h-auto w-120 max-[494px]:w-90 max-[394px]:w-74 sm:w-160 lg:w-200 z-10"
         src={funnyDog}
         alt="Funny dog photo"
       />

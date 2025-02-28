@@ -33,7 +33,7 @@ const Team = () => {
           { image: julius, name: "Julius Peschard", role: "Vice-président" },
           {
             image: lilou,
-            name: "Lilou-ann Mossmann",
+            name: "Lilou-Ann Mossmann",
             role: "Secrétaire et promeneuse",
           },
           { image: nath, name: "Nathalie Mossmann", role: "Trésorière" },

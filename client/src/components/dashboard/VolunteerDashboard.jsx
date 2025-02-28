@@ -281,7 +281,7 @@ const VolunteerDashboard = ({ handleLogout }) => {
       const fetchedVillages = villagesData.villages_covered || [];
 
       if (fetchedVillages.length === 0 && villageData.village) {
-        await updateVillages([villageData.village]);
+        setVillagesCovered([villageData.village]); // Set default village
       } else {
         setVillagesCovered(fetchedVillages);
         setHasVillagesCoveredBeenSet(fetchedVillages.length > 0);
@@ -342,7 +342,6 @@ const VolunteerDashboard = ({ handleLogout }) => {
 
   const getSubscriptionMessage = () => {
     if (subscriptionStatus.paid) {
-      // Use current year or expiry year (commented alternative below)
       const currentYear = moment().year();
       return {
         message: `Votre cotisation annuelle ${currentYear} est acquittée et nous vous en remercions.`,
@@ -396,35 +395,44 @@ const VolunteerDashboard = ({ handleLogout }) => {
 
   const daysOfWeekLabels = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
 
-  const handleAddVillage = async () => {
+  const handleAddVillage = () => {
     if (!selectedVillage.trim()) return;
     if (villagesCovered.includes(selectedVillage)) {
       setActionMessage(`Le village "${selectedVillage}" est déjà dans votre liste.`);
       setActionType("warning");
       return;
     }
-    const newVillages = [...villagesCovered, selectedVillage.trim()];
-    await updateVillages(newVillages);
+    setVillagesCovered([...villagesCovered, selectedVillage.trim()]);
     setSelectedVillage("");
   };
 
-  const handleRemoveVillage = async (villageToRemove) => {
+  const handleRemoveVillage = (villageToRemove) => {
     if (villageToRemove === volunteerVillage) {
       setActionMessage("Vous ne pouvez pas supprimer votre village par défaut.");
       setActionType("error");
       return;
     }
-    const updatedVillages = villagesCovered.filter((village) => village !== villageToRemove);
-    await updateVillages(updatedVillages);
+    setVillagesCovered(villagesCovered.filter((village) => village !== villageToRemove));
   };
 
-  const updateVillages = async (updatedVillages) => {
+  const handleSubmitVillages = async () => {
     const token = Cookies.get("token");
     if (!token) {
-      setActionMessage("Authentification requise pour mettre à jour les villages.");
+      setActionMessage("Authentification requise.");
       setActionType("error");
       return;
     }
+    if (villagesCovered.length === 0) {
+      setActionMessage("Veuillez ajouter au moins un village.");
+      setActionType("error");
+      return;
+    }
+
+    const confirmation = window.confirm(
+      "Attention : Vous ne pouvez définir vos villages qu’une seule fois de manière permanente. Voulez-vous continuer ?"
+    );
+    if (!confirmation) return;
+
     try {
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/volunteer/villages-covered`, {
         method: "PUT",
@@ -432,14 +440,13 @@ const VolunteerDashboard = ({ handleLogout }) => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ villagesCovered: updatedVillages }),
+        body: JSON.stringify({ villagesCovered }),
       });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || "Échec de la mise à jour des villages.");
       }
-      setVillagesCovered(updatedVillages);
-      setActionMessage("Villages mis à jour avec succès!");
+      setActionMessage("Villages définis avec succès!");
       setActionType("success");
       setHasVillagesCoveredBeenSet(true);
     } catch (error) {
@@ -571,7 +578,7 @@ const VolunteerDashboard = ({ handleLogout }) => {
           <section className="bg-white shadow rounded-lg p-6 dark:bg-gray-800">
             <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
               <FontAwesomeIcon icon={faMapMarkerAlt} className="mr-2" />
-              Communes de promenades 
+              Communes de promenades
             </h3>
             <div className="mt-4 space-y-4 dark:text-gray-300">
               {!hasVillagesCoveredBeenSet ? (
@@ -586,15 +593,14 @@ const VolunteerDashboard = ({ handleLogout }) => {
                     >
                       Sélectionner une commune (votre commune par défaut: {volunteerVillage})
                     </label>
-                    <div className="flex">
+                    <div className="flex space-x-2">
                       <select
                         id="villageSelect"
-                        className="mt-1 block w-full py-2 px-3 rounded-md border-gray-300 shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-700 dark:text-gray-300 mr-2"
+                        className="mt-1 block w-full py-2 px-3 rounded-md border-gray-300 shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-700 dark:text-gray-300"
                         value={selectedVillage}
                         onChange={(e) => setSelectedVillage(e.target.value)}
-                        disabled={hasVillagesCoveredBeenSet}
                       >
-                        <option value="">Choisir votre (ou vos) commune(s) de promenades </option>
+                        <option value="">Choisir une commune</option>
                         {villageOptions
                           .filter((village) => village !== volunteerVillage)
                           .map((village) => (
@@ -606,7 +612,7 @@ const VolunteerDashboard = ({ handleLogout }) => {
                       <button
                         onClick={handleAddVillage}
                         className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline text-sm cursor-pointer"
-                        disabled={!selectedVillage || hasVillagesCoveredBeenSet}
+                        disabled={!selectedVillage}
                       >
                         Ajouter
                       </button>
@@ -621,13 +627,19 @@ const VolunteerDashboard = ({ handleLogout }) => {
                             <button
                               onClick={() => handleRemoveVillage(village)}
                               className="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded focus:outline-none focus:shadow-outline text-xs cursor-pointer"
-                              disabled={village === volunteerVillage || hasVillagesCoveredBeenSet}
+                              disabled={village === volunteerVillage}
                             >
                               Enlever
                             </button>
                           </li>
                         ))}
                       </ul>
+                      <button
+                        onClick={handleSubmitVillages}
+                        className="mt-4 bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline cursor-pointer"
+                      >
+                        Soumettre
+                      </button>
                     </div>
                   )}
                 </>

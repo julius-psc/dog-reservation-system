@@ -100,17 +100,7 @@ const ClientCharterForm = () => {
   }
 
   if (hasCharter) {
-    return (
-      <div className="bg-green-50 border-l-4 border-green-500 p-6 rounded-lg shadow-md max-w-lg mx-auto mt-8">
-        <h2 className="text-xl font-semibold text-green-700 mb-2">
-          Charte déjà soumise
-        </h2>
-        <p className="text-green-600">
-          Votre charte a été téléversée avec succès :{' '}
-          <span className="font-medium">{submittedFile}</span>
-        </p>
-      </div>
-    );
+    return  
   }
 
   return (
