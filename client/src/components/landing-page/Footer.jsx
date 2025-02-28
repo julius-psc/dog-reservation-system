@@ -70,7 +70,7 @@ const Footer = () => {
       </div>
       
       {/* Bottom Section */}
-      <div className="container mx-auto w-11/12 md:w-10/12 px-10 pb-4 text-center text-sm border-t border-gray-200 dark:border-gray-700 pt-4">
+      <div className="container mx-auto w-11/12 md:w-10/12 px-10 pb-4 text-center text-sm border-t border-gray-200 dark:text-gray-700 dark:border-gray-700 pt-4">
         <p className="font-medium">© 2024 Chiens en Cavale</p>
         <p className="text-xs mt-1 opacity-80">
           Association à but non lucratif pour la promenade de chiens
