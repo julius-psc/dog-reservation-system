@@ -1,5 +1,5 @@
 
-FRENCH
+ENG
 
 # Fullstack reservation web application for dog walking association - Chiens en Cavale
 
@@ -24,6 +24,8 @@ The primary goal of this project is to provide a practical solution for people w
 - Secure data handling for user privacy.
 
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+FR
 
 # Application web fullstack de réservations pour une association de promenades de chiens - Chiens en Cavale
 
