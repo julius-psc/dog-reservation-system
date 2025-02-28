@@ -6,6 +6,7 @@ const {
   sendReservationApprovedEmail,
   sendVolunteerConfirmationEmail,
   sendReservationRejectedEmail,
+  sendAdminDocumentSubmissionEmail
 } = require("../email/emailService");
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");

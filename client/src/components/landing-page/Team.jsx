@@ -29,14 +29,30 @@ const Team = () => {
         await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate API call
 
         const hardcodedAdmins = [
-          { image: nana, name: "Louisiana Richard", role: "Présidente" },
-          { image: julius, name: "Julius Peschard", role: "Vice-président" },
+          {
+            image: nana,
+            name: "Louisiana Richard",
+            role: "Présidente",
+            email: "louisiana.richard@gmail.com",
+          },
+          {
+            image: julius,
+            name: "Julius Peschard",
+            role: "Vice-président",
+            email: "peschardjulius03@gmail.com",
+          },
           {
             image: lilou,
             name: "Lilou-Ann Mossmann",
             role: "Secrétaire et promeneuse",
+            email: "lilou.ann.mossmann@gmail.com",
           },
-          { image: nath, name: "Nathalie Mossmann", role: "Trésorière" },
+          {
+            image: nath,
+            name: "Nathalie Mossmann",
+            role: "Trésorière",
+            email: "nathalie.mossmann@gmail.com",
+          },
         ];
         setAdmins(hardcodedAdmins);
 
@@ -144,6 +160,9 @@ const Team = () => {
               </p>
               <p className="text-center text-md md:text-sm opacity-70 text-primary-pink">
                 {admin.role}
+              </p>
+              <p className="text-center text-md md:text-sm opacity-70 text-primary-black">
+                {admin.email}
               </p>
             </div>
           ))}
