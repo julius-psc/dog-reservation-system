@@ -14,7 +14,19 @@ const AvailabilityForm = ({ onAvailabilitySaved }) => {
 
     const daysOfWeek = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
 
+    // Validate that time is on the hour (e.g., "07:00", "14:00")
+    const isHourlyTime = (time) => {
+        if (!time) return true; // Allow empty for initial state
+        const [, minutes] = time.split(':'); // Only use minutes, ignore hours
+        return minutes === '00'; // Only allow times where minutes are "00"
+    };
+
     const handleTimeRangeChange = (dayIndex, rangeIndex, field, value) => {
+        if (value && !isHourlyTime(value)) {
+            toast.error('Veuillez sélectionner une heure ronde (ex. : 14:00, pas 14:45).');
+            return;
+        }
+
         const updatedDaysAvailability = [...daysAvailability];
         updatedDaysAvailability[dayIndex].timeRanges[rangeIndex][field] = value;
         setDaysAvailability(updatedDaysAvailability);
@@ -45,7 +57,6 @@ const AvailabilityForm = ({ onAvailabilitySaved }) => {
         setDaysAvailability(updatedDaysAvailability);
     };
 
-    // Function to check for overlapping time ranges within the same day
     const hasOverlappingRanges = (timeRanges) => {
         for (let i = 0; i < timeRanges.length; i++) {
             for (let j = i + 1; j < timeRanges.length; j++) {
@@ -55,7 +66,7 @@ const AvailabilityForm = ({ onAvailabilitySaved }) => {
                     range1.startTime && range1.endTime && range2.startTime && range2.endTime &&
                     range1.startTime < range2.endTime && range2.startTime < range1.endTime
                 ) {
-                    return true; // Overlap detected
+                    return true;
                 }
             }
         }
@@ -76,9 +87,14 @@ const AvailabilityForm = ({ onAvailabilitySaved }) => {
             if (dayAvailability.enabled) {
                 const validRanges = dayAvailability.timeRanges.filter(range => range.startTime && range.endTime);
                 if (validRanges.length > 0) {
-                    // Check for overlaps within this day's time ranges
+                    for (const range of validRanges) {
+                        if (!isHourlyTime(range.startTime) || !isHourlyTime(range.endTime)) {
+                            toast.error('Toutes les heures doivent être rondes (ex. : 07:00, 14:00).');
+                            return;
+                        }
+                    }
                     if (hasOverlappingRanges(validRanges)) {
-                        toast.error('Erreur : Les plages horaires pour un même jour ne doivent pas se chevaucher (ex. : 07:00–09:00 et 08:00–10:00).');
+                        toast.error('Erreur : Les plages horaires pour un même jour ne doivent pas se chevaucher.');
                         return;
                     }
                     validRanges.forEach(range => {
@@ -127,10 +143,9 @@ const AvailabilityForm = ({ onAvailabilitySaved }) => {
                 Array(7).fill(null).map((_, i) => ({
                     dayOfWeek: i + 1,
                     timeRanges: [{ startTime: '', endTime: '' }],
-                    enabled: true,
+                    enabled: false,
                 }))
             );
-
         } catch (err) {
             console.error("Erreur dans la requête :", err);
             toast.error(err.message || 'Une erreur inattendue s\'est produite.');
@@ -140,7 +155,7 @@ const AvailabilityForm = ({ onAvailabilitySaved }) => {
     return (
         <form onSubmit={handleSubmit} className="max-w-lg mx-auto bg-white shadow-md rounded-lg p-6 dark:bg-gray-800">
             <p className="mb-4 text-sm text-red-600 dark:text-red-400">
-                Attention : Vous ne pouvez définir vos disponibilités qu’une seule fois de manière permanente. Assurez-vous que vos choix sont corrects avant de soumettre.
+                Attention : Vous ne pouvez définir vos disponibilités qu’une seule fois de manière permanente. Les heures doivent être rondes (ex. : 07:00, 14:00).
             </p>
 
             {daysAvailability.map((dayAvailability, dayIndex) => (
@@ -164,7 +179,7 @@ const AvailabilityForm = ({ onAvailabilitySaved }) => {
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Heure de début :</label>
                                 <input
                                     type="time"
-                                    step="3600" // Restricts to hourly intervals
+                                    step="3600"
                                     value={timeRange.startTime}
                                     onChange={(e) => handleTimeRangeChange(dayIndex, rangeIndex, 'startTime', e.target.value)}
                                     className="mt-1 py-2 px-3 rounded-md border-gray-200 bg-white text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white block w-full"
@@ -176,7 +191,7 @@ const AvailabilityForm = ({ onAvailabilitySaved }) => {
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Heure de fin :</label>
                                 <input
                                     type="time"
-                                    step="3600" // Restricts to hourly intervals
+                                    step="3600"
                                     value={timeRange.endTime}
                                     onChange={(e) => handleTimeRangeChange(dayIndex, rangeIndex, 'endTime', e.target.value)}
                                     className="mt-1 py-2 px-3 rounded-md border-gray-200 bg-white text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white block w-full"
