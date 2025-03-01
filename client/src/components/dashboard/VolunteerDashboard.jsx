@@ -60,7 +60,7 @@ const PaymentForm = ({ onSuccess, onCancel }) => {
         },
         body: JSON.stringify({ 
           payment_method_id: paymentMethod.id, 
-          amount: 10 
+          amount: 9 
         }),
       });
 
