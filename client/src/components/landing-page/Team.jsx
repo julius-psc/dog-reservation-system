@@ -38,7 +38,7 @@ const Team = () => {
           {
             image: julius,
             name: "Julius Peschard",
-            role: "Vice-président",
+            role: "Vice-président & Webmaster",
             email: "peschardjulius03@gmail.com",
           },
           {
