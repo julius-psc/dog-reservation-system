@@ -8,7 +8,7 @@ import ben2 from "../../assets/landing-page/icons/ben2-pfp.png";
 import ben3 from "../../assets/landing-page/icons/ben3-pfp.png";
 import ben4 from "../../assets/landing-page/icons/ben4-pfp.png";
 import ben5 from "../../assets/landing-page/icons/ben5-pfp.png";
-import ben6 from "../../assets/landing-page/icons/ben6-pfp.png";
+import ben6 from "../../assets/landing-page/icons/ben6-pfp.jpg";
 import ben7 from "../../assets/landing-page/icons/ben7-pfp.png";
 import ben8 from "../../assets/landing-page/icons/ben8-pfp.png";
 import ben9 from "../../assets/landing-page/icons/ben9-pfp.png";
