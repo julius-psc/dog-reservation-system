@@ -285,6 +285,7 @@ const CharterFormComponent = ({ onCharterComplete, volunteerStatus }) => {
                                 </h2>
                                 <p className='text-lg text-gray-700'>
                                     Votre demande est maintenant en cours d&#39;examen par notre équipe. Nous traitons généralement les demandes dans un délai de 24 à 48 heures. Vous recevrez une notification par e-mail une fois votre adhésion approuvée.
+                                    Une fois que votre demande est approuvée, rendez-vous sur votre tableau de bord et définissez y vos disponibilités. :)
                                 </p>
                                 <p className='text-gray-600 text-md'>
                                     En attendant, n&#39;hésitez pas à nous contacter à{' '}
