@@ -437,7 +437,7 @@ const VolunteerDashboard = ({ handleLogout }) => {
     }
 
     const confirmation = window.confirm(
-      "Attention : Vous ne pouvez définir vos villages qu’une seule fois de manière permanente. Voulez-vous continuer ?"
+      "Attention : Vous ne pouvez définir vos communes qu’une seule fois de manière permanente. Voulez-vous continuer ?"
     );
     if (!confirmation) return;
 
@@ -592,7 +592,7 @@ const VolunteerDashboard = ({ handleLogout }) => {
               {!hasVillagesCoveredBeenSet ? (
                 <>
                   <p className="text-sm text-red-600 dark:text-red-400 mb-2">
-                    Attention : Vous ne pouvez définir vos villages qu’une seule fois de manière permanente.
+                    Attention : Vous ne pouvez définir vos communes qu’une seule fois de manière permanente.
                   </p>
                   <div>
                     <label

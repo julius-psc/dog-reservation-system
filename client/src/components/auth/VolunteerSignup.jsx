@@ -1,13 +1,14 @@
 import { useState, useEffect } from "react";
-import toast from 'react-hot-toast';
-import { useNavigate } from 'react-router-dom';
+import toast from "react-hot-toast";
+import { useNavigate } from "react-router-dom";
 
 const VolunteerSignup = () => {
   const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [email, setEmail] = useState("");
-  const [village, setVillage] = useState("");
+  const [selectedVillage, setSelectedVillage] = useState(""); // Controls the dropdown
+  const [customVillage, setCustomVillage] = useState(""); // Controls the custom input
   const [address, setAddress] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [role, setRole] = useState("volunteer");
@@ -15,9 +16,22 @@ const VolunteerSignup = () => {
   const [validationErrors, setValidationErrors] = useState({});
 
   const villageOptions = [
-    "Anisy", "Mathieu", "Epron", "Cambes-en-Plaine", "Authie", "Saint-Contest",
-    "Banville", "Biéville-Beuville", "Périers-sur-le-Dan", "Blainville-sur-Orne",
-    "Caen", "Douvres-la-Délivrande", "Hérouville-Saint-Clair", "Ouistreham", "Vire"
+    "Anisy",
+    "Mathieu",
+    "Epron",
+    "Cambes-en-Plaine",
+    "Authie",
+    "Saint-Contest",
+    "Banville",
+    "Biéville-Beuville",
+    "Périers-sur-le-Dan",
+    "Blainville-sur-Orne",
+    "Caen",
+    "Douvres-la-Délivrande",
+    "Hérouville-Saint-Clair",
+    "Ouistreham",
+    "Vire",
+    "Autre commune",
   ];
 
   useEffect(() => {
@@ -35,7 +49,9 @@ const VolunteerSignup = () => {
 
   const validatePhoneNumber = (phoneNumber) => {
     const regex = /^[0-9]{8,}$/;
-    return regex.test(phoneNumber) ? null : "Numéro de téléphone invalide (au moins 8 chiffres)";
+    return regex.test(phoneNumber)
+      ? null
+      : "Numéro de téléphone invalide (au moins 8 chiffres)";
   };
 
   const validateRequired = (value) => {
@@ -43,11 +59,38 @@ const VolunteerSignup = () => {
   };
 
   const validateUsername = (username) => {
-    return username.length >= 3 ? null : "Nom d'utilisateur doit avoir au moins 3 caractères";
+    return username.length >= 3
+      ? null
+      : "Nom d'utilisateur doit avoir au moins 3 caractères";
   };
 
   const validatePassword = (password) => {
-    return password.length >= 6 ? null : "Mot de passe doit avoir au moins 6 caractères";
+    return password.length >= 6
+      ? null
+      : "Mot de passe doit avoir au moins 6 caractères";
+  };
+
+  const handleVillageChange = (e) => {
+    const value = e.target.value;
+    setSelectedVillage(value);
+
+    // If "Autre commune" is selected, clear customVillage to prepare for new input
+    if (value === "Autre commune") {
+      setCustomVillage("");
+    } else {
+      // If a predefined village is selected, use it directly
+      setCustomVillage("");
+    }
+
+    setValidationErrors((prevErrors) => ({ ...prevErrors, village: null }));
+  };
+
+  const handleCustomVillageChange = (e) => {
+    setCustomVillage(e.target.value);
+    setValidationErrors((prevErrors) => ({
+      ...prevErrors,
+      village: validateRequired(e.target.value),
+    }));
   };
 
   const handleSubmit = async (e) => {
@@ -55,16 +98,20 @@ const VolunteerSignup = () => {
     setSignupError("");
     setValidationErrors({});
 
+    // Determine the final village value: customVillage if "Autre commune" is selected, otherwise selectedVillage
+    const finalVillage = selectedVillage === "Autre commune" ? customVillage : selectedVillage;
+
     // --- Perform Validation ---
     let errors = {};
     errors.username = validateUsername(username) || validateRequired(username);
     errors.password = validatePassword(password) || validateRequired(password);
     errors.email = validateEmail(email) || validateRequired(email);
-    errors.village = validateRequired(village);
+    errors.village = validateRequired(finalVillage);
     errors.address = validateRequired(address);
-    errors.phoneNumber = validatePhoneNumber(phoneNumber) || validateRequired(phoneNumber);
+    errors.phoneNumber =
+      validatePhoneNumber(phoneNumber) || validateRequired(phoneNumber);
 
-    if (Object.values(errors).some(error => error)) {
+    if (Object.values(errors).some((error) => error)) {
       setValidationErrors(errors);
       toast.error("Veuillez corriger les erreurs dans le formulaire");
       return;
@@ -72,7 +119,13 @@ const VolunteerSignup = () => {
 
     let endpoint = `${import.meta.env.VITE_API_BASE_URL}/register`;
     const registrationData = {
-      username, password, email, village, role: role, address: address, phoneNumber: phoneNumber,
+      username,
+      password,
+      email,
+      village: finalVillage, // Use the final village value
+      role,
+      address,
+      phoneNumber,
     };
 
     try {
@@ -85,8 +138,12 @@ const VolunteerSignup = () => {
       if (!response.ok) {
         const errorData = await response.json();
         let errorMessage = errorData.error || "Signup failed";
-        if (errorData.error && errorData.error.includes("Username is already taken")) {
-          errorMessage = "Nom d'utilisateur déjà pris. Veuillez en choisir un autre.";
+        if (
+          errorData.error &&
+          errorData.error.includes("Username is already taken")
+        ) {
+          errorMessage =
+            "Nom d'utilisateur déjà pris. Veuillez en choisir un autre.";
         }
         setSignupError(errorMessage);
         throw new Error(errorMessage);
@@ -96,35 +153,37 @@ const VolunteerSignup = () => {
       setUsername("");
       setPassword("");
       setEmail("");
-      setVillage("");
+      setSelectedVillage("");
+      setCustomVillage("");
       setRole("volunteer");
       setAddress("");
       setPhoneNumber("");
       setSignupError("");
       setValidationErrors({});
 
-      // Show success message and redirect after 3 seconds
-      toast.success("Inscription réussie ! Vous serez redirigé vers la page de connexion dans 3 secondes.");
+      toast.success(
+        "Inscription réussie ! Vous serez redirigé vers la page de connexion dans 3 secondes."
+      );
       setTimeout(() => {
-        navigate('/login');
+        navigate("/login");
       }, 3000);
-
     } catch (error) {
       console.error("Signup Error:", error);
     }
   };
 
-  const handleVillageChange = (e) => {
-    setVillage(e.target.value);
-    setValidationErrors(prevErrors => ({ ...prevErrors, village: null }));
-  };
-
   const handleInputChange = (e, setter, validator) => {
     setter(e.target.value);
     if (validator) {
-      setValidationErrors(prevErrors => ({ ...prevErrors, [e.target.name]: validator(e.target.value) }));
+      setValidationErrors((prevErrors) => ({
+        ...prevErrors,
+        [e.target.name]: validator(e.target.value),
+      }));
     } else {
-      setValidationErrors(prevErrors => ({ ...prevErrors, [e.target.name]: null }));
+      setValidationErrors((prevErrors) => ({
+        ...prevErrors,
+        [e.target.name]: null,
+      }));
     }
   };
 
@@ -151,34 +210,65 @@ const VolunteerSignup = () => {
 
             <form onSubmit={handleSubmit} className="mt-8 grid grid-cols-6 gap-6">
               <div className="col-span-6 sm:col-span-3">
-                <label htmlFor="village" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                <label
+                  htmlFor="village"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-200"
+                >
                   Commune
                 </label>
                 <div className="relative">
                   <select
                     id="village"
                     name="village"
-                    value={village}
+                    value={selectedVillage}
                     onChange={handleVillageChange}
                     required
                     className="mt-1 py-2 px-3 w-full rounded-md border-gray-200 bg-white text-sm text-gray-700 shadow-xs dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 appearance-none"
                   >
-                    <option value="" disabled>Sélectionnez votre commune</option>
+                    <option value="" disabled>
+                      Sélectionnez votre commune
+                    </option>
                     {villageOptions.map((option) => (
-                      <option key={option} value={option}>{option}</option>
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
                     ))}
                   </select>
                   <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-                    <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                      <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                    <svg
+                      className="fill-current h-4 w-4"
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 20 20"
+                    >
+                      <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
                     </svg>
                   </div>
                 </div>
-                {validationErrors.village && <p className="mt-1 text-xs text-red-500 dark:text-red-400">{validationErrors.village}</p>}
+                {selectedVillage === "Autre commune" && (
+                  <input
+                    type="text"
+                    id="customVillage"
+                    name="customVillage"
+                    placeholder="Entrez votre commune"
+                    value={customVillage}
+                    onChange={handleCustomVillageChange}
+                    required
+                    className="mt-2 py-2 px-3 w-full rounded-md border-gray-200 bg-white text-sm text-gray-700 shadow-xs dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+                  />
+                )}
+                {validationErrors.village && (
+                  <p className="mt-1 text-xs text-red-500 dark:text-red-400">
+                    {validationErrors.village}
+                  </p>
+                )}
               </div>
 
+              {/* Rest of the form fields remain unchanged */}
               <div className="col-span-6 sm:col-span-3">
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                <label
+                  htmlFor="email"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-200"
+                >
                   Email
                 </label>
                 <input
@@ -191,11 +281,18 @@ const VolunteerSignup = () => {
                   required
                   className="mt-1 py-2 px-3 w-full rounded-md border-gray-200 bg-white text-sm text-gray-700 shadow-xs dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
                 />
-                {validationErrors.email && <p className="mt-1 text-xs text-red-500 dark:text-red-400">{validationErrors.email}</p>}
+                {validationErrors.email && (
+                  <p className="mt-1 text-xs text-red-500 dark:text-red-400">
+                    {validationErrors.email}
+                  </p>
+                )}
               </div>
 
               <div className="col-span-6 sm:col-span-3">
-                <label htmlFor="address" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                <label
+                  htmlFor="address"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-200"
+                >
                   Adresse
                 </label>
                 <input
@@ -208,11 +305,18 @@ const VolunteerSignup = () => {
                   required
                   className="mt-1 py-2 px-3 w-full rounded-md border-gray-200 bg-white text-sm text-gray-700 shadow-xs dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
                 />
-                {validationErrors.address && <p className="mt-1 text-xs text-red-500 dark:text-red-400">{validationErrors.address}</p>}
+                {validationErrors.address && (
+                  <p className="mt-1 text-xs text-red-500 dark:text-red-400">
+                    {validationErrors.address}
+                  </p>
+                )}
               </div>
 
               <div className="col-span-6 sm:col-span-3">
-                <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                <label
+                  htmlFor="phoneNumber"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-200"
+                >
                   Numéro de téléphone
                 </label>
                 <input
@@ -225,11 +329,18 @@ const VolunteerSignup = () => {
                   required
                   className="mt-1 py-2 px-3 w-full rounded-md border-gray-200 bg-white text-sm text-gray-700 shadow-xs dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
                 />
-                {validationErrors.phoneNumber && <p className="mt-1 text-xs text-red-500 dark:text-red-400">{validationErrors.phoneNumber}</p>}
+                {validationErrors.phoneNumber && (
+                  <p className="mt-1 text-xs text-red-500 dark:text-red-400">
+                    {validationErrors.phoneNumber}
+                  </p>
+                )}
               </div>
 
               <div className="col-span-6 sm:col-span-3">
-                <label htmlFor="username" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                <label
+                  htmlFor="username"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-200"
+                >
                   Nom d&#39;utilisateur
                 </label>
                 <input
@@ -242,11 +353,18 @@ const VolunteerSignup = () => {
                   required
                   className="mt-1 py-2 px-3 w-full rounded-md border-gray-200 bg-white text-sm text-gray-700 shadow-xs dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
                 />
-                {validationErrors.username && <p className="mt-1 text-xs text-red-500 dark:text-red-400">{validationErrors.username}</p>}
+                {validationErrors.username && (
+                  <p className="mt-1 text-xs text-red-500 dark:text-red-400">
+                    {validationErrors.username}
+                  </p>
+                )}
               </div>
 
               <div className="col-span-6 sm:col-span-3">
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                <label
+                  htmlFor="password"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-200"
+                >
                   Mot de passe
                 </label>
                 <input
@@ -259,7 +377,11 @@ const VolunteerSignup = () => {
                   required
                   className="mt-1 py-2 px-3 w-full rounded-md border-gray-200 bg-white text-sm text-gray-700 shadow-xs dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
                 />
-                {validationErrors.password && <p className="mt-1 text-xs text-red-500 dark:text-red-400">{validationErrors.password}</p>}
+                {validationErrors.password && (
+                  <p className="mt-1 text-xs text-red-500 dark:text-red-400">
+                    {validationErrors.password}
+                  </p>
+                )}
               </div>
 
               <div className="col-span-6">
@@ -276,7 +398,7 @@ const VolunteerSignup = () => {
                   Vous avez déjà un compte ?
                   <button
                     type="button"
-                    onClick={() => navigate('/login')}
+                    onClick={() => navigate("/login")}
                     className="text-gray-700 underline dark:text-gray-200 mx-2"
                   >
                     Se connecter
