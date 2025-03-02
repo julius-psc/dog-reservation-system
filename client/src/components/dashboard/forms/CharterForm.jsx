@@ -2,16 +2,15 @@ import { memo, useCallback, useEffect, useState } from 'react';
 import Cookies from 'js-cookie';
 import PropTypes from 'prop-types';
 import toast from 'react-hot-toast';
-import { useNavigate } from 'react-router-dom'; // Import useNavigate for redirection
+import { useNavigate } from 'react-router-dom';
 import charterPDF from '../../../assets/dashboard/charte-benevole.pdf';
 
-// Composant d'icône de progression réutilisable - Déjà bien conçu
 const ProgressIcon = ({ completed }) => (
     <svg
         className={`size-5 transition-opacity duration-300 ${completed ? 'opacity-100' : 'opacity-0'}`}
         xmlns='http://www.w3.org/2000/svg'
         viewBox='0 0 20 20'
-        fill='#FEAE23' // Changed to primary yellow for progress icon fill
+        fill='#FEAE23'
     >
         <path
             fillRule='evenodd'
@@ -31,7 +30,7 @@ const CharterFormComponent = ({ onCharterComplete, volunteerStatus }) => {
     const [charterFile, setCharterFile] = useState(null);
     const [insuranceFile, setInsuranceFile] = useState(null);
     const [fileErrors, setFileErrors] = useState({ charter: '', insurance: '' });
-    const navigate = useNavigate(); // Hook for programmatic navigation
+    const navigate = useNavigate();
 
     useEffect(() => {
         if (volunteerStatus === 'pending') {
@@ -52,6 +51,13 @@ const CharterFormComponent = ({ onCharterComplete, volunteerStatus }) => {
         setFileErrors(prev => ({ ...prev, [type]: '' }));
         type === 'charter' ? setCharterFile(file) : setInsuranceFile(file);
     };
+
+    const handleLogout = useCallback(() => {
+        Cookies.remove('token');
+        Cookies.remove('userId'); // Remove additional cookies if used
+        toast.success('Vous avez été déconnecté.');
+        navigate('/login');
+    }, [navigate]);
 
     const handleCompletion = useCallback(async () => {
         let hasError = false;
@@ -75,6 +81,10 @@ const CharterFormComponent = ({ onCharterComplete, volunteerStatus }) => {
 
         try {
             const token = Cookies.get('token');
+            if (!token) {
+                throw new Error('Session invalide. Veuillez vous reconnecter.');
+            }
+
             const formData = new FormData();
             formData.append('charter', charterFile);
             formData.append('insurance', insuranceFile);
@@ -87,7 +97,6 @@ const CharterFormComponent = ({ onCharterComplete, volunteerStatus }) => {
 
             if (!response.ok) {
                 const errorData = await response.json();
-                toast.error(errorData.error || 'La soumission a échoué. Veuillez réessayer.');
                 throw new Error(errorData.error || 'La soumission a échoué. Veuillez réessayer.');
             }
 
@@ -98,17 +107,17 @@ const CharterFormComponent = ({ onCharterComplete, volunteerStatus }) => {
             setInsuranceFile(null);
             toast.success('Documents soumis avec succès !');
 
-            // Remove cookies and redirect to /login
-            Cookies.remove('token');
-            Cookies.remove('userId'); // Remove any other relevant cookies if applicable
-            setTimeout(() => navigate('/login'), 3000)
+            // Logout and redirect
+            handleLogout();
         } catch (error) {
             console.error('Submission error:', error);
             toast.error(error.message);
+            // Force logout on error to prevent staying logged in
+            handleLogout();
         } finally {
             setIsSubmitting(false);
         }
-    }, [charterFile, insuranceFile, nextStep, onCharterComplete, navigate]);
+    }, [charterFile, insuranceFile, nextStep, onCharterComplete, handleLogout]);
 
     const renderProgressBar = () => (
         <div aria-label='Progress steps' role='navigation'>
@@ -272,6 +281,12 @@ const CharterFormComponent = ({ onCharterComplete, volunteerStatus }) => {
                                             className={`order-1 sm:order-2 rounded-full bg-primary-yellow hover:bg-yellow-500 text-gray-900 font-bold py-3 px-6 flex-1 focus:outline-none focus:ring-2 focus:ring-primary-yellow focus:ring-opacity-50 transition-colors duration-300 ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
                                         >
                                             {isSubmitting ? 'Soumission...' : 'Soumettre les documents'}
+                                        </button>
+                                        <button
+                                            onClick={handleLogout}
+                                            className='order-3 rounded-full bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 flex-1 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 transition-colors duration-300'
+                                        >
+                                            Déconnexion
                                         </button>
                                     </div>
                                 </div>
