@@ -5,6 +5,7 @@ import moment from "moment";
 import "moment/locale/fr";
 moment.locale("fr");
 import { loadStripe } from "@stripe/stripe-js";
+import VolunteerCard from '../dashboard/forms/VolunteerCard';
 import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import HolidayModeButton from "./recycled/HolidayButton";
 import AvailabilityForm from "./forms/AvailabilityForm";
@@ -452,6 +453,7 @@ const VolunteerDashboard = ({ handleLogout }) => {
               )}
             </svg>
             <p className="text-sm font-semibold">{actionMessage}</p>
+
           </div>
         )}
 
@@ -486,6 +488,8 @@ const VolunteerDashboard = ({ handleLogout }) => {
             </Elements>
           </div>
         )}
+
+        <VolunteerCard/>
 
         {/* Combined Availability and Location Settings */}
         <section className="bg-white dark:bg-gray-900 rounded-xl shadow-lg p-8 mb-8 transform transition-all duration-300 hover:shadow-xl">
