@@ -8,6 +8,7 @@ import VolunteerDashboard from './components/dashboard/VolunteerDashboard';
 import AdminDashboard from './components/dashboard/AdminDashboard';
 import LandingPage from './components/landing-page/LandingPage';
 import VolunteerConfirmationPage from './components/dashboard/redirs/VolunteerConfirmationPage';
+import VolunteerPendingApproval from './components/dashboard/redirs/VolunteerPendingApproval'; // New import
 import Donate from './components/dashboard/forms/Donate';
 import Benefits from './components/landing-page/Benefits';
 import ResetPasswordComponent from './components/auth/ResetPassword';
@@ -20,6 +21,7 @@ const App = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userRole, setUserRole] = useState(null);
   const [volunteerStatus, setVolunteerStatus] = useState(null);
+  const [hasSubmittedDocuments, setHasSubmittedDocuments] = useState(null); // New state
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
   const baseURL = import.meta.env.VITE_API_BASE_URL;
@@ -46,32 +48,35 @@ const App = () => {
       }
 
       if (decodedRole === 'volunteer') {
-        await fetchVolunteerStatus(token);
+        await fetchVolunteerData(token);
       }
 
-      // Ensure loader shows for at least 3 seconds
       const minLoadingTime = new Promise((resolve) => setTimeout(resolve, 3000));
-      await Promise.all([minLoadingTime]); // Wait for both actual load and minimum time
+      await Promise.all([minLoadingTime]);
       setIsLoading(false);
     };
 
-    const fetchVolunteerStatus = async (token) => {
+    const fetchVolunteerData = async (token) => {
       try {
-        const response = await fetch(`${baseURL}/volunteers/status`, {
+        // Fetch volunteer status
+        const statusResponse = await fetch(`${baseURL}/volunteers/status`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || "Failed to fetch volunteer status");
-        }
-        const data = await response.json();
-        if (!data.status) {
-          throw new Error("Volunteer status not found in response");
-        }
-        setVolunteerStatus(data.status);
+        if (!statusResponse.ok) throw new Error("Failed to fetch volunteer status");
+        const statusData = await statusResponse.json();
+        setVolunteerStatus(statusData.status);
+
+        // Fetch documents status
+        const documentsResponse = await fetch(`${baseURL}/volunteer/documents-status`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!documentsResponse.ok) throw new Error("Failed to fetch documents status");
+        const documentsData = await documentsResponse.json();
+        setHasSubmittedDocuments(documentsData.hasSubmittedDocuments);
       } catch (error) {
-        console.error("Error fetching volunteer status:", error);
+        console.error("Error fetching volunteer data:", error);
         setVolunteerStatus('unknown');
+        setHasSubmittedDocuments(null);
       }
     };
 
@@ -82,39 +87,49 @@ const App = () => {
     setIsLoggedIn(true);
     setUserRole(role);
     if (role === 'volunteer') {
-      fetchVolunteerStatusAfterLogin(token);
+      fetchVolunteerDataAfterLogin(token);
     } else {
       redirectToDashboard(role);
     }
   };
 
-  const fetchVolunteerStatusAfterLogin = async (token) => {
+  const fetchVolunteerDataAfterLogin = async (token) => {
     try {
-      const response = await fetch(`${baseURL}/volunteers/status`, {
+      const statusResponse = await fetch(`${baseURL}/volunteers/status`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to fetch volunteer status after login");
-      }
-      const data = await response.json();
-      setVolunteerStatus(data.status);
-      redirectToDashboard('volunteer', data.status);
+      if (!statusResponse.ok) throw new Error("Failed to fetch volunteer status");
+      const statusData = await statusResponse.json();
+      setVolunteerStatus(statusData.status);
+
+      const documentsResponse = await fetch(`${baseURL}/volunteer/documents-status`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!documentsResponse.ok) throw new Error("Failed to fetch documents status");
+      const documentsData = await documentsResponse.json();
+      setHasSubmittedDocuments(documentsData.hasSubmittedDocuments);
+
+      redirectToDashboard('volunteer', statusData.status, documentsData.hasSubmittedDocuments);
     } catch (error) {
-      console.error("Error fetching volunteer status after login:", error);
+      console.error("Error fetching volunteer data after login:", error);
       setVolunteerStatus('unknown');
-      redirectToDashboard('volunteer', 'unknown');
+      setHasSubmittedDocuments(null);
+      redirectToDashboard('volunteer', 'unknown', null);
     }
   };
 
-  const redirectToDashboard = (role, status) => {
+  const redirectToDashboard = (role, status, hasDocs) => {
     if (role === 'client') {
       navigate("/client-dashboard");
     } else if (role === 'volunteer') {
-      if (status === 'pending' || status === 'rejected') {
-        navigate("/volunteer-confirmation");
-      } else {
+      if (!hasDocs) {
+        navigate("/volunteer-confirmation"); // No documents submitted yet
+      } else if (status === 'pending') {
+        navigate("/volunteer-pending"); // Documents submitted, awaiting approval
+      } else if (status === 'approved' || status === 'active') {
         navigate("/volunteer-dashboard");
+      } else {
+        navigate("/volunteer-confirmation"); // Rejected or unknown status
       }
     } else if (role === 'admin') {
       navigate("/admin-dashboard");
@@ -129,12 +144,13 @@ const App = () => {
     setIsLoggedIn(false);
     setUserRole(null);
     setVolunteerStatus(null);
+    setHasSubmittedDocuments(null);
     navigate("/");
   };
 
   const ProtectedRoute = ({ element, allowedRoles, volunteerStatuses }) => {
     if (isLoading) {
-      return <DogLoader />; // Use DogLoader instead of plain text
+      return <DogLoader />;
     }
     if (!isLoggedIn) {
       return <Navigate to="/login" replace />;
@@ -155,7 +171,7 @@ const App = () => {
   };
 
   if (isLoading) {
-    return <DogLoader duration={4000} />; // Show loader for 4 seconds minimum
+    return <DogLoader duration={4000} />;
   }
 
   return (
@@ -169,6 +185,7 @@ const App = () => {
         <Route path="/client-dashboard" element={<ProtectedRoute allowedRoles={['client']} element={<ClientDashboard handleLogout={handleLogout} />} />} />
         <Route path="/volunteer-dashboard" element={<ProtectedRoute allowedRoles={['volunteer']} volunteerStatuses={['approved', 'active']} element={<VolunteerDashboard handleLogout={handleLogout} />} />} />
         <Route path="/volunteer-confirmation" element={<ProtectedRoute allowedRoles={['volunteer']} volunteerStatuses={['pending', 'rejected']} element={<VolunteerConfirmationPage />} />} />
+        <Route path="/volunteer-pending" element={<ProtectedRoute allowedRoles={['volunteer']} volunteerStatuses={['pending']} element={<VolunteerPendingApproval handleLogout={handleLogout} />} />} />
         <Route path="/admin-dashboard" element={<ProtectedRoute allowedRoles={['admin']} element={<AdminDashboard handleLogout={handleLogout} />} />} />
         <Route path="/donate" element={<Donate />} />
         <Route path="/benefits" element={<Benefits />} />
@@ -178,7 +195,11 @@ const App = () => {
             isLoggedIn ? (
               userRole === 'client' ? <Navigate to="/client-dashboard" replace />
                 : userRole === 'volunteer' ? (
-                  volunteerStatus === 'pending' || volunteerStatus === 'rejected' ? <Navigate to="/volunteer-confirmation" replace /> : <Navigate to="/volunteer-dashboard" replace />
+                  hasSubmittedDocuments === null ? <Navigate to="/volunteer-confirmation" replace />
+                  : !hasSubmittedDocuments ? <Navigate to="/volunteer-confirmation" replace />
+                  : volunteerStatus === 'pending' ? <Navigate to="/volunteer-pending" replace />
+                  : volunteerStatus === 'approved' || volunteerStatus === 'active' ? <Navigate to="/volunteer-dashboard" replace />
+                  : <Navigate to="/volunteer-confirmation" replace />
                 )
                 : userRole === 'admin' ? <Navigate to="/admin-dashboard" replace />
                   : <Navigate to="/" replace />

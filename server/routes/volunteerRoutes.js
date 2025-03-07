@@ -733,7 +733,7 @@ module.exports = (
         const volunteerId = req.user.userId;
         const { payment_method_id, amount } = req.body;
 
-        if (!payment_method_id || amount !== 10) {
+        if (!payment_method_id || amount !== 9) {
           return res.status(400).json({ error: "Invalid payment details" });
         }
 
@@ -749,7 +749,7 @@ module.exports = (
         }
 
         const paymentIntent = await stripe.paymentIntents.create({
-          amount: 1000,
+          amount: 9000,
           currency: "eur",
           payment_method: payment_method_id,
           confirm: true,
@@ -782,6 +782,37 @@ module.exports = (
           error: "Failed to process payment",
           details: error.message,
         });
+      }
+    }
+  );
+
+  // CHECK DOCUMENT STATUS
+  router.get(
+    "/volunteer/documents-status",
+    authenticate,
+    authorizeVolunteer,
+    async (req, res) => {
+      try {
+        const volunteerId = req.user.userId;
+        const volunteer = await pool.query(
+          "SELECT charter_file_path, insurance_file_path, volunteer_status FROM users WHERE id = $1",
+          [volunteerId]
+        );
+  
+        if (volunteer.rows.length === 0) {
+          return res.status(404).json({ error: "Volunteer not found" });
+        }
+  
+        const { charter_file_path, insurance_file_path, volunteer_status } = volunteer.rows[0];
+        const hasSubmittedDocuments = charter_file_path && insurance_file_path;
+  
+        res.json({
+          hasSubmittedDocuments,
+          volunteerStatus: volunteer_status,
+        });
+      } catch (error) {
+        console.error("Error fetching volunteer documents status:", error);
+        res.status(500).json({ error: "Failed to fetch documents status" });
       }
     }
   );

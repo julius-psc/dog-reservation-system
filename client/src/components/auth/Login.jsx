@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import { Link } from 'react-router-dom';
 
 const Login = ({ onLogin, setError }) => {
-    const [username, setUsername] = useState("");
+    const [identifier, setIdentifier] = useState(""); // Changed from username to identifier
     const [password, setPassword] = useState("");
     const [showForgotPassword, setShowForgotPassword] = useState(false);
 
@@ -17,18 +17,18 @@ const Login = ({ onLogin, setError }) => {
             const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/login`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ username, password }),
+                body: JSON.stringify({ identifier, password }), // Updated to use identifier
             });
         
             if (!response.ok) {
                 const errorData = await response.json();
-                console.error("Erreur de réponse:", errorData); // Log supplémentaire
+                console.error("Erreur de réponse:", errorData);
                 toast.error(errorData.error || "Échec de la connexion");
                 return;
             }
         
             const data = await response.json();
-            console.log("Réponse de l'API:", data); // Log supplémentaire
+            console.log("Réponse de l'API:", data);
         
             if (data && data.token && data.user && data.user.id && data.user.role) {
                 Cookies.set("token", data.token, { expires: 7 });
@@ -56,15 +56,15 @@ const Login = ({ onLogin, setError }) => {
     const renderLoginForm = () => (
         <form onSubmit={handleSubmit} className="mt-8 grid grid-cols-6 gap-6">
             <div className="col-span-6">
-                <label htmlFor="username" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
-                    Nom d&#39;utilisateur
+                <label htmlFor="identifier" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                    Email ou nom d&#39;utilisateur
                 </label>
                 <input
                     type="text"
-                    id="username"
-                    placeholder="Nom d'utilisateur"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
+                    id="identifier"
+                    placeholder="Email ou nom d'utilisateur"
+                    value={identifier}
+                    onChange={(e) => setIdentifier(e.target.value)}
                     required
                     className="mt-1 py-2 px-3 w-full rounded-md border-gray-200 bg-white text-sm text-gray-700 shadow-xs dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
                 />
@@ -100,7 +100,7 @@ const Login = ({ onLogin, setError }) => {
                 </p>
             </div>
 
-            <div className="col-span-6 text-center -mt-2"> {/* Reduced margin here */}
+            <div className="col-span-6 text-center -mt-2">
                 <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
                     <Link to="/volunteer-signup" className="text-gray-700 underline dark:text-gray-200">Je n&#39;ai pas de compte et je souhaite devenir promeneur</Link>
                 </p>
@@ -115,11 +115,8 @@ const Login = ({ onLogin, setError }) => {
                     Mot de passe oublié ?
                 </button>
             </div>
-
-
         </form>
     );
-
 
     return (
         <section className="bg-white dark:bg-gray-900">
@@ -134,7 +131,7 @@ const Login = ({ onLogin, setError }) => {
 
                 <main className="flex items-center justify-center px-8 py-8 sm:px-12 lg:col-span-7 lg:px-16 lg:py-12 xl:col-span-6">
                     <div className="max-w-xl lg:max-w-3xl relative">
-                        <Link to="/" className="block text-primary-pink"> {/* Retour à l'accueil link here */}
+                        <Link to="/" className="block text-primary-pink">
                             Retour à l&#39;accueil
                         </Link>
 
@@ -146,7 +143,6 @@ const Login = ({ onLogin, setError }) => {
                             Association de promenades 100% gratuites en France
                         </p>
                         {!showForgotPassword ? renderLoginForm() : <ForgotPassword onBackToLogin={() => setShowForgotPassword(false)} />}
-
                     </div>
                 </main>
             </div>

@@ -71,28 +71,28 @@ module.exports = (pool, bcrypt, jwt, sendPasswordResetEmail) => {
 
   // Login endpoint
   router.post("/login", async (req, res) => {
-    const { username, password } = req.body;
-    if (!username || !password) {
+    const { identifier, password } = req.body; // Changed from username to identifier
+    if (!identifier || !password) {
       return res
         .status(400)
-        .json({ error: "Veuillez entrer un nom d'utilisateur et un mot de passe." });
+        .json({ error: "Veuillez entrer un identifiant (email ou nom d'utilisateur) et un mot de passe." });
     }
-
+  
     try {
       const userResult = await pool.query(
-        "SELECT * FROM users WHERE username = $1",
-        [username]
+        "SELECT * FROM users WHERE username = $1 OR email = $1",
+        [identifier]
       );
       if (userResult.rows.length === 0) {
-        return res.status(401).json({ error: "Nom d'utilisateur / Mot de passe incorrect" });
+        return res.status(401).json({ error: "Identifiant ou mot de passe incorrect" });
       }
-
+  
       const user = userResult.rows[0];
       const passwordMatch = await bcrypt.compare(password, user.password);
       if (!passwordMatch) {
-        return res.status(401).json({ error: "Nom d'utilisateur / Mot de passe incorrect" });
+        return res.status(401).json({ error: "Identifiant ou mot de passe incorrect" });
       }
-
+  
       const token = jwt.sign(
         { userId: user.id, role: user.role },
         process.env.JWT_SECRET,

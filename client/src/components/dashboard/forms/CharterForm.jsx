@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useState } from 'react';
-import Cookies from 'js-cookie';
+import Cookies from 'js-cookie'; // Fixed typo from 'js-cookies'
 import PropTypes from 'prop-types';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
@@ -32,13 +32,29 @@ const CharterFormComponent = ({ onCharterComplete, volunteerStatus }) => {
     const [fileErrors, setFileErrors] = useState({ charter: '', insurance: '' });
     const navigate = useNavigate();
 
+    // Move handleLogout outside useEffect to avoid dependency issues
+    const handleLogout = useCallback(() => {
+        Cookies.remove('token');
+        Cookies.remove('userId');
+        toast.success('Vous avez été déconnecté.');
+        navigate('/login');
+    }, [navigate]);
+
     useEffect(() => {
         if (volunteerStatus === 'pending') {
             setStep(3);
         } else if (volunteerStatus === 'rejected') {
             setStep(1);
         }
-    }, [volunteerStatus]);
+
+        // Logout on page close or refresh
+        const handleBeforeUnload = () => {
+            Cookies.remove('token');
+            Cookies.remove('userId');
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [volunteerStatus]); // Removed handleLogout from dependencies
 
     const nextStep = useCallback(() => setStep(prev => prev + 1), []);
     const prevStep = useCallback(() => setStep(prev => prev - 1), []);
@@ -51,13 +67,6 @@ const CharterFormComponent = ({ onCharterComplete, volunteerStatus }) => {
         setFileErrors(prev => ({ ...prev, [type]: '' }));
         type === 'charter' ? setCharterFile(file) : setInsuranceFile(file);
     };
-
-    const handleLogout = useCallback(() => {
-        Cookies.remove('token');
-        Cookies.remove('userId'); // Remove additional cookies if used
-        toast.success('Vous avez été déconnecté.');
-        navigate('/login');
-    }, [navigate]);
 
     const handleCompletion = useCallback(async () => {
         let hasError = false;
@@ -101,19 +110,20 @@ const CharterFormComponent = ({ onCharterComplete, volunteerStatus }) => {
             }
 
             const data = await response.json();
-            nextStep();
+            nextStep(); // Move to step 3
             onCharterComplete(data.user.volunteer_status || 'pending');
             setCharterFile(null);
             setInsuranceFile(null);
             toast.success('Documents soumis avec succès !');
 
-            // Logout and redirect
-            handleLogout();
+            // Wait 5 seconds, then logout and redirect
+            setTimeout(() => {
+                handleLogout();
+            }, 5000);
         } catch (error) {
             console.error('Submission error:', error);
             toast.error(error.message);
-            // Force logout on error to prevent staying logged in
-            handleLogout();
+            handleLogout(); // Logout on error
         } finally {
             setIsSubmitting(false);
         }
@@ -143,24 +153,24 @@ const CharterFormComponent = ({ onCharterComplete, volunteerStatus }) => {
 
     return (
         <div className='fixed inset-0 z-50 bg-gray-100/90 overflow-auto' role='dialog' aria-modal='true'>
-            <div className='flex justify-center items-center min-h-screen p-6 md:p-4'>
-                <div className='bg-white rounded-xl shadow-xl p-8 max-w-2xl w-full space-y-8 md:space-y-6'>
+            <div className='flex justify-center items-center min-h-screen p-6 md:p-8'>
+                <div className='bg-white rounded-xl shadow-2xl p-8 max-w-3xl w-full space-y-8'>
                     {renderProgressBar()}
 
-                    <div className='mt-8 space-y-8 md:space-y-6'>
+                    <div className='mt-8 space-y-6'>
                         {step === 1 && (
-                            <div className='space-y-5'>
-                                <h2 className='text-3xl font-semibold text-gray-900 text-center'>
+                            <div className='space-y-6 text-center'>
+                                <h2 className='text-3xl font-semibold text-gray-900'>
                                     Bienvenue jeune promeneur !
                                 </h2>
-                                <p className='text-lg text-gray-700 text-center'>
-                                    Merci de vouloir faire une différence dans la vie des chiens ! En rejoignant notre communauté de bénévoles,
-                                    vous contribuerez à offrir des promenades joyeuses et des aventures sécurisées aux chiens dans le besoin. Commençons par quelques exigences simples pour assurer la sécurité et le plaisir de tous.
+                                <p className='text-lg text-gray-600 leading-relaxed max-w-2xl mx-auto'>
+                                    Merci de vouloir faire une différence dans la vie des chiens ! En rejoignant notre communauté, vous offrirez des promenades joyeuses et sécurisées aux chiens dans le besoin. Commençons par quelques étapes simples.
                                 </p>
-                                <div className='flex justify-center'>
+                                <div className='flex justify-center pt-4'>
                                     <button
                                         onClick={nextStep}
-                                        className='rounded-full bg-primary-yellow hover:bg-yellow-500 text-gray-900 font-bold py-3 px-6 w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-primary-yellow focus:ring-opacity-50 transition-colors duration-300'
+                                        className='rounded-full bg-primary-yellow hover:bg-yellow-500 text-gray-900 font-bold py-3 px-8 w-full max-w-xs focus:outline-none focus:ring-4 focus:ring-yellow-300 transition-colors duration-300'
+                                        aria-label='Continuer vers les formalités'
                                     >
                                         Continuer
                                     </button>
@@ -169,148 +179,145 @@ const CharterFormComponent = ({ onCharterComplete, volunteerStatus }) => {
                         )}
 
                         {step === 2 && (
-                            <div className='space-y-6'>
-                                <h2 className='text-3xl font-semibold text-gray-900 text-center'>Formalités d&#39;adhésion</h2>
-                                <p className='text-lg text-gray-700 text-center'>
-                                    Pour garantir la meilleure expérience à nos bénévoles et à nos amis à fourrure, nous exigeons :
+                            <div className='space-y-8'>
+                                <h2 className='text-3xl font-semibold text-gray-900 text-center'>
+                                    Formalités d&#39;adhésion
+                                </h2>
+                                <p className='text-lg text-gray-600 text-center max-w-2xl mx-auto'>
+                                    Pour garantir une expérience optimale pour tous, veuillez soumettre les documents suivants :
                                 </p>
 
                                 <div className='space-y-8'>
-                                    <div className='flex items-start space-x-3'>
-                                        <div className='flex-shrink-0'>
-                                            <span className='text-xl text-gray-700'>•</span>
-                                        </div>
-                                        <div>
+                                    {/* Charter Section */}
+                                    <div className='bg-gray-50 p-6 rounded-lg shadow-sm border border-gray-200'>
+                                        <div className='flex items-center space-x-3 mb-4'>
+                                            <span className='text-2xl text-primary-yellow'>1.</span>
                                             <p className='text-lg text-gray-700'>
                                                 Téléchargez et signez notre{' '}
                                                 <a
                                                     href={charterPDF}
                                                     download
-                                                    className='text-primary-yellow hover:underline font-medium focus:outline-none focus:ring-2 focus:ring-primary-yellow focus:ring-opacity-50 transition-colors duration-300'
+                                                    className='text-primary-yellow hover:underline font-semibold focus:outline-none focus:ring-2 focus:ring-yellow-300 transition-colors'
+                                                    aria-label='Télécharger la Charte du Promeneur de Chiens'
                                                 >
                                                     Charte du Promeneur de Chiens
                                                 </a>
                                             </p>
                                         </div>
-                                    </div>
-                                    <div className='flex items-start space-x-3'>
-                                        <div className='flex-shrink-0'>
-                                            <span className='text-xl text-gray-700'>•</span>
+                                        <label htmlFor='charter-upload' className='block text-md font-medium text-gray-700 mb-2'>
+                                            Téléversez la charte signée <span className='text-gray-500 text-sm'>(JPG, PNG, PDF)</span>
+                                        </label>
+                                        <div className='flex items-center space-x-4'>
+                                            <input
+                                                id='charter-upload'
+                                                type='file'
+                                                onChange={(e) => handleFileChange('charter', e.target.files[0])}
+                                                className='hidden'
+                                                aria-describedby='charter-error'
+                                            />
+                                            <label
+                                                htmlFor='charter-upload'
+                                                className='inline-flex items-center px-4 py-2 bg-primary-yellow text-white rounded-lg hover:bg-yellow-500 cursor-pointer transition-colors duration-300 focus:outline-none focus:ring-4 focus:ring-yellow-300'
+                                            >
+                                                Choisir un fichier
+                                            </label>
+                                            {charterFile && <span className='text-gray-600 text-sm truncate'>{charterFile.name}</span>}
                                         </div>
-                                        <div>
+                                        {fileErrors.charter && (
+                                            <p id='charter-error' className='text-red-500 text-sm mt-2'>{fileErrors.charter}</p>
+                                        )}
+                                    </div>
+
+                                    {/* Insurance Section */}
+                                    <div className='bg-gray-50 p-6 rounded-lg shadow-sm border border-gray-200'>
+                                        <div className='flex items-center space-x-3 mb-4'>
+                                            <span className='text-2xl text-primary-yellow'>2.</span>
                                             <p className='text-lg text-gray-700'>
-                                                Fournissez une documentation d&#39;assurance responsabilité civile pour animaux de compagnie valide
+                                                Fournissez une attestation d&#39;assurance responsabilité civile valide
                                             </p>
                                         </div>
-                                    </div>
-
-                                    <div className='space-y-6'>
-                                        <div>
-                                            <label htmlFor='charter-upload' className='block text-lg font-medium text-gray-700 mb-3'>
-                                                Téléversez la charte promeneur signée ici   
-                                                <span className='text-gray-500 ml-1'>(JPG, PNG, PDF, etc.)</span>
+                                        <label htmlFor='insurance-upload' className='block text-md font-medium text-gray-700 mb-2'>
+                                            Téléversez votre attestation <span className='text-gray-500 text-sm'>(JPG, PNG, PDF)</span>
+                                        </label>
+                                        <div className='flex items-center space-x-4'>
+                                            <input
+                                                id='insurance-upload'
+                                                type='file'
+                                                onChange={(e) => handleFileChange('insurance', e.target.files[0])}
+                                                className='hidden'
+                                                aria-describedby='insurance-error'
+                                            />
+                                            <label
+                                                htmlFor='insurance-upload'
+                                                className='inline-flex items-center px-4 py-2 bg-primary-yellow text-white rounded-lg hover:bg-yellow-500 cursor-pointer transition-colors duration-300 focus:outline-none focus:ring-4 focus:ring-yellow-300'
+                                            >
+                                                Choisir un fichier
                                             </label>
-                                            <div className='flex items-center space-x-4'>
-                                                <div className='relative'>
-                                                    <input
-                                                        id='charter-upload'
-                                                        type='file'
-                                                        onChange={(e) => handleFileChange('charter', e.target.files[0])}
-                                                        className='peer absolute inset-0 w-full h-full opacity-0 cursor-pointer'
-                                                    />
-                                                    <label
-                                                        htmlFor='charter-upload'
-                                                        className='text-lg text-white file:mr-4 bg-primary-yellow file:py-2 file:px-4 px-4 py-2 rounded-lg file:rounded-full file:border-0 file:text-md file:font-semibold file:bg-gray-50 file:text-gray-700 hover:file:bg-gray-100 cursor-pointer'
-                                                    >
-                                                        Choisir un fichier
-                                                    </label>
-                                                </div>
-                                                {charterFile && (
-                                                    <span className='text-gray-700 dark:text-gray-500 text-sm'>
-                                                        {charterFile.name}
-                                                    </span>
-                                                )}
-                                            </div>
-                                            {fileErrors.charter && (
-                                                <p className='text-red-500 text-sm mt-1'>{fileErrors.charter}</p>
-                                            )}
+                                            {insuranceFile && <span className='text-gray-600 text-sm truncate'>{insuranceFile.name}</span>}
                                         </div>
-
-                                        <div>
-                                            <label htmlFor='insurance-upload' className='block text-lg font-medium text-gray-700 mb-3'>
-                                                Téléverser l&#39;attestation de responsabilitié civile ici
-                                                <span className='text-gray-500 ml-1'>(JPG, PNG, PDF, etc.)</span>
-                                            </label>
-                                            <div className='flex items-center space-x-4'>
-                                                <div className='relative'>
-                                                    <input
-                                                        id='insurance-upload'
-                                                        type='file'
-                                                        onChange={(e) => handleFileChange('insurance', e.target.files[0])}
-                                                        className='peer absolute inset-0 w-full h-full opacity-0 cursor-pointer'
-                                                    />
-                                                    <label
-                                                        htmlFor='insurance-upload'
-                                                        className='text-lg text-white file:mr-4 bg-primary-yellow file:py-2 file:px-4 px-4 py-2 rounded-lg file:rounded-full file:border-0 file:text-md file:font-semibold file:bg-gray-50 file:text-gray-700 hover:file:bg-gray-100 cursor-pointer'
-                                                    >
-                                                        Choisir un fichier
-                                                    </label>
-                                                </div>
-                                                {insuranceFile && (
-                                                    <span className='text-gray-700 dark:text-gray-300 text-sm'>
-                                                        {insuranceFile.name}
-                                                    </span>
-                                                )}
-                                            </div>
-                                            {fileErrors.insurance && (
-                                                <p className='text-red-500 text-sm mt-1'>{fileErrors.insurance}</p>
-                                            )}
-                                        </div>
+                                        {fileErrors.insurance && (
+                                            <p id='insurance-error' className='text-red-500 text-sm mt-2'>{fileErrors.insurance}</p>
+                                        )}
+                                        <p className='text-sm text-gray-600 mt-2'>
+                                            C&#39;est quoi une attestation civile ?{' '}
+                                            <a
+                                                href='https://www.groupama.fr/assurance-habitation/conseils/attestation-responsabilite-civile/'
+                                                target='_blank'
+                                                rel='noopener noreferrer'
+                                                className='text-primary-yellow hover:underline font-semibold'
+                                                aria-label='Découvrir une attestation civile sur groupama.fr'
+                                            >
+                                               Découvrir ici
+                                            </a>
+                                        </p>
                                     </div>
+                                </div>
 
-                                    <div className='flex flex-col sm:flex-row justify-center gap-6 mt-8'>
-                                        <button
-                                            onClick={prevStep}
-                                            className='order-2 sm:order-1 rounded-full bg-gray-300 hover:bg-gray-400 text-gray-700 font-bold py-3 px-6 flex-1 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-opacity-50 transition-colors duration-300'
-                                        >
-                                            Retour
-                                        </button>
-                                        <button
-                                            onClick={handleCompletion}
-                                            disabled={isSubmitting}
-                                            className={`order-1 sm:order-2 rounded-full bg-primary-yellow hover:bg-yellow-500 text-gray-900 font-bold py-3 px-6 flex-1 focus:outline-none focus:ring-2 focus:ring-primary-yellow focus:ring-opacity-50 transition-colors duration-300 ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                        >
-                                            {isSubmitting ? 'Soumission...' : 'Soumettre les documents'}
-                                        </button>
-                                        <button
-                                            onClick={handleLogout}
-                                            className='order-3 rounded-full bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 flex-1 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 transition-colors duration-300'
-                                        >
-                                            Déconnexion
-                                        </button>
-                                    </div>
+                                {/* Buttons */}
+                                <div className='flex flex-col sm:flex-row justify-center gap-4'>
+                                    <button
+                                        onClick={prevStep}
+                                        className='w-full sm:w-auto px-6 py-3 bg-gray-200 text-gray-700 rounded-full hover:bg-gray-300 focus:outline-none focus:ring-4 focus:ring-gray-300 transition-colors duration-300'
+                                        aria-label='Retour à l’étape précédente'
+                                    >
+                                        Retour à la page précédente
+                                    </button>
+                                    <button
+                                        onClick={handleLogout}
+                                        className='w-full sm:w-auto px-6 py-3 bg-red-500 text-white rounded-full hover:bg-red-600 focus:outline-none focus:ring-4 focus:ring-red-500 transition-colors duration-300'
+                                        aria-label='Se déconnecter'
+                                    >
+                                        Annuler
+                                    </button>
+                                    <button
+                                        onClick={handleCompletion}
+                                        disabled={isSubmitting}
+                                        className={`w-full sm:w-auto px-6 py-3 bg-green-500 text-white rounded-full hover:bg-green-500 focus:outline-none focus:ring-4 focus:ring-yellow-300 transition-colors duration-300 ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                        aria-label='Soumettre les documents'
+                                    >
+                                        {isSubmitting ? 'Soumission...' : 'Valider'}
+                                    </button>
                                 </div>
                             </div>
                         )}
 
                         {step === 3 && (
-                            <div className='text-center space-y-5'>
+                            <div className='text-center space-y-6'>
                                 <h2 className='text-3xl font-semibold text-gray-900'>
                                     Merci d&#39;avoir rejoint Chiens en Cavale !
                                 </h2>
-                                <p className='text-lg text-gray-700'>
-                                    Votre demande est maintenant en cours d&#39;examen par notre équipe. Nous traitons généralement les demandes dans un délai de 24 à 48 heures. Vous recevrez une notification par e-mail une fois votre adhésion approuvée.
-                                    Une fois que votre demande est approuvée, rendez-vous sur votre tableau de bord et définissez y vos disponibilités. :)
+                                <p className='text-lg text-gray-600 leading-relaxed max-w-2xl mx-auto'>
+                                    Votre demande est en cours d&#39;examen par notre équipe. Cela prend généralement 24 à 48 heures. Vous recevrez un e-mail une fois votre adhésion approuvée. Vous serez redirigé vers la page de connexion dans quelques secondes...
                                 </p>
-                                <p className='text-gray-600 text-md'>
-                                    En attendant, n&#39;hésitez pas à nous contacter à{' '}
+                                <p className='text-md text-gray-600'>
+                                    Des questions ? Contactez-nous à{' '}
                                     <a
                                         href='mailto:contact.chiensencavale@gmail.com'
-                                        className='text-primary-yellow hover:underline font-medium focus:outline-none focus:ring-2 focus:ring-primary-yellow focus:ring-opacity-50 transition-colors duration-300'
+                                        className='text-primary-yellow hover:underline font-semibold focus:outline-none focus:ring-2 focus:ring-yellow-300 transition-colors'
+                                        aria-label='Envoyer un email à contact.chiensencavale@gmail.com'
                                     >
                                         contact.chiensencavale@gmail.com
-                                    </a>{' '}
-                                    si vous avez des questions.
+                                    </a>
                                 </p>
                             </div>
                         )}

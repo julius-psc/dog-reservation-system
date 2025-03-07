@@ -1,7 +1,6 @@
-import { useState, useEffect, useMemo } from "react"; // Added useMemo
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from 'react-router-dom';
 import toast from "react-hot-toast";
-import charte from '../../assets/dashboard/attestation_propriétaire.pdf';
 
 const ClientSignup = () => {
   const navigate = useNavigate();
@@ -17,7 +16,9 @@ const ClientSignup = () => {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [signupError, setSignupError] = useState("");
   const [validationErrors, setValidationErrors] = useState({});
-  const [charteSigned, setCharteSigned] = useState(false);
+  const [noRiskConfirmed, setNoRiskConfirmed] = useState(false); // New state for "no risk"
+  const [unableToWalkConfirmed, setUnableToWalkConfirmed] = useState(false); // New state for "unable to walk"
+  const [photoPermission, setPhotoPermission] = useState(false); // New state for optional photo permission
   const [allVillages, setAllVillages] = useState([]);
 
   // Memoized static village options
@@ -26,16 +27,14 @@ const ClientSignup = () => {
     "Saint-Contest", "Banville", "Biéville-Beuville", "Périers-sur-le-Dan",
     "Blainville-sur-Orne", "Caen", "Douvres-la-Délivrande",
     "Hérouville-Saint-Clair", "Ouistreham", "Vire", "Autres communes"
-  ], []); // Empty dependency array since it’s static
+  ], []);
 
-  // Fetch villages from the server when the component mounts
+  // Fetch villages from the server
   useEffect(() => {
     const fetchVillages = async () => {
       try {
         const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/villages`);
-        if (!response.ok) {
-          throw new Error("Failed to fetch villages");
-        }
+        if (!response.ok) throw new Error("Failed to fetch villages");
         const data = await response.json();
         const volunteerVillages = data.villages || [];
         const combinedVillages = [...new Set([...staticVillageOptions, ...volunteerVillages])].sort();
@@ -45,9 +44,8 @@ const ClientSignup = () => {
         setAllVillages(staticVillageOptions);
       }
     };
-
     fetchVillages();
-  }, [staticVillageOptions]); // staticVillageOptions is memoized, so it won’t change
+  }, [staticVillageOptions]);
 
   useEffect(() => {
     if (signupError) {
@@ -57,31 +55,12 @@ const ClientSignup = () => {
   }, [signupError]);
 
   // --- Validation Functions ---
-  const validateEmail = (email) => {
-    const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return regex.test(email) ? null : "Adresse email invalide";
-  };
-
-  const validatePhoneNumber = (phoneNumber) => {
-    const regex = /^[0-9]{10}$/;
-    return regex.test(phoneNumber) ? null : "Numéro de téléphone invalide (10 chiffres requis)";
-  };
-
-  const validateRequired = (value) => {
-    return value.trim() ? null : "Ce champ est obligatoire";
-  };
-
-  const validateUsername = (username) => {
-    return username.length >= 3 ? null : "Nom d'utilisateur doit avoir au moins 3 caractères";
-  };
-
-  const validatePassword = (password) => {
-    return password.length >= 6 ? null : "Mot de passe doit avoir au moins 6 caractères";
-  };
-
-  const validateCharteSigned = (checked) => {
-    return checked ? null : "Vous devez confirmer avoir signé la charte";
-  };
+  const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? null : "Adresse email invalide";
+  const validatePhoneNumber = (phoneNumber) => /^[0-9]{10}$/.test(phoneNumber) ? null : "Numéro de téléphone invalide (10 chiffres requis)";
+  const validateRequired = (value) => value.trim() ? null : "Ce champ est obligatoire";
+  const validateUsername = (username) => username.length >= 3 ? null : "Nom d'utilisateur doit avoir au moins 3 caractères";
+  const validatePassword = (password) => password.length >= 6 ? null : "Mot de passe doit avoir au moins 6 caractères";
+  const validateCheckbox = (checked) => checked ? null : "Vous devez cocher cette case";
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -95,7 +74,8 @@ const ClientSignup = () => {
     errors.village = validateRequired(village);
     errors.address = validateRequired(address);
     errors.phoneNumber = validatePhoneNumber(phoneNumber) || validateRequired(phoneNumber);
-    errors.charteSigned = validateCharteSigned(charteSigned);
+    errors.noRiskConfirmed = validateCheckbox(noRiskConfirmed);
+    errors.unableToWalkConfirmed = validateCheckbox(unableToWalkConfirmed);
 
     if (showAutresCommunesForm) {
       errors.autreCommuneVillageSouhaite = validateRequired(autreCommuneVillageSouhaite);
@@ -108,7 +88,10 @@ const ClientSignup = () => {
     }
 
     let endpoint = `${import.meta.env.VITE_API_BASE_URL}/register`;
-    let registrationData = {};
+    let registrationData = {
+      username, password, email, village, role, address, phoneNumber,
+      noRiskConfirmed, unableToWalkConfirmed, photoPermission // Include checkbox data
+    };
 
     if (showAutresCommunesForm) {
       endpoint = `${import.meta.env.VITE_API_BASE_URL}/client/other-village`;
@@ -118,11 +101,8 @@ const ClientSignup = () => {
         autreCommuneTelephone: phoneNumber,
         autreCommuneVillageSouhaite,
         village: "Autres communes",
-        role: "client"
-      };
-    } else {
-      registrationData = {
-        username, password, email, village, role: role, address, phoneNumber
+        role: "client",
+        noRiskConfirmed, unableToWalkConfirmed, photoPermission
       };
     }
 
@@ -136,7 +116,7 @@ const ClientSignup = () => {
       if (!response.ok) {
         const errorData = await response.json();
         let errorMessage = errorData.error || "Signup failed";
-        if (errorData.error && errorData.error.includes("Username is already taken")) {
+        if (errorData.error?.includes("Username is already taken")) {
           errorMessage = "Nom d'utilisateur déjà pris. Veuillez en choisir un autre.";
         }
         setSignupError(errorMessage);
@@ -152,7 +132,9 @@ const ClientSignup = () => {
       setRole("client");
       setAddress("");
       setPhoneNumber("");
-      setCharteSigned(false);
+      setNoRiskConfirmed(false);
+      setUnableToWalkConfirmed(false);
+      setPhotoPermission(false);
       setValidationErrors({});
 
       const successMessage = showAutresCommunesForm
@@ -160,10 +142,7 @@ const ClientSignup = () => {
         : "Inscription réussie ! Vous serez redirigé vers la page de connexion dans 3 secondes.";
       toast.success(successMessage);
 
-      setTimeout(() => {
-        navigate('/login');
-      }, 3000);
-
+      setTimeout(() => navigate('/login'), 3000);
     } catch (error) {
       console.error("Signup Error:", error);
     }
@@ -183,11 +162,11 @@ const ClientSignup = () => {
     }
   };
 
-  const handleCheckboxChange = (e) => {
-    setCharteSigned(e.target.checked);
+  const handleCheckboxChange = (e, setter, fieldName) => {
+    setter(e.target.checked);
     setValidationErrors(prevErrors => ({
       ...prevErrors,
-      charteSigned: validateCharteSigned(e.target.checked)
+      [fieldName]: e.target.checked ? null : "Vous devez cocher cette case"
     }));
   };
 
@@ -213,10 +192,9 @@ const ClientSignup = () => {
             </p>
 
             <form onSubmit={handleSubmit} className="mt-8 grid grid-cols-6 gap-6">
+              {/* Existing Fields */}
               <div className="col-span-6 sm:col-span-3">
-                <label htmlFor="username" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
-                  Nom d&#39;utilisateur
-                </label>
+                <label htmlFor="username" className="block text-sm font-medium text-gray-700 dark:text-gray-200">Nom d&#39;utilisateur</label>
                 <input
                   type="text"
                   id="username"
@@ -231,9 +209,7 @@ const ClientSignup = () => {
               </div>
 
               <div className="col-span-6 sm:col-span-3">
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
-                  Mot de passe
-                </label>
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-200">Mot de passe</label>
                 <input
                   type="password"
                   id="password"
@@ -248,9 +224,7 @@ const ClientSignup = () => {
               </div>
 
               <div className="col-span-6 sm:col-span-3">
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
-                  Email
-                </label>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-200">Email</label>
                 <input
                   type="email"
                   id="email"
@@ -265,9 +239,7 @@ const ClientSignup = () => {
               </div>
 
               <div className="col-span-6 sm:col-span-3">
-                <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
-                  Numéro de téléphone portable
-                </label>
+                <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-700 dark:text-gray-200">Numéro de téléphone portable</label>
                 <input
                   type="tel"
                   id="phoneNumber"
@@ -282,9 +254,7 @@ const ClientSignup = () => {
               </div>
 
               <div className="col-span-6 sm:col-span-3">
-                <label htmlFor="village" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
-                  Commune de résidence
-                </label>
+                <label htmlFor="village" className="block text-sm font-medium text-gray-700 dark:text-gray-200">Commune de résidence</label>
                 <div className="relative">
                   <select
                     id="village"
@@ -309,9 +279,7 @@ const ClientSignup = () => {
               </div>
 
               <div className="col-span-6 sm:col-span-3">
-                <label htmlFor="address" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
-                  Voie
-                </label>
+                <label htmlFor="address" className="block text-sm font-medium text-gray-700 dark:text-gray-200">Voie</label>
                 <input
                   type="text"
                   id="address"
@@ -327,9 +295,7 @@ const ClientSignup = () => {
 
               {showAutresCommunesForm && (
                 <div className="col-span-6 p-4 bg-gray-50 rounded-md border border-gray-200 dark:border-gray-700 dark:bg-gray-800">
-                  <h3 className="text-lg font-semibold mb-2 text-gray-800 dark:text-gray-200">
-                    Demande pour autres communes
-                  </h3>
+                  <h3 className="text-lg font-semibold mb-2 text-gray-800 dark:text-gray-200">Demande pour autres communes</h3>
                   <input
                     type="text"
                     placeholder="Commune souhaitée"
@@ -343,29 +309,47 @@ const ClientSignup = () => {
                 </div>
               )}
 
+              {/* New Checkboxes */}
               <div className="col-span-6">
-                <p className="text-sm text-gray-700 dark:text-gray-200 mb-2">
-                  Veuillez télécharger la{' '}
-                  <a href={charte} download="charte_du_propriétaire.pdf" className="text-primary-pink underline hover:text-pink-700 dark:text-primary-pink dark:hover:text-pink-500">
-                    Charte du Propriétaire
-                  </a>{' '}
-                  et la signer.
-                </p>
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">J&#39;atteste sur l&#39;honneur que :</p>
+
+                {validationErrors.noRiskConfirmed && <p className="text-xs text-red-500 dark:text-red-400">{validationErrors.noRiskConfirmed}</p>}
+                <label className="flex items-center space-x-2 mb-2">
+                  <input
+                    type="checkbox"
+                    name="noRiskConfirmed"
+                    checked={noRiskConfirmed}
+                    onChange={(e) => handleCheckboxChange(e, setNoRiskConfirmed, "noRiskConfirmed")}
+                    className="rounded border-gray-300 text-primary-pink focus:ring-primary-pink dark:bg-gray-800 dark:border-gray-600"
+                    required
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-200">Mon animal ne présente aucun risque pour le promeneur (pas d&#39;antécédents d&#39;agressivité, morsures ou autres comportements dangereux).</span>
+                </label>
+            
+
+                {validationErrors.unableToWalkConfirmed && <p className="mt-1 text-xs text-red-500 dark:text-red-400">{validationErrors.unableToWalkConfirmed}</p>}
+                <label className="flex items-center space-x-2 mb-2">
+                  <input
+                    type="checkbox"
+                    name="unableToWalkConfirmed"
+                    checked={unableToWalkConfirmed}
+                    onChange={(e) => handleCheckboxChange(e, setUnableToWalkConfirmed, "unableToWalkConfirmed")}
+                    className="rounded border-gray-300 text-primary-pink focus:ring-primary-pink dark:bg-gray-800 dark:border-gray-600"
+                    required
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-200">Je ne suis pas en mesure de promener ou de faire promener mon chien quotidiennement.</span>
+                </label>
+
                 <label className="flex items-center space-x-2">
                   <input
                     type="checkbox"
-                    name="charteSigned"
-                    checked={charteSigned}
-                    onChange={handleCheckboxChange}
+                    name="photoPermission"
+                    checked={photoPermission}
+                    onChange={(e) => setPhotoPermission(e.target.checked)}
                     className="rounded border-gray-300 text-primary-pink focus:ring-primary-pink dark:bg-gray-800 dark:border-gray-600"
                   />
-                  <span className="text-sm text-gray-700 dark:text-gray-200">
-                    J&#39;ai téléchargé et signé la charte
-                  </span>
+                  <span className="text-sm text-gray-700 dark:text-gray-200">J&#39;autorise Chiens en Cavale à diffuser les photographies de mon chien (réseaux sociaux, supports de communication, ...)</span>
                 </label>
-                {validationErrors.charteSigned && (
-                  <p className="mt-1 text-xs text-red-500 dark:text-red-400">{validationErrors.charteSigned}</p>
-                )}
               </div>
 
               <div className="col-span-6">
@@ -380,11 +364,7 @@ const ClientSignup = () => {
               <div className="col-span-6 sm:col-span-6 sm:flex-none sm:items-center sm:gap-4 text-center">
                 <p className="mt-4 text-sm text-gray-500 dark:text-gray-400 sm:mt-0">
                   Vous avez déjà un compte ?
-                  <button
-                    type="button"
-                    onClick={() => navigate('/login')}
-                    className="text-gray-700 underline dark:text-gray-200 mx-2"
-                  >
+                  <button type="button" onClick={() => navigate('/login')} className="text-gray-700 underline dark:text-gray-200 mx-2">
                     Se connecter
                   </button>
                 </p>
