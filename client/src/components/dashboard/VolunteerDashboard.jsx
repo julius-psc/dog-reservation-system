@@ -3,6 +3,7 @@ import Cookies from "js-cookie";
 import PropTypes from "prop-types";
 import moment from "moment";
 import "moment/locale/fr";
+import CreatableSelect from "react-select/creatable";
 moment.locale("fr");
 import { loadStripe } from "@stripe/stripe-js";
 import VolunteerCard from '../dashboard/forms/VolunteerCard';
@@ -131,8 +132,6 @@ const VolunteerDashboard = ({ handleLogout }) => {
   const [actionMessage, setActionMessage] = useState(null);
   const [actionType, setActionType] = useState(null);
   const [villagesCovered, setVillagesCovered] = useState([]);
-  const [selectedVillage, setSelectedVillage] = useState("");
-  const [customVillage, setCustomVillage] = useState("");
   const [hasVillagesCoveredBeenSet, setHasVillagesCoveredBeenSet] = useState(false);
   const [loadingVillages, setLoadingVillages] = useState(true);
   const [errorVillages, setErrorVillages] = useState(null);
@@ -158,6 +157,23 @@ const VolunteerDashboard = ({ handleLogout }) => {
     cancelled: "Annulée",
     completed: "Terminé",
   };
+
+  const handleVillageChange = (newValue) => {
+    if (newValue) {
+      const villageToAdd = newValue.value;
+      if (!villagesCovered.includes(villageToAdd)) {
+        setVillagesCovered([...villagesCovered, villageToAdd]);
+      } else {
+        setActionMessage(`"${villageToAdd}" est déjà ajouté.`);
+        setActionType("warning");
+      }
+    }
+  };
+
+  const villageOptionsFormatted = villageOptions
+    .filter(v => v !== volunteerVillage) // Exclude volunteer's default village
+    .map(village => ({ value: village, label: village }));
+
 
   const fetchSubscriptionStatus = useCallback(async () => {
     setLoadingSubscription(true);
@@ -344,23 +360,6 @@ const VolunteerDashboard = ({ handleLogout }) => {
 
   const daysOfWeekLabels = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
 
-  const handleAddVillage = (source) => {
-    let villageToAdd = source === "dropdown" ? selectedVillage : customVillage.trim();
-    if (!villageToAdd) {
-      setActionMessage("Sélectionnez ou entrez un village valide.");
-      setActionType("error");
-      return;
-    }
-    if (villagesCovered.includes(villageToAdd)) {
-      setActionMessage(`"${villageToAdd}" est déjà ajouté.`);
-      setActionType("warning");
-      return;
-    }
-    setVillagesCovered([...villagesCovered, villageToAdd]);
-    if (source === "dropdown") setSelectedVillage("");
-    if (source === "custom") setCustomVillage("");
-  };
-
   const handleRemoveVillage = (villageToRemove) => {
     if (villageToRemove === volunteerVillage) {
       setActionMessage("Impossible de supprimer votre village par défaut.");
@@ -500,87 +499,84 @@ const VolunteerDashboard = ({ handleLogout }) => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Villages Covered */}
             <div className="bg-gray-50 dark:bg-gray-800 p-6 rounded-lg">
-              <h4 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
-                <FontAwesomeIcon icon={faMapMarkerAlt} className="mr-2 text-primary-blue" />
-                Communes de promenade
-              </h4>
-              {!hasVillagesCoveredBeenSet ? (
-                <>
-                  <p className="text-sm text-red-600 dark:text-red-400 mb-4 font-medium">
-                    Définition permanente une seule fois
-                  </p>
-                  <select
-                    className="w-full py-2 px-4 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-primary-blue focus:border-primary-blue transition-all duration-200 mb-4"
-                    value={selectedVillage}
-                    onChange={(e) => setSelectedVillage(e.target.value)}
-                  >
-                    <option value="">Choisir une commune</option>
-                    {villageOptions.filter(v => v !== volunteerVillage).map(village => (
-                      <option key={village} value={village}>{village}</option>
-                    ))}
-                  </select>
-                  <input
-                    type="text"
-                    className="w-full py-2 px-4 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-primary-blue focus:border-primary-blue transition-all duration-200 mb-4"
-                    value={customVillage}
-                    onChange={(e) => setCustomVillage(e.target.value)}
-                    placeholder="Ou entrez une commune"
-                  />
-                  <div className="flex gap-4 mb-6">
+            <h4 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
+              <FontAwesomeIcon icon={faMapMarkerAlt} className="mr-2 text-primary-blue" />
+              Communes de promenade
+            </h4>
+            {!hasVillagesCoveredBeenSet ? (
+              <>
+                <p className="text-sm text-red-600 dark:text-red-400 mb-4 font-medium">
+                  Définition permanente une seule fois
+                </p>
+                <CreatableSelect
+                  isClearable
+                  options={villageOptionsFormatted}
+                  onChange={handleVillageChange}
+                  placeholder="Choisir ou ajouter une commune..."
+                  className="mb-4 "
+                  classNamePrefix="react-select"
+                  formatCreateLabel={(inputValue) => `Ajouter "${inputValue}"`}
+                  noOptionsMessage={() => "Tapez pour ajouter une nouvelle commune"}
+                  styles={{
+                    control: (base) => ({
+                      ...base,
+                      backgroundColor: "#fff",
+                      borderColor: "#d1d5db",
+                      "&:hover": { borderColor: "#72B5F4" },
+                    }),
+                    menu: (base) => ({
+                      ...base,
+                      backgroundColor: "#fff",
+                    }),
+                    option: (base, { isFocused }) => ({
+                      ...base,
+                      backgroundColor: isFocused ? "#72B5F4" : "#fff",
+                      color: isFocused ? "#fff" : "#374151",
+                      "&:active": { backgroundColor: "#72B5F4" },
+                    }),
+                  }}
+                />
+                {villagesCovered.length > 0 && (
+                  <div>
+                    <ul className="space-y-3">
+                      {villagesCovered.map(village => (
+                        <li key={village} className="flex justify-between items-center bg-gray-100 dark:bg-gray-700 p-3 rounded-lg">
+                          <span className="text-gray-800 dark:text-gray-200">
+                            {village} {village === volunteerVillage && "(Défaut)"}
+                          </span>
+                          <button
+                            onClick={() => handleRemoveVillage(village)}
+                            className="bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded-lg text-sm transition-all duration-300 disabled:opacity-50"
+                            disabled={village === volunteerVillage}
+                          >
+                            Supprimer
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
                     <button
-                      onClick={() => handleAddVillage("dropdown")}
-                      className="bg-primary-blue hover:bg-blue-600 text-white py-2 px-4 rounded-lg font-semibold transition-all duration-300 disabled:opacity-50"
-                      disabled={!selectedVillage}
+                      onClick={handleSubmitVillages}
+                      className="mt-6 bg-green-500 hover:bg-green-600 text-white py-2 px-6 rounded-lg font-semibold transition-all duration-300"
                     >
-                      Ajouter (liste)
-                    </button>
-                    <button
-                      onClick={() => handleAddVillage("custom")}
-                      className="bg-primary-blue hover:bg-blue-600 text-white py-2 px-4 rounded-lg font-semibold transition-all duration-300 disabled:opacity-50"
-                      disabled={!customVillage.trim()}
-                    >
-                      Ajouter (personnalisé)
+                      Soumettre
                     </button>
                   </div>
-                  {villagesCovered.length > 0 && (
-                    <div>
-                      <ul className="space-y-3">
-                        {villagesCovered.map(village => (
-                          <li key={village} className="flex justify-between items-center bg-gray-100 dark:bg-gray-700 p-3 rounded-lg">
-                            <span className="text-gray-800 dark:text-gray-200">{village} {village === volunteerVillage && "(Défaut)"}</span>
-                            <button
-                              onClick={() => handleRemoveVillage(village)}
-                              className="bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded-lg text-sm transition-all duration-300 disabled:opacity-50"
-                              disabled={village === volunteerVillage}
-                            >
-                              Supprimer
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                      <button
-                        onClick={handleSubmitVillages}
-                        className="mt-6 bg-green-500 hover:bg-green-600 text-white py-2 px-6 rounded-lg font-semibold transition-all duration-300"
-                      >
-                        Soumettre
-                      </button>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <div>
-                  <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-3">Communes définies :</p>
-                  <ul className="space-y-2">
-                    {villagesCovered.map(village => (
-                      <li key={village} className="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg text-gray-800 dark:text-gray-200">
-                        {village} {village === volunteerVillage && "(Défaut)"}
-                      </li>
-                    ))}
-                  </ul>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-3 italic">Modifications impossibles</p>
-                </div>
-              )}
-            </div>
+                )}
+              </>
+            ) : (
+              <div>
+                <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-3">Communes définies :</p>
+                <ul className="space-y-2">
+                  {villagesCovered.map(village => (
+                    <li key={village} className="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg text-gray-800 dark:text-gray-200">
+                      {village} {village === volunteerVillage && "(Défaut)"}
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-3 italic">Modifications impossibles</p>
+              </div>
+            )}
+          </div>
 
             {/* Time Availability */}
             <div className="bg-gray-50 dark:bg-gray-800 p-6 rounded-lg">

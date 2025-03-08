@@ -749,7 +749,7 @@ module.exports = (
         }
 
         const paymentIntent = await stripe.paymentIntents.create({
-          amount: 9000,
+          amount: 900,
           currency: "eur",
           payment_method: payment_method_id,
           confirm: true,
