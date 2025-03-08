@@ -14,7 +14,7 @@ import {
   faCalendarCheck,
   faUserShield,
   faMapMarkerAlt,
-  faFileDownload, // Added for file download icon
+  faFileDownload,
 } from "@fortawesome/free-solid-svg-icons";
 import LogoutButton from "./recycled/LogoutButton";
 
@@ -39,6 +39,7 @@ const AdminDashboard = ({ handleLogout }) => {
   const [userRoleFilter, setUserRoleFilter] = useState("all");
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
+  const isProduction = import.meta.env.MODE === "production"; // Determine if in production mode
 
   useEffect(() => {
     const fetchVolunteers = async () => {
@@ -384,35 +385,45 @@ const AdminDashboard = ({ handleLogout }) => {
                                     })}
                                   </ul>
                                 )}
-                                {/* Charter and Insurance Files */}
-                                <p><span className="font-semibold">Charte:</span> 
+                                {/* Charter and Insurance Files with Conditional URL */}
+                                <p>
+                                  <span className="font-semibold">Charte:</span>{" "}
                                   {volunteer.charter_file_path ? (
                                     <a
-                                      href={`${API_BASE_URL}${volunteer.charter_file_path}`}
+                                      href={
+                                        isProduction
+                                          ? volunteer.charter_file_path
+                                          : `${API_BASE_URL}${volunteer.charter_file_path}`
+                                      }
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className="ml-2 text-blue-500 hover:underline flex items-center"
+                                      className="text-blue-600 hover:underline dark:text-blue-500 ml-2 flex items-center"
                                     >
                                       <FontAwesomeIcon icon={faFileDownload} className="mr-1" />
-                                      Télécharger la charte
+                                      Voir / Télécharger
                                     </a>
                                   ) : (
-                                    <span className="ml-2 text-gray-500">Non soumis</span>
+                                    <span className="ml-2 text-gray-500">Aucune charte bénévole téléversée</span>
                                   )}
                                 </p>
-                                <p><span className="font-semibold">Assurance:</span> 
+                                <p>
+                                  <span className="font-semibold">Assurance:</span>{" "}
                                   {volunteer.insurance_file_path ? (
                                     <a
-                                      href={`${API_BASE_URL}${volunteer.insurance_file_path}`}
+                                      href={
+                                        isProduction
+                                          ? volunteer.insurance_file_path
+                                          : `${API_BASE_URL}${volunteer.insurance_file_path}`
+                                      }
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className="ml-2 text-blue-500 hover:underline flex items-center"
+                                      className="text-blue-600 hover:underline dark:text-blue-500 ml-2 flex items-center"
                                     >
                                       <FontAwesomeIcon icon={faFileDownload} className="mr-1" />
-                                      Télécharger l’assurance
+                                      Voir / Télécharger
                                     </a>
                                   ) : (
-                                    <span className="ml-2 text-gray-500">Non soumis</span>
+                                    <span className="ml-2 text-gray-500">Aucune assurance téléversée</span>
                                   )}
                                 </p>
                               </div>
