@@ -14,6 +14,7 @@ import {
   faCalendarCheck,
   faUserShield,
   faMapMarkerAlt,
+  faFileDownload, // Added for file download icon
 } from "@fortawesome/free-solid-svg-icons";
 import LogoutButton from "./recycled/LogoutButton";
 
@@ -357,7 +358,7 @@ const AdminDashboard = ({ handleLogout }) => {
                         {expandedVolunteerId === volunteer.id && (
                           <tr>
                             <td colSpan="6" className="px-4 py-4 bg-gray-50 dark:bg-gray-700">
-                              <div className="text-gray-800 dark:text-gray-200">
+                              <div className="text-gray-800 dark:text-gray-200 space-y-2">
                                 <p><span className="font-semibold">Email:</span> {volunteer.email}</p>
                                 <p><span className="font-semibold">Village:</span> {volunteer.village}</p>
                                 <p><span className="font-semibold">Statut:</span> {volunteer.volunteer_status}</p>
@@ -383,6 +384,37 @@ const AdminDashboard = ({ handleLogout }) => {
                                     })}
                                   </ul>
                                 )}
+                                {/* Charter and Insurance Files */}
+                                <p><span className="font-semibold">Charte:</span> 
+                                  {volunteer.charter_file_path ? (
+                                    <a
+                                      href={`${API_BASE_URL}${volunteer.charter_file_path}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="ml-2 text-blue-500 hover:underline flex items-center"
+                                    >
+                                      <FontAwesomeIcon icon={faFileDownload} className="mr-1" />
+                                      Télécharger la charte
+                                    </a>
+                                  ) : (
+                                    <span className="ml-2 text-gray-500">Non soumis</span>
+                                  )}
+                                </p>
+                                <p><span className="font-semibold">Assurance:</span> 
+                                  {volunteer.insurance_file_path ? (
+                                    <a
+                                      href={`${API_BASE_URL}${volunteer.insurance_file_path}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="ml-2 text-blue-500 hover:underline flex items-center"
+                                    >
+                                      <FontAwesomeIcon icon={faFileDownload} className="mr-1" />
+                                      Télécharger l’assurance
+                                    </a>
+                                  ) : (
+                                    <span className="ml-2 text-gray-500">Non soumis</span>
+                                  )}
+                                </p>
                               </div>
                             </td>
                           </tr>
