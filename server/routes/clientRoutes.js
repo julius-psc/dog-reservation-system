@@ -32,40 +32,40 @@ module.exports = (
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
-
+  
       const { volunteerId, reservationDate, startTime, endTime, dogId } = req.body;
-
+  
       if (!reservationDate || !startTime || !endTime || !dogId) {
         throw new Error("Missing required fields");
       }
-
+  
       if (!moment(reservationDate, "YYYY-MM-DD", true).isValid()) {
         throw new Error("Invalid date format");
       }
-
+  
       if (!isValidTime(startTime) || !isValidTime(endTime)) {
         throw new Error("Invalid time format");
       }
-
+  
       if (moment(endTime, "HH:mm").isSameOrBefore(moment(startTime, "HH:mm"))) {
         throw new Error("End time must be after start time");
       }
-
+  
       const reservationMoment = moment(reservationDate);
       const twoDaysFromNow = moment().add(2, "days").startOf("day");
       if (reservationMoment.isBefore(twoDaysFromNow)) {
         throw new Error("Reservations must be made at least 2 days in advance");
       }
-
+  
       const dogResult = await client.query(
         "SELECT id, name FROM dogs WHERE id = $1 AND user_id = $2",
         [dogId, req.user.userId]
       );
-
+  
       if (dogResult.rows.length === 0) {
         throw new Error("Invalid dog ID or dog doesn't belong to you");
       }
-
+  
       const overlapQuery = `
         SELECT id
         FROM reservations
@@ -77,18 +77,12 @@ module.exports = (
           OR (start_time < $4 AND end_time >= $4)
           OR (start_time >= $3 AND end_time <= $4)
         )`;
-
-      const overlapResult = await client.query(overlapQuery, [
-        reservationDate,
-        volunteerId,
-        startTime,
-        endTime,
-      ]);
-
+      const overlapResult = await client.query(overlapQuery, [reservationDate, volunteerId, startTime, endTime]);
+  
       if (overlapResult.rows.length > 0) {
         throw new Error("This slot is already reserved. Please choose another time.");
       }
-
+  
       const clientOverlapQuery = `
         SELECT id
         FROM reservations
@@ -100,18 +94,12 @@ module.exports = (
           OR (start_time < $4 AND end_time >= $4)
           OR (start_time >= $3 AND end_time <= $4)
         )`;
-
-      const clientOverlapResult = await client.query(clientOverlapQuery, [
-        reservationDate,
-        req.user.userId,
-        startTime,
-        endTime,
-      ]);
-
+      const clientOverlapResult = await client.query(clientOverlapQuery, [reservationDate, req.user.userId, startTime, endTime]);
+  
       if (clientOverlapResult.rows.length > 0) {
         throw new Error("You already have a reservation for this slot.");
       }
-
+  
       const insertQuery = `
         INSERT INTO reservations (
           client_id,
@@ -126,20 +114,10 @@ module.exports = (
         )
         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
         RETURNING id`;
-
-      const values = [
-        req.user.userId,
-        volunteerId,
-        dogId,
-        reservationDate,
-        startTime,
-        endTime,
-        "pending",
-      ];
-
+      const values = [req.user.userId, volunteerId, dogId, reservationDate, startTime, endTime, "pending"];
       const result = await client.query(insertQuery, values);
       const newReservationId = result.rows[0].id;
-
+  
       const reservationQuery = `
         SELECT
           r.id as reservation_id,
@@ -150,20 +128,19 @@ module.exports = (
           d.name as dog_name,
           u_vol.username as volunteer_name,
           u_vol.email as volunteer_email,
-          u_vol.village as village,
+          u_cli.village as client_village, -- Changed to fetch client's village
           u_cli.username as client_name
         FROM reservations r
         JOIN dogs d ON r.dog_id = d.id
         JOIN users u_vol ON r.volunteer_id = u_vol.id
         JOIN users u_cli ON r.client_id = u_cli.id
         WHERE r.id = $1`;
-
       const newReservationDetails = await client.query(reservationQuery, [newReservationId]);
-
+  
       const reservationDataForEmail = newReservationDetails.rows[0];
-
+  
       await client.query("COMMIT");
-
+  
       try {
         await sendReservationRequestEmailToVolunteer(
           reservationDataForEmail.volunteer_email,
@@ -173,15 +150,16 @@ module.exports = (
           reservationDataForEmail.reservation_date,
           reservationDataForEmail.start_time,
           reservationDataForEmail.end_time,
-          reservationDataForEmail.reservation_id
+          reservationDataForEmail.reservation_id,
+          reservationDataForEmail.client_village // Pass the client's village
         );
       } catch (emailError) {
         console.error("Error sending reservation request email:", emailError);
       }
-
+  
       const reservationData = newReservationDetails.rows[0];
       connectedClients.forEach((ws) => {
-        if (ws.readyState === WebSocket.OPEN && ws.village === reservationData.village) {
+        if (ws.readyState === WebSocket.OPEN && ws.village === reservationDataForEmail.client_village) { // Use client_village here
           ws.send(
             JSON.stringify({
               type: "reservation_update",
@@ -190,7 +168,7 @@ module.exports = (
           );
         }
       });
-
+  
       res.status(201).json({
         message: "Reservation created successfully",
         reservation: reservationData,

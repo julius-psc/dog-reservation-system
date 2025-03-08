@@ -299,191 +299,136 @@ module.exports = (
   );
 
   // Existing endpoint: PUT /reservations/:id
-  router.put(
-    "/reservations/:id",
-    authenticate,
-    authorizeVolunteer,
-    async (req, res) => {
-      try {
-        const reservationId = req.params.id;
-        const { status } = req.body;
-
-        if (
-          !status ||
-          !["pending", "accepted", "rejected", "cancelled"].includes(status)
-        ) {
-          return res.status(400).json({ error: "Invalid reservation status." });
-        }
-
-        const reservationCheck = await pool.query(
-          "SELECT volunteer_id FROM reservations WHERE id = $1",
-          [reservationId]
-        );
-
-        if (
-          reservationCheck.rows.length === 0 ||
-          reservationCheck.rows[0].volunteer_id !== req.user.userId
-        ) {
-          return res
-            .status(403)
-            .json({ error: "Unauthorized to update this reservation." });
-        }
-
-        const updatedReservationResult = await pool.query(
-          "UPDATE reservations SET status = $1 WHERE id = $2 RETURNING *",
-          [status, reservationId]
-        );
-
-        if (updatedReservationResult.rows.length === 0) {
-          return res.status(404).json({ error: "Reservation not found." });
-        }
-
-        const updatedReservation = updatedReservationResult.rows[0];
-
-        connectedClients.forEach((client) => {
-          if (
-            client.readyState === WebSocket.OPEN &&
-            client.village === req.user.village
-          ) {
-            client.send(
-              JSON.stringify({
-                type: "reservation_update",
-                reservation: updatedReservation,
-              })
-            );
-          }
-        });
-
-        if (status === "accepted") {
-          const detailsQuery = `
-                SELECT
-                    r.reservation_date,
-                    TO_CHAR(r.start_time, 'HH24:MI') as start_time,
-                    TO_CHAR(r.end_time, 'HH24:MI') as end_time,
-                    c.email AS client_email,
-                    c.username AS client_name,
-                    c.address AS client_address,
-                    c.phone_number AS client_phone,
-                    d.name AS dog_name,
-                    v.email AS volunteer_email,
-                    v.username AS volunteer_name
-                FROM reservations r
-                JOIN users c ON r.client_id = c.id
-                JOIN users v ON r.volunteer_id = v.id
-                JOIN dogs d ON r.dog_id = d.id
-                WHERE r.id = $1;
-            `;
-          const detailsResult = await pool.query(detailsQuery, [reservationId]);
-
-          if (detailsResult.rows.length > 0) {
-            const {
-              client_email,
-              client_name,
-              dog_name,
-              reservation_date,
-              start_time,
-              end_time,
-              volunteer_email,
-              volunteer_name,
-              client_address,
-              client_phone,
-            } = detailsResult.rows[0];
-
-            const formattedDate = new Date(reservation_date).toLocaleDateString(
-              "fr-FR",
-              {
-                weekday: "long",
-                day: "numeric",
-                month: "long",
-                year: "numeric",
-              }
-            );
-
-            await sendReservationApprovedEmail(
-              client_email,
-              client_name,
-              dog_name,
-              formattedDate,
-              start_time,
-              end_time
-            );
-
-            await sendVolunteerConfirmationEmail(
-              volunteer_email,
-              volunteer_name,
-              client_name,
-              dog_name,
-              formattedDate,
-              start_time,
-              end_time,
-              client_address,
-              client_email,
-              client_phone
-            );
-          } else {
-            console.error("Could not retrieve reservation details for email.");
-          }
-        } else if (status === "rejected") {
-          const rejectionDetailsQuery = `
-                SELECT
-                    r.reservation_date,
-                    TO_CHAR(r.start_time, 'HH24:MI') as start_time,
-                    TO_CHAR(r.end_time, 'HH24:MI') as end_time,
-                    c.email AS client_email,
-                    c.username AS client_name,
-                    d.name AS dog_name
-                FROM reservations r
-                JOIN users c ON r.client_id = c.id
-                JOIN dogs d ON r.dog_id = d.id
-                WHERE r.id = $1;
-            `;
-          const rejectionDetailsResult = await pool.query(
-            rejectionDetailsQuery,
-            [reservationId]
-          );
-
-          if (rejectionDetailsResult.rows.length > 0) {
-            const {
-              client_email,
-              client_name,
-              dog_name,
-              reservation_date,
-              start_time,
-              end_time,
-            } = rejectionDetailsResult.rows[0];
-
-            const formattedDate = new Date(reservation_date).toLocaleDateString(
-              "fr-FR",
-              {
-                weekday: "long",
-                day: "numeric",
-                month: "long",
-                year: "numeric",
-              }
-            );
-
-            await sendReservationRejectedEmail(
-              client_email,
-              client_name,
-              dog_name,
-              formattedDate,
-              start_time,
-              end_time
-            );
-          } else {
-            console.error(
-              "Could not retrieve reservation details for rejection email."
-            );
-          }
-        }
-
-        res.json(updatedReservation);
-      } catch (error) {
-        console.error("Error updating reservation status:", error);
-        res.status(500).json({ error: "Failed to update reservation status." });
+  router.put("/reservations/:id", authenticate, authorizeVolunteer, async (req, res) => {
+    try {
+      const reservationId = req.params.id;
+      const { status } = req.body;
+  
+      if (!status || !["pending", "accepted", "rejected", "cancelled"].includes(status)) {
+        return res.status(400).json({ error: "Invalid reservation status." });
       }
+  
+      const reservationCheck = await pool.query(
+        "SELECT volunteer_id FROM reservations WHERE id = $1",
+        [reservationId]
+      );
+  
+      if (reservationCheck.rows.length === 0 || reservationCheck.rows[0].volunteer_id !== req.user.userId) {
+        return res.status(403).json({ error: "Unauthorized to update this reservation." });
+      }
+  
+      const updatedReservationResult = await pool.query(
+        "UPDATE reservations SET status = $1 WHERE id = $2 RETURNING *",
+        [status, reservationId]
+      );
+  
+      if (updatedReservationResult.rows.length === 0) {
+        return res.status(404).json({ error: "Reservation not found." });
+      }
+  
+      const updatedReservation = updatedReservationResult.rows[0];
+  
+      connectedClients.forEach((client) => {
+        if (client.readyState === WebSocket.OPEN && client.village === req.user.village) {
+          client.send(JSON.stringify({ type: "reservation_update", reservation: updatedReservation }));
+        }
+      });
+  
+      if (status === "accepted") {
+        const detailsQuery = `
+          SELECT
+              r.reservation_date,
+              TO_CHAR(r.start_time, 'HH24:MI') as start_time,
+              TO_CHAR(r.end_time, 'HH24:MI') as end_time,
+              c.email AS client_email,
+              c.username AS client_name,
+              c.address AS client_address,
+              c.phone_number AS client_phone,
+              c.village AS client_village, -- Added for completeness
+              d.name AS dog_name,
+              v.email AS volunteer_email,
+              v.username AS volunteer_name
+          FROM reservations r
+          JOIN users c ON r.client_id = c.id
+          JOIN users v ON r.volunteer_id = v.id
+          JOIN dogs d ON r.dog_id = d.id
+          WHERE r.id = $1;
+        `;
+        const detailsResult = await pool.query(detailsQuery, [reservationId]);
+  
+        if (detailsResult.rows.length > 0) {
+          const {
+            client_email,
+            client_name,
+            dog_name,
+            reservation_date,
+            start_time,
+            end_time,
+            volunteer_email,
+            volunteer_name,
+            client_address,
+            client_phone,
+          } = detailsResult.rows[0];
+  
+          const formattedDate = new Date(reservation_date).toLocaleDateString("fr-FR", {
+            weekday: "long",
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          });
+  
+          await sendReservationApprovedEmail(client_email, client_name, dog_name, formattedDate, start_time, end_time);
+          await sendVolunteerConfirmationEmail(
+            volunteer_email,
+            volunteer_name,
+            client_name,
+            dog_name,
+            formattedDate,
+            start_time,
+            end_time,
+            client_address,
+            client_email,
+            client_phone
+          );
+        } else {
+          console.error("Could not retrieve reservation details for email.");
+        }
+      } else if (status === "rejected") {
+        const rejectionDetailsQuery = `
+          SELECT
+              r.reservation_date,
+              TO_CHAR(r.start_time, 'HH24:MI') as start_time,
+              TO_CHAR(r.end_time, 'HH24:MI') as end_time,
+              c.email AS client_email,
+              c.username AS client_name,
+              d.name AS dog_name
+          FROM reservations r
+          JOIN users c ON r.client_id = c.id
+          JOIN dogs d ON r.dog_id = d.id
+          WHERE r.id = $1;
+        `;
+        const rejectionDetailsResult = await pool.query(rejectionDetailsQuery, [reservationId]);
+  
+        if (rejectionDetailsResult.rows.length > 0) {
+          const { client_email, client_name, dog_name, reservation_date, start_time, end_time } = rejectionDetailsResult.rows[0];
+          const formattedDate = new Date(reservation_date).toLocaleDateString("fr-FR", {
+            weekday: "long",
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          });
+          await sendReservationRejectedEmail(client_email, client_name, dog_name, formattedDate, start_time, end_time);
+        } else {
+          console.error("Could not retrieve reservation details for rejection email.");
+        }
+      }
+  
+      res.json(updatedReservation);
+    } catch (error) {
+      console.error("Error updating reservation status:", error);
+      res.status(500).json({ error: "Failed to update reservation status." });
     }
-  );
+  });
 
   // UPLOAD CHARTER / INSURANCE
   const isProduction = process.env.NODE_ENV === "production";

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nouvelle Réservation Confirmée</title>
+    <title>Nouvelle Demande de Réservation</title>
     <style>
         body { font-family: 'Arial', sans-serif; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }
         .email-container { max-width: 800px; margin: 20px auto; background-color: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
@@ -31,22 +31,23 @@
         <tr>
             <td class="content-section">
                 <h2>Bonjour ${volunteerName},</h2>
-                <p>Une nouvelle réservation a été confirmée !</p>
+                <p>Une nouvelle demande de réservation a été soumise et attend votre approbation !</p>
                 <p><strong>Détails de la réservation :</strong></p>
                 <ul>
                     <li>Propriétaire : ${clientName}</li>
                     <li>Nom du chien : ${dogName}</li>
+                    <li>Village : ${village}</li> <!-- Added village here -->
                     <li>Date : ${reservationDate}</li>
                     <li>Heure de début : ${startTime}</li>
                     <li>Heure de fin : ${endTime}</li>
+                    <li>ID de la réservation : ${reservationId}</li>
                 </ul>
-                <p><strong>Informations du client :</strong></p>
+                <p><strong>Actions :</strong></p>
                 <ul>
-                    <li>Adresse : ${clientAddress}</li>
-                    <li>Email : ${clientEmail}</li>
-                    <li>Téléphone : ${clientPhone}</li>
+                    <li><a href="${approvalLink}">Approuver la réservation</a></li>
+                    <li><a href="${rejectionLink}">Rejeter la réservation</a></li>
                 </ul>
-                <p>Veuillez contacter le client si nécessaire pour organiser les détails de la promenade.</p>
+                <p>Veuillez examiner cette demande et prendre une décision dès que possible.</p>
             </td>
         </tr>
         <tr>

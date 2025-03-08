@@ -13,17 +13,8 @@ const transporter = nodemailer.createTransport({
 
 // PASSWORD RESET EMAIL
 async function sendPasswordResetEmail(email, resetLink) {
-  // Gmail version of sendPasswordResetEmail
   try {
-    // Construct the path to your email template file
-    const templatePath = path.join(
-      __dirname,
-      "..",
-      "templates",
-      "resetPasswordEmail.html"
-    ); // Path relative to emailService.js
-
-    // Read the HTML content from the file
+    const templatePath = path.join(__dirname, "..", "templates", "resetPasswordEmail.html");
     const emailTemplate = fs.readFileSync(templatePath, "utf8");
     const htmlContent = emailTemplate.replace("${resetLink}", resetLink);
 
@@ -31,7 +22,7 @@ async function sendPasswordResetEmail(email, resetLink) {
       from: `"Chiens en Cavale" <${process.env.EMAIL_USER}>`,
       to: email,
       subject: "Réinitialisation de votre mot de passe",
-      html: htmlContent, // Use the HTML content from the file
+      html: htmlContent,
     });
     console.log(`Email sent to ${email}`);
   } catch (error) {
@@ -42,18 +33,8 @@ async function sendPasswordResetEmail(email, resetLink) {
 // VOLUNTEER APPROVAL EMAIL
 async function sendApprovalEmail(email, username) {
   try {
-    // Construct the path to your email template file
-    const templatePath = path.join(
-      __dirname,
-      "..",
-      "templates",
-      "approvalEmail.html"
-    ); // Path relative to emailService.js
-
-    // Read the HTML content from the file
+    const templatePath = path.join(__dirname, "..", "templates", "approvalEmail.html");
     const emailTemplate = fs.readFileSync(templatePath, "utf8");
-
-    // Replace placeholders in the template with actual values
     const htmlContent = emailTemplate
       .replace("${username}", username)
       .replace("${email}", email);
@@ -61,7 +42,7 @@ async function sendApprovalEmail(email, username) {
     await transporter.sendMail({
       from: `"Chiens en Cavale" <${process.env.EMAIL_USER}>`,
       to: email,
-      subject: "Your Volunteer Application Has Been Approved",
+      subject: "Votre candidature bénévole a été approuvée",
       html: htmlContent,
     });
     console.log(`Approval email sent to ${email}`);
@@ -72,172 +53,162 @@ async function sendApprovalEmail(email, username) {
 
 // RESERVATION APPROVED EMAIL (CLIENT)
 async function sendReservationApprovedEmail(email, clientName, dogName, reservationDate, startTime, endTime) {
-    try {
-        // Construct the path to your email template file
-        const templatePath = path.join(
-            __dirname,
-            "..",
-            "templates",
-            "reservationApprovedEmail.html" // New template file
-        );
+  try {
+    const templatePath = path.join(__dirname, "..", "templates", "reservationApprovedEmail.html");
+    const emailTemplate = fs.readFileSync(templatePath, "utf8");
+    const formattedDate = new Date(reservationDate).toLocaleDateString("fr-FR", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+    const htmlContent = emailTemplate
+      .replace("${clientName}", clientName)
+      .replace("${dogName}", dogName)
+      .replace("${reservationDate}", formattedDate)
+      .replace("${startTime}", startTime)
+      .replace("${endTime}", endTime);
 
-        // Read the HTML content from the file
-        const emailTemplate = fs.readFileSync(templatePath, "utf8");
-
-        // Format the date for the email (you can adjust the format as needed)
-        const formattedDate = new Date(reservationDate).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-
-        // Replace placeholders in the template with actual reservation details
-        const htmlContent = emailTemplate
-            .replace("${clientName}", clientName)
-            .replace("${dogName}", dogName)
-            .replace("${reservationDate}", formattedDate)
-            .replace("${startTime}", startTime)
-            .replace("${endTime}", endTime);
-
-
-        await transporter.sendMail({
-            from: `"Chiens en Cavale" <${process.env.EMAIL_USER}>`,
-            to: email,
-            subject: "Votre réservation a été approuvée !",
-            html: htmlContent,
-        });
-        console.log(`Reservation approved email sent to ${email}`);
-    } catch (error) {
-        console.error("Error sending reservation approved email:", error);
-    }
+    await transporter.sendMail({
+      from: `"Chiens en Cavale" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: "Votre réservation a été approuvée !",
+      html: htmlContent,
+    });
+    console.log(`Reservation approved email sent to ${email}`);
+  } catch (error) {
+    console.error("Error sending reservation approved email:", error);
+  }
 }
 
 // RESERVATION APPROVED EMAIL (VOLUNTEER)
-async function sendVolunteerConfirmationEmail(volunteerEmail, volunteerName, clientName, dogName, reservationDate, startTime, endTime, clientAddress, clientEmail, clientPhone) {
-    try {
-        // 1.  Load the HTML template
-        const templatePath = path.join(__dirname, "..", "templates", "volunteerConfirmationEmail.html"); // Create this file!
-        const emailTemplate = fs.readFileSync(templatePath, "utf8");
-
-        // 2. Replace placeholders with actual values
-        const htmlContent = emailTemplate
-            .replace(/\$\{volunteerName\}/g, volunteerName)
-            .replace(/\$\{clientName\}/g, clientName)
-            .replace(/\$\{dogName\}/g, dogName)
-            .replace(/\$\{reservationDate\}/g, reservationDate)
-            .replace(/\$\{startTime\}/g, startTime)
-            .replace(/\$\{endTime\}/g, endTime)
-            .replace(/\$\{clientAddress\}/g, clientAddress)
-            .replace(/\$\{clientEmail\}/g, clientEmail)
-            .replace(/\$\{clientPhone\}/g, clientPhone);
-
-        // 3. Send the email
-        await transporter.sendMail({
-            from: `"Chiens en Cavale" <${process.env.EMAIL_USER}>`,
-            to: volunteerEmail, // Send to the volunteer
-            subject: "Nouvelle réservation confirmée !",
-            html: htmlContent, // Use the processed HTML
-        });
-        console.log(`Reservation confirmation email sent to volunteer: ${volunteerEmail}`);
-
-    } catch (error) {
-        console.error("Error sending volunteer confirmation email:", error);
-        throw error; // Re-throw to be caught in the calling function
-    }
-}
-
-// RESERVATION REJECTED CLIENT
-async function sendReservationRejectedEmail(email, clientName, dogName, reservationDate, startTime, endTime) {
-    try {
-        // Construct the path to your email template file for REJECTION
-        const templatePath = path.join(
-            __dirname,
-            "..",
-            "templates",
-            "reservationRejectedEmail.html" // Ensure this template file exists!
-        );
-
-        // Read the HTML content from the file
-        const emailTemplate = fs.readFileSync(templatePath, "utf8");
-
-        // Format the date for the email
-        const formattedDate = new Date(reservationDate).toLocaleDateString('fr-FR', { 
-            weekday: 'long', 
-            day: 'numeric', 
-            month: 'long', 
-            year: 'numeric' 
-        });
-        // Replace placeholders in the rejection template
-        const htmlContent = emailTemplate
-            .replace("${clientName}", clientName)
-            .replace("${dogName}", dogName)
-            .replace("${reservationDate}", formattedDate)
-            .replace("${startTime}", startTime)
-            .replace("${endTime}", endTime);
-
-        await transporter.sendMail({
-            from: `"Chiens en Cavale" <${process.env.EMAIL_USER}>`,
-            to: email,
-            subject: "Votre demande de réservation n'a pas pu être acceptée pour le moment", // Subject for rejection
-            html: htmlContent,
-        });
-        console.log(`Reservation rejected email sent to ${email}`);
-    } catch (error) {
-        console.error("Error sending reservation rejected email:", error);
-    }
-}
-
-
-// RESERVATION REQUEST SENT TO VOLUNTEER EMAIL
-async function sendReservationRequestEmailToVolunteer(volunteerEmail, volunteerName, clientName, dogName, reservationDate, startTime, endTime, reservationId) {
+async function sendVolunteerConfirmationEmail(
+  volunteerEmail,
+  volunteerName,
+  clientName,
+  dogName,
+  reservationDate,
+  startTime,
+  endTime,
+  clientAddress,
+  clientEmail,
+  clientPhone
+) {
   try {
-      // 1.  Load the HTML template
-      const templatePath = path.join(__dirname, "..", "templates", "reservationRequestEmailToVolunteer.html"); // Create this file!
-      const emailTemplate = fs.readFileSync(templatePath, "utf8");
+    const templatePath = path.join(__dirname, "..", "templates", "volunteerConfirmationEmail.html");
+    const emailTemplate = fs.readFileSync(templatePath, "utf8");
+    const htmlContent = emailTemplate
+      .replace(/\${volunteerName}/g, volunteerName)
+      .replace(/\${clientName}/g, clientName)
+      .replace(/\${dogName}/g, dogName)
+      .replace(/\${reservationDate}/g, reservationDate)
+      .replace(/\${startTime}/g, startTime)
+      .replace(/\${endTime}/g, endTime)
+      .replace(/\${clientAddress}/g, clientAddress)
+      .replace(/\${clientEmail}/g, clientEmail)
+      .replace(/\${clientPhone}/g, clientPhone);
 
-      // 2. Format the date for the email
-      const formattedDate = new Date(reservationDate).toLocaleDateString('fr-FR', {
-          weekday: 'long',
-          day: 'numeric',
-          month: 'long',
-          year: 'numeric'
-      });
-
-      const approvalLink = `[LINK TO APPROVE RESERVATION IN APP - Replace this with actual link]`; // Replace with actual link
-      const rejectionLink = `[LINK TO REJECT RESERVATION IN APP - Replace this with actual link]`; // Replace with actual link
-
-
-      // 3. Replace placeholders with actual values
-      const htmlContent = emailTemplate
-          .replace(/\$\{volunteerName\}/g, volunteerName)
-          .replace(/\$\{clientName\}/g, clientName)
-          .replace(/\$\{dogName\}/g, dogName)
-          .replace(/\$\{reservationDate\}/g, formattedDate)
-          .replace(/\$\{startTime\}/g, startTime)
-          .replace(/\$\{endTime\}/g, endTime)
-          .replace(/\$\{reservationId\}/g, reservationId)
-          .replace(/\$\{approvalLink\}/g, approvalLink) // Add approval link
-          .replace(/\$\{rejectionLink\}/g, rejectionLink); // Add rejection link
-
-      // 4. Send the email
-      await transporter.sendMail({
-          from: `"Chiens en Cavale" <${process.env.EMAIL_USER}>`,
-          to: volunteerEmail, // Send to the volunteer
-          subject: "Nouvelle demande de réservation en attente d'approbation", // Subject in French
-          html: htmlContent, // Use the processed HTML
-      });
-      console.log(`Reservation request email sent to volunteer: ${volunteerEmail}`);
-
+    await transporter.sendMail({
+      from: `"Chiens en Cavale" <${process.env.EMAIL_USER}>`,
+      to: volunteerEmail,
+      subject: "Nouvelle réservation confirmée !",
+      html: htmlContent,
+    });
+    console.log(`Reservation confirmation email sent to volunteer: ${volunteerEmail}`);
   } catch (error) {
-      console.error("Error sending reservation request email to volunteer:", error);
-      throw error; // Re-throw to be caught in the calling function
+    console.error("Error sending volunteer confirmation email:", error);
+    throw error;
+  }
+}
+
+// RESERVATION REJECTED EMAIL (CLIENT)
+async function sendReservationRejectedEmail(email, clientName, dogName, reservationDate, startTime, endTime) {
+  try {
+    const templatePath = path.join(__dirname, "..", "templates", "reservationRejectedEmail.html");
+    const emailTemplate = fs.readFileSync(templatePath, "utf8");
+    const formattedDate = new Date(reservationDate).toLocaleDateString("fr-FR", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+    const htmlContent = emailTemplate
+      .replace("${clientName}", clientName)
+      .replace("${dogName}", dogName)
+      .replace("${reservationDate}", formattedDate)
+      .replace("${startTime}", startTime)
+      .replace("${endTime}", endTime);
+
+    await transporter.sendMail({
+      from: `"Chiens en Cavale" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: "Votre demande de réservation n'a pas pu être acceptée pour le moment",
+      html: htmlContent,
+    });
+    console.log(`Reservation rejected email sent to ${email}`);
+  } catch (error) {
+    console.error("Error sending reservation rejected email:", error);
+  }
+}
+
+// RESERVATION REQUEST EMAIL (VOLUNTEER)
+async function sendReservationRequestEmailToVolunteer(
+  volunteerEmail,
+  volunteerName,
+  clientName,
+  dogName,
+  reservationDate,
+  startTime,
+  endTime,
+  reservationId,
+  village // New parameter for village
+) {
+  try {
+    const templatePath = path.join(__dirname, "..", "templates", "reservationRequestEmailToVolunteer.html");
+    const emailTemplate = fs.readFileSync(templatePath, "utf8");
+
+    const formattedDate = new Date(reservationDate).toLocaleDateString("fr-FR", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+
+    // Placeholder links - replace these with actual links in your application
+    const approvalLink = `[LINK TO APPROVE RESERVATION IN APP - Replace with actual link including reservationId=${reservationId}]`;
+    const rejectionLink = `[LINK TO REJECT RESERVATION IN APP - Replace with actual link including reservationId=${reservationId}]`;
+
+    const htmlContent = emailTemplate
+      .replace(/\${volunteerName}/g, volunteerName)
+      .replace(/\${clientName}/g, clientName)
+      .replace(/\${dogName}/g, dogName)
+      .replace(/\${reservationDate}/g, formattedDate)
+      .replace(/\${startTime}/g, startTime)
+      .replace(/\${endTime}/g, endTime)
+      .replace(/\${reservationId}/g, reservationId)
+      .replace(/\${village}/g, village) // Replace village placeholder
+      .replace(/\${approvalLink}/g, approvalLink)
+      .replace(/\${rejectionLink}/g, rejectionLink);
+
+    await transporter.sendMail({
+      from: `"Chiens en Cavale" <${process.env.EMAIL_USER}>`,
+      to: volunteerEmail,
+      subject: "Nouvelle demande de réservation en attente d'approbation",
+      html: htmlContent,
+    });
+    console.log(`Reservation request email sent to volunteer: ${volunteerEmail}`);
+  } catch (error) {
+    console.error("Error sending reservation request email to volunteer:", error);
+    throw error;
   }
 }
 
 // ADMIN NOTIFICATION EMAIL FOR DOCUMENT SUBMISSION
 async function sendAdminDocumentSubmissionEmail(adminEmail, volunteerName, charterPath, insurancePath) {
   try {
-    // Construct the path to your email template file (optional)
     const templatePath = path.join(__dirname, "..", "templates", "adminDocumentSubmissionEmail.html");
     let htmlContent;
 
-    // Check if the template exists, otherwise use a plain text fallback
     if (fs.existsSync(templatePath)) {
       const emailTemplate = fs.readFileSync(templatePath, "utf8");
       htmlContent = emailTemplate
@@ -245,7 +216,6 @@ async function sendAdminDocumentSubmissionEmail(adminEmail, volunteerName, chart
         .replace("${charterPath}", charterPath)
         .replace("${insurancePath}", insurancePath);
     } else {
-      // Plain text fallback if no template is provided
       htmlContent = `
         <p>A volunteer has submitted their documents:</p>
         <p><strong>Volunteer Name:</strong> ${volunteerName}</p>
@@ -264,17 +234,16 @@ async function sendAdminDocumentSubmissionEmail(adminEmail, volunteerName, chart
     console.log(`Admin notification email sent to ${adminEmail}`);
   } catch (error) {
     console.error("Error sending admin document submission email:", error);
-    throw error; // Optionally re-throw to handle it in the calling function
+    throw error;
   }
 }
 
-
 module.exports = {
-  sendPasswordResetEmail: sendPasswordResetEmail,
+  sendPasswordResetEmail,
   sendApprovalEmail,
   sendReservationApprovedEmail,
   sendVolunteerConfirmationEmail,
   sendReservationRejectedEmail,
   sendReservationRequestEmailToVolunteer,
-  sendAdminDocumentSubmissionEmail
+  sendAdminDocumentSubmissionEmail,
 };
