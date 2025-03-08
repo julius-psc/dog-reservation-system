@@ -258,18 +258,6 @@ const CharterFormComponent = ({ onCharterComplete, volunteerStatus }) => {
                                         {fileErrors.insurance && (
                                             <p id='insurance-error' className='text-red-500 text-sm mt-2'>{fileErrors.insurance}</p>
                                         )}
-                                        <p className='text-sm text-gray-600 mt-2'>
-                                            C&#39;est quoi une attestation civile ?{' '}
-                                            <a
-                                                href='https://www.groupama.fr/assurance-habitation/conseils/attestation-responsabilite-civile/'
-                                                target='_blank'
-                                                rel='noopener noreferrer'
-                                                className='text-primary-yellow hover:underline font-semibold'
-                                                aria-label='Découvrir une attestation civile sur groupama.fr'
-                                            >
-                                               Découvrir ici
-                                            </a>
-                                        </p>
                                     </div>
                                 </div>
 
