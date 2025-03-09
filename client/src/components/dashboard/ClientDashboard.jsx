@@ -223,7 +223,7 @@ const ClientDashboard = memo(({ handleLogout }) => {
       setReservations((prev) => [...prev, reservationData.reservation]);
       toast.success("Demande de réservation envoyée. Veuillez attendre la confirmation d'un bénévole.");
     } catch (error) {
-      toast.error(`Erreur lors de la création de la réservation: ${error.message}`);
+      toast.error(`${error.message}`);
     } finally {
       setReservationLoading(false);
       await Promise.all([fetchAvailableSlots(), fetchReservations(), fetchPersonalReservations()]);
@@ -630,23 +630,23 @@ const ClientDashboard = memo(({ handleLogout }) => {
                 <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 space-y-4">
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
                     <FontAwesomeIcon icon={faExclamationTriangle} className="mr-2 text-yellow-500" />
-                    Confirm Reservation?
+                    Confirmer la Réservation?
                   </h3>
                   <p className="text-gray-700 dark:text-gray-300 text-sm">
-                    Are you sure you want to reserve the slot at <span className="font-semibold">{confirmationDetails.startTime}</span> on <span className="font-semibold">{confirmationDetails.date}</span>?
+                     Etes-vous certain de vouloir réserver le créneau à <span className="font-semibold">{confirmationDetails.startTime}</span> le <span className="font-semibold">{confirmationDetails.date}</span>?
                   </p>
                   <div className="flex justify-end space-x-4">
                     <button
                       onClick={handleCancelConfirmation}
                       className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline text-sm"
                     >
-                      Cancel
+                      Annuler
                     </button>
                     <button
                       onClick={handleConfirmReservation}
                       className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline text-sm"
                     >
-                      Confirm
+                      Je confirme
                     </button>
                   </div>
                 </div>

@@ -52,9 +52,9 @@ module.exports = (
       }
   
       const reservationMoment = moment(reservationDate);
-      const twoDaysFromNow = moment().add(2, "days").startOf("day");
-      if (reservationMoment.isBefore(twoDaysFromNow)) {
-        throw new Error("Reservations must be made at least 2 days in advance");
+      const threeDaysFromNow = moment().add(3, "days").startOf("day");
+      if (reservationMoment.isBefore(threeDaysFromNow)) {
+        throw new Error("Les réservations doivent se faire au moins 3 jours à l'avance.");
       }
   
       const dogResult = await client.query(

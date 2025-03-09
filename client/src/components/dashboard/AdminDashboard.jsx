@@ -15,6 +15,10 @@ import {
   faUserShield,
   faMapMarkerAlt,
   faFileDownload,
+  faCheck,          // For status icons
+  faClock,          // For status icons
+  faBan,            // For status icons
+  faFlagCheckered,  // For "completed" status
 } from "@fortawesome/free-solid-svg-icons";
 import LogoutButton from "./recycled/LogoutButton";
 
@@ -41,7 +45,7 @@ const AdminDashboard = ({ handleLogout }) => {
 
   const API_BASE_URL =
     import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
-  const isProduction = import.meta.env.MODE === "production"; // Determine if in production mode
+  const isProduction = import.meta.env.MODE === "production";
 
   useEffect(() => {
     const fetchVolunteers = async () => {
@@ -284,11 +288,21 @@ const AdminDashboard = ({ handleLogout }) => {
     v.username.toLowerCase().includes(volunteerFilter.toLowerCase())
   );
 
-  const filteredReservations = allReservations.filter((r) =>
-    reservationStatusFilter === "all"
+  // Function to determine if a reservation is "completed" based on date/time
+  const isReservationCompleted = (reservation) => {
+    const endDateTime = moment(
+      `${reservation.reservation_date} ${reservation.end_time}`,
+      "YYYY-MM-DD HH:mm"
+    );
+    return endDateTime.isBefore(moment());
+  };
+
+  const filteredReservations = allReservations.filter((r) => {
+    const effectiveStatus = isReservationCompleted(r) ? "completed" : r.status;
+    return reservationStatusFilter === "all"
       ? true
-      : r.status.toLowerCase() === reservationStatusFilter.toLowerCase()
-  );
+      : effectiveStatus.toLowerCase() === reservationStatusFilter.toLowerCase();
+  });
 
   const filteredUsers = allUsers.filter(
     (u) =>
@@ -482,13 +496,13 @@ const AdminDashboard = ({ handleLogout }) => {
                             {editingPersonalId === volunteer.id ? (
                               <div className="flex items-center space-x-2">
                                 <input
-                                  type="text" // Changed to text for better control
+                                  type="text"
                                   value={newPersonalId}
                                   onChange={(e) => {
                                     const value = e.target.value.replace(
                                       /\D/g,
                                       ""
-                                    ); // Remove non-digits
+                                    );
                                     if (value.length <= 5) {
                                       setNewPersonalId(value);
                                     }
@@ -496,8 +510,8 @@ const AdminDashboard = ({ handleLogout }) => {
                                   className="px-2 py-1 border rounded-lg dark:bg-gray-700 dark:text-white"
                                   placeholder="Numéro promeneur"
                                   maxLength={5}
-                                  pattern="[0-9]*" // HTML5 validation for numbers only
-                                  inputMode="numeric" // Shows numeric keyboard on mobile
+                                  pattern="[0-9]*"
+                                  inputMode="numeric"
                                 />
                                 <button
                                   onClick={(e) => {
@@ -707,7 +721,7 @@ const AdminDashboard = ({ handleLogout }) => {
                 <option value="pending">En attente</option>
                 <option value="accepted">Accepté</option>
                 <option value="rejected">Rejeté</option>
-                <option value="completed">Terminé</option>
+                <option value="completed">Complété</option>
               </select>
             </div>
             <div className="overflow-x-auto">
@@ -730,50 +744,92 @@ const AdminDashboard = ({ handleLogout }) => {
                       Date
                     </th>
                     <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600 dark:text-gray-300">
+                      Heure Début
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600 dark:text-gray-300">
+                      Heure Fin
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600 dark:text-gray-300">
                       Statut
                     </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {filteredReservations.map((reservation) => (
-                    <tr
-                      key={reservation.id}
-                      className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                    >
-                      <td className="px-4 py-3 text-gray-800 dark:text-gray-200">
-                        {reservation.client_village}
-                      </td>
-                      <td className="px-4 py-3 text-gray-800 dark:text-gray-200">
-                        {reservation.volunteer_name}
-                      </td>
-                      <td className="px-4 py-3 text-gray-800 dark:text-gray-200">
-                        {reservation.client_name}
-                      </td>
-                      <td className="px-4 py-3 text-gray-800 dark:text-gray-200">
-                        {reservation.dog_name}
-                      </td>
-                      <td className="px-4 py-3 text-gray-800 dark:text-gray-200">
-                        {moment(reservation.reservation_date).format(
-                          "DD/MM/YYYY"
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            reservation.status === "accepted"
-                              ? "bg-green-100 text-green-800"
-                              : reservation.status === "rejected"
-                              ? "bg-red-100 text-red-800"
-                              : reservation.status === "completed"
-                              ? "bg-blue-100 text-blue-800"
-                              : "bg-yellow-100 text-yellow-800"
-                          }`}
-                        >
-                          {reservation.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                  {filteredReservations.map((reservation) => {
+                    const isCompleted = isReservationCompleted(reservation);
+                    const effectiveStatus = isCompleted ? "completed" : reservation.status;
+
+                    let statusColor = "";
+                    let statusName = "";
+                    let statusIcon = null;
+
+                    switch (effectiveStatus) {
+                      case "accepted":
+                        statusColor = "bg-green-200 text-green-800";
+                        statusIcon = <FontAwesomeIcon icon={faCheck} className="mr-1" />;
+                        statusName = "Accepté";
+                        break;
+                      case "pending":
+                        statusColor = "bg-yellow-200 text-yellow-800";
+                        statusIcon = <FontAwesomeIcon icon={faClock} className="mr-1" />;
+                        statusName = "En attente";
+                        break;
+                      case "rejected":
+                      case "cancelled":
+                        statusColor = "bg-red-200 text-red-800";
+                        statusIcon = <FontAwesomeIcon icon={faBan} className="mr-1" />;
+                        statusName = "Rejeté";
+                        break;
+                      case "completed":
+                        statusColor = "bg-blue-200 text-blue-800";
+                        statusIcon = <FontAwesomeIcon icon={faFlagCheckered} className="mr-1" />;
+                        statusName = "Complété";
+                        break;
+                      default:
+                        statusColor = "bg-gray-200 text-gray-800";
+                        statusIcon = null;
+                        statusName = effectiveStatus;
+                    }
+
+                    return (
+                      <tr
+                        key={reservation.id}
+                        className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        <td className="px-4 py-3 text-gray-800 dark:text-gray-200">
+                          {reservation.client_village}
+                        </td>
+                        <td className="px-4 py-3 text-gray-800 dark:text-gray-200">
+                          {reservation.volunteer_name}
+                        </td>
+                        <td className="px-4 py-3 text-gray-800 dark:text-gray-200">
+                          {reservation.client_name}
+                        </td>
+                        <td className="px-4 py-3 text-gray-800 dark:text-gray-200">
+                          {reservation.dog_name}
+                        </td>
+                        <td className="px-4 py-3 text-gray-800 dark:text-gray-200">
+                          {moment(reservation.reservation_date).format(
+                            "DD/MM/YYYY"
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-gray-800 dark:text-gray-200">
+                          {reservation.start_time}
+                        </td>
+                        <td className="px-4 py-3 text-gray-800 dark:text-gray-200">
+                          {reservation.end_time}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span
+                            className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusColor}`}
+                          >
+                            {statusIcon}
+                            {statusName}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
