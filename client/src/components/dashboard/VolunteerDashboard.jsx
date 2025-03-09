@@ -354,8 +354,7 @@ const VolunteerDashboard = ({ handleLogout }) => {
 
   const getSubscriptionMessage = () => {
     if (subscriptionStatus.paid) {
-      const currentYear = moment().year();
-      return { message: `Cotisation ${currentYear} acquittée. Merci!`, type: "success", action: false };
+      return;
     }
     if (!subscriptionStatus.expiryDate) {
       return { message: "Acquittez votre cotisation annuelle (9€)", type: "error", action: true };

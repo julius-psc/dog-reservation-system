@@ -54,12 +54,12 @@ const HolidayButton = () => {
             const data = await response.json();
             setIsOnHoliday(data.holidayMode);
             if (!isOnHoliday) {
-                setConfirmationMessage("Woohoo ! Temps de bronzer ! 🌴✨\nLes toutous vous souhaitent de bonnes vacances !");
+                setConfirmationMessage("Il est l'heure de bronzer au soleil ! Les toutous vous souhaitent des vacances incroyables !");
+                setShowParticles(true);
             } else {
-                setConfirmationMessage("Yay ! Les toutous sont super contents de vous revoir ! 🐾💖");
+                setConfirmationMessage("Les toutous sont ravis de vous revoir !");
             }
             setIsConfirmationVisible(true);
-            setShowParticles(true);
         } catch (error) {
             console.error('Error toggling holiday mode:', error);
             setError(error.message);
@@ -74,24 +74,21 @@ const HolidayButton = () => {
         setConfirmationMessage(null);
     };
 
-    const Particles = () => (
-        <div className="absolute inset-0 pointer-events-none">
-            {[...Array(20)].map((_, i) => (
+    const SummerParticles = () => (
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+            {[...Array(10)].map((_, i) => (
                 <div
                     key={i}
-                    className={`
-                        absolute animate-ping
-                        ${Math.random() > 0.5 ? 'text-yellow-400' : 'text-blue-400'}
-                    `}
+                    className="absolute text-yellow-300 animate-summer-drift"
                     style={{
                         left: `${Math.random() * 100}%`,
                         top: `${Math.random() * 100}%`,
-                        animation: `ping ${1 + Math.random() * 2}s cubic-bezier(0, 0, 0.2, 1) infinite`,
-                        opacity: Math.random(),
-                        transform: `scale(${0.5 + Math.random()})`,
+                        animation: `summer-drift ${3 + Math.random() * 3}s infinite ease-in-out`,
+                        opacity: 0.6,
+                        fontSize: '1.5rem',
                     }}
                 >
-                    {Math.random() > 0.5 ? '✨' : '🌟'}
+                    ☀️
                 </div>
             ))}
         </div>
@@ -100,18 +97,18 @@ const HolidayButton = () => {
     if (loading) {
         return (
             <div className="flex items-center justify-center space-x-2">
-                <div className="animate-spin h-5 w-5 border-2 border-blue-500 rounded-full border-t-transparent"></div>
-                <span>Chargement en cours...</span>
+                <Sun className="h-5 w-5 text-yellow-500 animate-spin" />
+                <span className="text-yellow-600">Préparation de l&#39;été...</span>
             </div>
         );
     }
 
     if (error) {
-        return <div className="text-red-500">Oops ! Quelque chose s&#39;est mal passé 😅</div>;
+        return <div className="text-red-500">Oups, un petit nuage de pluie d&#39;erreurs</div>;
     }
 
     return (
-        <div className="relative">
+        <div className="relative mt-6">
             <button
                 onClick={handleToggleHolidayMode}
                 className={`
@@ -140,30 +137,31 @@ const HolidayButton = () => {
             </button>
 
             {isConfirmationVisible && (
-                <div className="fixed inset-0 bg-primary-yellow bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="relative bg-white rounded-xl p-8 max-w-md w-full mx-4 transform animate-bounce-gentle">
-                        {showParticles && <Particles />}
+                <div className="fixed inset-0 bg-gradient-to-b from-yellow-200 via-orange-200 to-blue-300 bg-opacity-80 flex items-center justify-center z-50">
+                    <div className="relative bg-white rounded-xl p-8 max-w-md w-full mx-4 shadow-xl transform transition-all duration-300 scale-100 hover:scale-102">
+                        {isOnHoliday && showParticles && <SummerParticles />}
                         <div className="text-center space-y-6">
                             <div className="flex justify-center space-x-4">
                                 {isOnHoliday ? (
-                                    <>
-                                        <Sun className="h-12 w-12 text-yellow-400 animate-spin-slow" />
-                                    </>
+                                    <Sun className="h-12 w-12 text-yellow-500 transition-transform duration-1000 ease-out transform rotate-0 hover:rotate-180" />
                                 ) : (
-                                    <>
-                                        <PawPrint className="h-12 w-12 text-brown-400 animate-bounce-gentle" />
-                                    </>
+                                    <PawPrint className="h-12 w-12 text-brown-500" />
                                 )}
                             </div>
-                            <p className="text-xl font-bold whitespace-pre-line">{confirmationMessage}</p>
+                            <p className="text-xl font-bold whitespace-pre-line text-gray-800">{confirmationMessage}</p>
                             <button
                                 onClick={handleConfirmationDismiss}
-                                className="bg-gradient-to-r from-blue-400 to-blue-600 
-                                         text-white font-bold py-3 px-6 rounded-full
-                                         transform transition-all duration-200
-                                         hover:scale-105 hover:shadow-lg cursor-pointer "
+                                className={`
+                                    bg-gradient-to-r 
+                                    ${isOnHoliday 
+                                        ? 'from-orange-400 to-yellow-500' 
+                                        : 'from-blue-400 to-blue-600'}
+                                    text-white font-bold py-3 px-6 rounded-full
+                                    transform transition-all duration-200
+                                    hover:scale-105 hover:shadow-lg cursor-pointer
+                                `}
                             >
-                                {isOnHoliday ? "À bientôt ! 👋" : "C'est parti ! 🎉"}
+                                {isOnHoliday ? "C'est parti!" : "Retour au bercail !"}
                             </button>
                         </div>
                     </div>
@@ -172,5 +170,4 @@ const HolidayButton = () => {
         </div>
     );
 };
-
 export default HolidayButton;

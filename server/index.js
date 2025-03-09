@@ -14,7 +14,6 @@ require("dotenv").config();
 
 const path = require("path");
 
-// Import email service module
 const emailService = require("./email/emailService");
 const sendPasswordResetEmail = emailService.sendPasswordResetEmail;
 
@@ -30,14 +29,16 @@ function isValidTime(time) {
 }
 
 const app = express();
-// Use the port provided by Render or default to 3001 for local development
 const port = process.env.PORT || 3001;
 
-// CORS configuration
 const corsOptions = {
   origin: (origin, callback) => {
-    const allowedOrigins = ["https://chiensencavale.com", "http://localhost:5173"];
-    if (!origin || allowedOrigins.includes(origin)) {
+    const allowedOrigins = [
+      "https://chiensencavale.com",
+      "http://localhost:5173",
+      `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION || "us-east-1"}.amazonaws.com`,
+    ];
+    if (!origin || allowedOrigins.some((allowed) => origin.startsWith(allowed))) {
       callback(null, true);
     } else {
       callback(new Error("Not allowed by CORS"));
@@ -52,10 +53,10 @@ app.use(cors(corsOptions));
 app.use("/charters", express.static(path.join(__dirname, "routes", "forms", "charters")));
 app.use("/insurance", express.static(path.join(__dirname, "routes", "forms", "insurance")));
 app.use("/client_charters", express.static(path.join(__dirname, "routes", "forms", "client_charters")));
+app.use("/uploads/profile-pictures", express.static(path.join(__dirname, "uploads", "profile-pictures"))); // Add this line
 app.use(bodyParser.json());
 app.use(fileUpload());
 
-// PostgreSQL connection pool
 const pool = new Pool({
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
@@ -67,7 +68,6 @@ const pool = new Pool({
   },
 });
 
-// Test database connection
 pool
   .connect()
   .then(() => {
@@ -77,12 +77,10 @@ pool
     console.error("Error connecting to PostgreSQL:", err);
   });
 
-// Create HTTP server
 const server = http.createServer(app);
 
-// Initialize WebSocket server
 const isProduction = process.env.NODE_ENV === "production";
-const wss = new WebSocket.Server({ server }); // Always attach to HTTP server
+const wss = new WebSocket.Server({ server });
 
 const connectedClients = new Set();
 
@@ -113,7 +111,6 @@ wss.on("connection", (ws) => {
   });
 });
 
-// Authentication middleware
 const authenticate = (req, res, next) => {
   const authHeader = req.headers.authorization;
 
@@ -138,7 +135,6 @@ const authenticate = (req, res, next) => {
   }
 };
 
-// Authorization middleware
 const authorizeAdmin = (req, res, next) => {
   if (req.user.role !== "admin") {
     return res.status(403).json({ error: "Unauthorized: Only admins can access this." });
@@ -153,19 +149,16 @@ const authorizeVolunteer = (req, res, next) => {
   next();
 };
 
-// Route modules
 const authRoutes = require("./routes/authRoutes");
 const volunteerRoutes = require("./routes/volunteerRoutes");
 const clientRoutes = require("./routes/clientRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 
-// Mount route modules
 app.use("/", authRoutes(pool, bcrypt, jwt, sendPasswordResetEmail));
 app.use("/", volunteerRoutes(pool, authenticate, authorizeVolunteer, isValidTime, moment, connectedClients, WebSocket));
 app.use("/", clientRoutes(pool, authenticate, moment, connectedClients, WebSocket, isValidTime));
 app.use("/", adminRoutes(pool, authenticate, authorizeAdmin));
 
-// Fetch User Endpoint (for village retrieval)
 app.get("/fetchUser", authenticate, async (req, res) => {
   try {
     const userId = req.user.userId;
@@ -180,7 +173,6 @@ app.get("/fetchUser", authenticate, async (req, res) => {
   }
 });
 
-// Start the server
 server.listen(port, () => {
   console.log(`Server listening on port ${port}`);
   console.log(`WebSocket server running on ${isProduction ? "wss://chiensencavale.com" : "ws://localhost:" + port}`);

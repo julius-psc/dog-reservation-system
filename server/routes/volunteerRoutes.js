@@ -10,6 +10,7 @@ const {
 } = require("../email/emailService");
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
+const sharp = require("sharp");
 
 module.exports = (
   pool,
@@ -20,6 +21,112 @@ module.exports = (
   connectedClients,
   WebSocket
 ) => {
+
+  // VOLUNTEER PROFILE
+  router.get("/volunteer/profile", authenticate, async (req, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await pool.query(
+        "SELECT username, personal_id, subscription_paid, subscription_expiry_date, profile_picture_url FROM users WHERE id = $1",
+        [userId]
+      );
+      if (user.rows.length > 0) {
+        res.json({ 
+          username: user.rows[0].username,
+          personalId: user.rows[0].personal_id, 
+          subscriptionPaid: user.rows[0].subscription_paid || false,
+          subscriptionExpiryDate: user.rows[0].subscription_expiry_date || null,
+          profilePictureUrl: user.rows[0].profile_picture_url || null
+        });
+      } else {
+        res.status(404).json({ error: "User not found" });
+      }
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
+      res.status(500).json({ error: "Failed to fetch user profile" });
+    }
+  });
+
+  router.post(
+    "/volunteer/profile-picture",
+    authenticate,
+    authorizeVolunteer,
+    async (req, res) => {
+      try {
+        const userId = req.user.userId;
+
+        if (!req.files || !req.files.profilePicture) {
+          console.log("No file uploaded");
+          return res.status(400).json({ error: "Please upload a profile picture." });
+        }
+
+        const profilePictureFile = req.files.profilePicture;
+        const profilePictureFilename = `profile_${userId}_${Date.now()}.png`;
+        const isProduction = process.env.NODE_ENV === "production";
+        const baseUrl = isProduction
+          ? `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION || "us-east-1"}.amazonaws.com`
+          : `http://localhost:${process.env.PORT || 3001}`;
+        const s3Client = isProduction
+          ? new S3Client({
+              region: process.env.AWS_REGION || "us-east-1",
+              credentials: {
+                accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+                secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+              },
+            })
+          : null;
+
+        // Convert the uploaded file to PNG using sharp
+        const pngBuffer = await sharp(profilePictureFile.data)
+          .png()
+          .toBuffer();
+        console.log("File converted to PNG, size:", pngBuffer.length);
+
+        let profilePictureUrl;
+
+        if (isProduction) {
+          const uploadToS3 = async (buffer, key) => {
+            const params = {
+              Bucket: process.env.S3_BUCKET_NAME,
+              Key: `profile-pictures/${key}`,
+              Body: buffer,
+              ContentType: "image/png",
+              ACL: "public-read",
+            };
+            const command = new PutObjectCommand(params);
+            await s3Client.send(command);
+            return `${baseUrl}/profile-pictures/${key}`;
+          };
+
+          profilePictureUrl = await uploadToS3(pngBuffer, profilePictureFilename);
+          console.log("Uploaded to S3:", profilePictureUrl);
+        } else {
+          const uploadDir = path.join(__dirname, "..", "uploads", "profile-pictures"); // Corrected to server/uploads
+          await fs.mkdir(uploadDir, { recursive: true });
+
+          profilePictureUrl = `${baseUrl}/uploads/profile-pictures/${profilePictureFilename}`;
+          const fullPath = path.join(uploadDir, profilePictureFilename);
+
+          await fs.writeFile(fullPath, pngBuffer);
+          console.log(`Profile picture saved to: ${fullPath}`);
+        }
+
+        const result = await pool.query(
+          "UPDATE users SET profile_picture_url = $1 WHERE id = $2 RETURNING profile_picture_url",
+          [profilePictureUrl, userId]
+        );
+        console.log("Database updated with URL:", result.rows[0].profile_picture_url);
+
+        res.json({
+          message: "Profile picture uploaded successfully!",
+          profilePictureUrl: result.rows[0].profile_picture_url,
+        });
+      } catch (error) {
+        console.error("Error uploading profile picture:", error);
+        res.status(500).json({ error: "Failed to upload profile picture" });
+      }
+    }
+  );
 
   // New endpoint: GET /volunteer/info (to fetch volunteer's own village)
   router.get("/volunteer/info", authenticate, authorizeVolunteer, async (req, res) => {
