@@ -7,8 +7,8 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
   // GET ALL VOLUNTEERS (ADMIN)
   router.get("/admins/volunteers", authenticate, authorizeAdmin, async (req, res) => {
     try {
-      const { village, role } = req.query; // Optional filters
-
+      const { village, role } = req.query;
+  
       let query = `
         SELECT
             u.id,
@@ -20,6 +20,7 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
             u.insurance_file_path,
             u.subscription_paid,
             u.villages_covered,
+            u.personal_id,
             COALESCE(json_agg(
                 json_build_object(
                     'day_of_week', a.day_of_week,
@@ -31,10 +32,10 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
         LEFT JOIN availabilities a ON u.id = a.user_id
         WHERE u.role = 'volunteer'
       `;
-
+  
       const whereClause = [];
       const queryParams = [];
-
+  
       if (village) {
         whereClause.push(`u.village = $${queryParams.length + 1}`);
         queryParams.push(village);
@@ -43,11 +44,11 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
         whereClause.push(`u.role = $${queryParams.length + 1}`);
         queryParams.push(role);
       }
-
+  
       if (whereClause.length > 0) {
         query += " AND " + whereClause.join(" AND ");
       }
-
+  
       query += `
         GROUP BY
             u.id,
@@ -58,9 +59,10 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
             u.charter_file_path,
             u.insurance_file_path,
             u.subscription_paid,
-            u.villages_covered
+            u.villages_covered,
+            u.personal_id
       `;
-
+  
       const volunteers = await pool.query(query, queryParams);
       res.json(volunteers.rows || []);
     } catch (error) {
@@ -69,6 +71,67 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
         error: "Failed to fetch volunteers",
         details: error.message,
       });
+    }
+  });
+
+  router.put("/admin/volunteers/:volunteerId/personal-id", authenticate, authorizeAdmin, async (req, res) => {
+    try {
+      const volunteerId = req.params.volunteerId;
+      const { personal_id } = req.body;
+  
+      // Validate volunteerId (UUID format check is optional, but ensure it’s present)
+      if (!volunteerId) {
+        return res.status(400).json({ error: "Invalid volunteer ID" });
+      }
+  
+      // Validate personal_id
+      if (!personal_id || typeof personal_id !== "string" || personal_id.length > 50) {
+        return res.status(400).json({
+          error: "Invalid personal_id. Must be a string with maximum length of 50 characters.",
+        });
+      }
+  
+      // Check if the volunteer exists and has role = 'volunteer'
+      const volunteerCheck = await pool.query(
+        "SELECT personal_id, personal_id_set FROM users WHERE id = $1 AND role = 'volunteer'",
+        [volunteerId]
+      );
+  
+      if (volunteerCheck.rows.length === 0) {
+        return res.status(404).json({ error: "Volunteer not found" });
+      }
+  
+      const { personal_id: existingId, personal_id_set } = volunteerCheck.rows[0];
+      if (personal_id_set) {
+        return res.status(403).json({ error: "Personal ID has already been set and cannot be changed." });
+      }
+  
+      // Check if the personal_id is unique
+      const uniqueCheck = await pool.query(
+        "SELECT id FROM users WHERE personal_id = $1 AND id != $2",
+        [personal_id, volunteerId]
+      );
+      if (uniqueCheck.rows.length > 0) {
+        return res.status(400).json({ error: "Personal ID must be unique." });
+      }
+  
+      // Update the volunteer's personal_id and set the flag
+      const updatedVolunteer = await pool.query(
+        "UPDATE users SET personal_id = $1, personal_id_set = TRUE WHERE id = $2 RETURNING *",
+        [personal_id, volunteerId]
+      );
+  
+      if (updatedVolunteer.rows.length > 0) {
+        res.json({
+          message: "Personal ID set successfully",
+          volunteer: updatedVolunteer.rows[0],
+        });
+      } else {
+        res.status(500).json({ error: "Failed to set personal ID" });
+      }
+    } catch (error) {
+      console.error("Error setting personal ID:", error);
+      res.status(500).json({ error: "Failed to set personal ID", details: error.message });
     }
   });
 
