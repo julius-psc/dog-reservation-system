@@ -30,13 +30,17 @@ const ClientDashboard = memo(({ handleLogout }) => {
   const [reservationLoading, setReservationLoading] = useState(false);
   const [selectedDog, setSelectedDog] = useState(null);
   const [personalReservations, setPersonalReservations] = useState([]);
-  const [personalReservationsLoading, setPersonalReservationsLoading] = useState(true);
-  const [personalReservationsError, setPersonalReservationsError] = useState(null);
+  const [personalReservationsLoading, setPersonalReservationsLoading] =
+    useState(true);
+  const [personalReservationsError, setPersonalReservationsError] =
+    useState(null);
   const [reservations, setReservations] = useState([]);
   const [reservationsLoading, setReservationsLoading] = useState(true);
   const [reservationsError, setReservationsError] = useState(null);
   const [selectedDate, setSelectedDate] = useState(moment().toDate());
-  const [currentWeekStart, setCurrentWeekStart] = useState(moment().startOf("isoWeek"));
+  const [currentWeekStart, setCurrentWeekStart] = useState(
+    moment().startOf("isoWeek")
+  );
   const [isCurrentWeekDisplayed, setIsCurrentWeekDisplayed] = useState(true);
   const [isConfirmationVisible, setIsConfirmationVisible] = useState(false);
   const [confirmationDetails, setConfirmationDetails] = useState(null);
@@ -50,9 +54,12 @@ const ClientDashboard = memo(({ handleLogout }) => {
         return;
       }
 
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/fetchDog`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL}/fetchDog`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
 
       if (!response.ok) {
         console.error("Error fetching dogs:", await response.text());
@@ -76,19 +83,18 @@ const ClientDashboard = memo(({ handleLogout }) => {
   const fetchVillage = useCallback(async () => {
     try {
       const token = Cookies.get("token");
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/client/personal-reservations`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await response.json();
-      if (data.length > 0 && data[0].village) {
-        setVillage(data[0].village);
-      } else {
-        const userResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL}/fetchUser`, {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL}/fetchUser`,
+        {
           headers: { Authorization: `Bearer ${token}` },
-        });
-        const userData = await userResponse.json();
-        setVillage(userData.village);
+        }
+      );
+      if (!response.ok) {
+        throw new Error("Failed to fetch user data");
       }
+      const userData = await response.json();
+      setVillage(userData.village);
+      console.log("Client village set to:", userData.village);
     } catch (error) {
       console.error("Error fetching village:", error);
     }
@@ -107,9 +113,12 @@ const ClientDashboard = memo(({ handleLogout }) => {
       );
 
       const availabilityPromises = days.map((date) =>
-        fetch(`${import.meta.env.VITE_API_BASE_URL}/client/volunteers?date=${date}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }).then((res) => {
+        fetch(
+          `${import.meta.env.VITE_API_BASE_URL}/client/volunteers?date=${date}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        ).then((res) => {
           if (!res.ok) throw new Error(`Failed to fetch slots for ${date}`);
           return res.json();
         })
@@ -120,7 +129,8 @@ const ClientDashboard = memo(({ handleLogout }) => {
       const mergedSlots = {};
       days.forEach((date, index) => {
         const dayOfWeek = moment(date).isoWeekday() - 1;
-        mergedSlots[dayOfWeek] = allAvailabilities[index].mergedAvailabilities[dayOfWeek] || [];
+        mergedSlots[dayOfWeek] =
+          allAvailabilities[index].mergedAvailabilities[dayOfWeek] || [];
       });
 
       setAllAvailableSlots(mergedSlots);
@@ -137,14 +147,20 @@ const ClientDashboard = memo(({ handleLogout }) => {
     const token = Cookies.get("token");
 
     try {
-      const url = `${import.meta.env.VITE_API_BASE_URL}/client/personal-reservations?endDate=${moment().endOf("week").format("YYYY-MM-DD")}`;
+      const url = `${
+        import.meta.env.VITE_API_BASE_URL
+      }/client/personal-reservations?endDate=${moment()
+        .endOf("week")
+        .format("YYYY-MM-DD")}`;
       const response = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to fetch personal reservations");
+        throw new Error(
+          errorData.error || "Failed to fetch personal reservations"
+        );
       }
 
       const personalReservationsData = await response.json();
@@ -163,7 +179,13 @@ const ClientDashboard = memo(({ handleLogout }) => {
     const token = Cookies.get("token");
 
     try {
-      const url = `${import.meta.env.VITE_API_BASE_URL}/client/all-reservations?startDate=${moment(currentWeekStart).format("YYYY-MM-DD")}&endDate=${moment(currentWeekStart).endOf("isoWeek").format("YYYY-MM-DD")}`;
+      const url = `${
+        import.meta.env.VITE_API_BASE_URL
+      }/client/all-reservations?startDate=${moment(currentWeekStart).format(
+        "YYYY-MM-DD"
+      )}&endDate=${moment(currentWeekStart)
+        .endOf("isoWeek")
+        .format("YYYY-MM-DD")}`;
       const response = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -183,56 +205,85 @@ const ClientDashboard = memo(({ handleLogout }) => {
     }
   }, [currentWeekStart]);
 
-  const handleReservation = useCallback(async (volunteerId, startTime, dayIndex) => {
-    if (!selectedDog) {
-      toast.error("Please select a dog for the reservation.");
-      return;
-    }
-
-    const reservationDate = moment(currentWeekStart).add(dayIndex, "days");
-    const formattedDate = reservationDate.format("YYYY-MM-DD");
-
-    setReservationLoading(true);
-
-    try {
-      const token = Cookies.get("token");
-      const startMoment = moment(startTime, "HH:mm");
-      const endMoment = startMoment.clone().add(1, "hour");
-
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/reservations`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          volunteerId,
-          reservationDate: formattedDate,
-          startTime: startMoment.format("HH:mm"),
-          endTime: endMoment.format("HH:mm"),
-          dogId: selectedDog.id,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Impossible de créer une réservation");
+  const handleReservation = useCallback(
+    async (volunteerId, startTime, dayIndex) => {
+      if (!selectedDog) {
+        toast.error("Please select a dog for the reservation.");
+        return;
       }
-
-      const reservationData = await response.json();
-      setReservations((prev) => [...prev, reservationData.reservation]);
-      toast.success("Demande de réservation envoyée. Veuillez attendre la confirmation d'un bénévole.");
-    } catch (error) {
-      toast.error(`${error.message}`);
-    } finally {
-      setReservationLoading(false);
-      await Promise.all([fetchAvailableSlots(), fetchReservations(), fetchPersonalReservations()]);
-    }
-  }, [selectedDog, currentWeekStart, fetchAvailableSlots, fetchReservations, fetchPersonalReservations]);
+  
+      const reservationDate = moment(currentWeekStart).add(dayIndex, "days");
+      const formattedDate = reservationDate.format("YYYY-MM-DD");
+  
+      setReservationLoading(true);
+  
+      try {
+        const token = Cookies.get("token");
+        const startMoment = moment(startTime, "HH:mm");
+        const endMoment = startMoment.clone().add(1, "hour");
+  
+        const response = await fetch(
+          `${import.meta.env.VITE_API_BASE_URL}/reservations`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              volunteerId,
+              reservationDate: formattedDate,
+              startTime: startMoment.format("HH:mm"),
+              endTime: endMoment.format("HH:mm"),
+              dogId: selectedDog.id,
+            }),
+          }
+        );
+  
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Impossible de créer une réservation");
+        }
+  
+        const reservationData = await response.json();
+        const newReservation = reservationData.reservation;
+  
+        // Update reservations state immediately
+        setReservations((prev) => [...prev, newReservation]);
+        // Update personalReservations state immediately
+        setPersonalReservations((prev) => [...prev, newReservation]);
+  
+        toast.success(
+          "Demande de réservation envoyée. Veuillez attendre la confirmation d'un bénévole."
+        );
+      } catch (error) {
+        toast.error(`${error.message}`);
+      } finally {
+        setReservationLoading(false);
+        // Sync with server data
+        await Promise.all([
+          fetchAvailableSlots(),
+          fetchReservations(),
+          fetchPersonalReservations(),
+        ]);
+      }
+    },
+    [
+      selectedDog,
+      currentWeekStart,
+      fetchAvailableSlots,
+      fetchReservations,
+      fetchPersonalReservations,
+    ]
+  );
 
   const handleConfirmReservation = useCallback(() => {
     if (confirmationDetails) {
-      handleReservation(confirmationDetails.volunteerId, confirmationDetails.startTime, confirmationDetails.dayIndex);
+      handleReservation(
+        confirmationDetails.volunteerId,
+        confirmationDetails.startTime,
+        confirmationDetails.dayIndex
+      );
       setIsConfirmationVisible(false);
       setConfirmationDetails(null);
     }
@@ -249,14 +300,18 @@ const ClientDashboard = memo(({ handleLogout }) => {
 
   const goToPreviousWeek = useCallback(() => {
     if (!isCurrentWeekDisplayed) {
-      const newWeekStart = moment(currentWeekStart).subtract(1, "week").startOf("isoWeek");
+      const newWeekStart = moment(currentWeekStart)
+        .subtract(1, "week")
+        .startOf("isoWeek");
       setCurrentWeekStart(newWeekStart);
       setIsCurrentWeekDisplayed(newWeekStart.isSame(moment(), "week"));
     }
   }, [isCurrentWeekDisplayed, currentWeekStart]);
 
   const goToNextWeek = useCallback(() => {
-    const newWeekStart = moment(currentWeekStart).add(1, "week").startOf("isoWeek");
+    const newWeekStart = moment(currentWeekStart)
+      .add(1, "week")
+      .startOf("isoWeek");
     setCurrentWeekStart(newWeekStart);
     setIsCurrentWeekDisplayed(newWeekStart.isSame(moment(), "week"));
   }, [currentWeekStart]);
@@ -265,48 +320,67 @@ const ClientDashboard = memo(({ handleLogout }) => {
     setDogData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   }, []);
 
-  const handleDogFormSubmit = useCallback(async (e) => {
-    e.preventDefault();
-    const ageAsNumber = Number(dogData.age);
+  const handleDogFormSubmit = useCallback(
+    async (e) => {
+      e.preventDefault();
+      const ageAsNumber = Number(dogData.age);
 
-    if (isNaN(ageAsNumber) || ageAsNumber < 0) {
-      toast.error("Please enter a valid non-negative number for age.");
-      return;
-    }
-
-    try {
-      const token = Cookies.get("token");
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/addDog`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          name: dogData.name,
-          breed: dogData.breed,
-          age: ageAsNumber,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      if (isNaN(ageAsNumber) || ageAsNumber < 0) {
+        toast.error("Please enter a valid non-negative number for age.");
+        return;
       }
 
-      const newDogData = await response.json();
-      setDogs((prevDogs) => [...prevDogs, newDogData]);
-      setShowDogForm(false);
-      setSelectedDog(newDogData);
-      toast.success("Dog information added successfully!");
-      setDogData({ name: "", breed: "", age: "" });
-    } catch (error) {
-      console.error("Error adding dog:", error);
-      toast.error(`Error adding dog: ${error.message}`);
-    }
-  }, [dogData]);
+      try {
+        const token = Cookies.get("token");
+        const response = await fetch(
+          `${import.meta.env.VITE_API_BASE_URL}/addDog`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              name: dogData.name,
+              breed: dogData.breed,
+              age: ageAsNumber,
+            }),
+          }
+        );
 
-  const daysOfWeek = useMemo(() => ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"], []);
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(
+            errorData.error || `HTTP error! status: ${response.status}`
+          );
+        }
+
+        const newDogData = await response.json();
+        setDogs((prevDogs) => [...prevDogs, newDogData]);
+        setShowDogForm(false);
+        setSelectedDog(newDogData);
+        toast.success("Dog information added successfully!");
+        setDogData({ name: "", breed: "", age: "" });
+      } catch (error) {
+        console.error("Error adding dog:", error);
+        toast.error(`Error adding dog: ${error.message}`);
+      }
+    },
+    [dogData]
+  );
+
+  const daysOfWeek = useMemo(
+    () => [
+      "Lundi",
+      "Mardi",
+      "Mercredi",
+      "Jeudi",
+      "Vendredi",
+      "Samedi",
+      "Dimanche",
+    ],
+    []
+  );
 
   useEffect(() => {
     fetchDogData();
@@ -314,16 +388,28 @@ const ClientDashboard = memo(({ handleLogout }) => {
   }, [fetchDogData, fetchVillage]);
 
   useEffect(() => {
-    console.log("Fetching data for week starting:", currentWeekStart.format("YYYY-MM-DD"));
+    console.log(
+      "Fetching data for week starting:",
+      currentWeekStart.format("YYYY-MM-DD")
+    );
     const fetchAllData = async () => {
       try {
-        await Promise.all([fetchReservations(), fetchAvailableSlots(), fetchPersonalReservations()]);
+        await Promise.all([
+          fetchReservations(),
+          fetchAvailableSlots(),
+          fetchPersonalReservations(),
+        ]);
       } catch (error) {
         console.error("Error in fetchAllData:", error);
       }
     };
     fetchAllData();
-  }, [currentWeekStart, fetchAvailableSlots, fetchReservations, fetchPersonalReservations]);
+  }, [
+    currentWeekStart,
+    fetchAvailableSlots,
+    fetchReservations,
+    fetchPersonalReservations,
+  ]);
 
   useEffect(() => {
     const token = Cookies.get("token");
@@ -331,7 +417,8 @@ const ClientDashboard = memo(({ handleLogout }) => {
 
     let ws;
     // Align WebSocket URL with API base URL, replacing http with ws
-    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
+    const apiBaseUrl =
+      import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
     const wsUrl = apiBaseUrl.replace(/^http/, "ws").replace(/^https/, "wss");
 
     const connectWebSocket = () => {
@@ -344,13 +431,43 @@ const ClientDashboard = memo(({ handleLogout }) => {
           console.log(`Sent join_village for: ${village}`);
         }
       };
-
       ws.onmessage = (event) => {
         const message = JSON.parse(event.data);
         if (message.type === "reservation_update") {
           console.log("Received reservation update:", message.reservation);
-          setReservations((prev) => [...prev, message.reservation]);
-          fetchAvailableSlots();
+          setReservations((prev) => {
+            const exists = prev.some((res) => res.id === message.reservation.id);
+            if (!exists) return [...prev, message.reservation];
+            return prev;
+          });
+          setPersonalReservations((prev) => {
+            return prev;
+          });
+          setAllAvailableSlots((prevSlots) => {
+            const updatedSlots = { ...prevSlots };
+            const reservation = message.reservation;
+            const dayIndex = moment(reservation.reservation_date).diff(
+              moment(currentWeekStart),
+              "days"
+            );
+            if (updatedSlots[dayIndex]) {
+              updatedSlots[dayIndex] = updatedSlots[dayIndex].map((slot) => {
+                const slotStart = moment(slot.time, "HH:mm");
+                const slotEnd = slotStart.clone().add(1, "hour");
+                const resStart = moment(reservation.start_time, "HH:mm");
+                const resEnd = moment(reservation.end_time, "HH:mm");
+                if (
+                  slotStart.isBefore(resEnd) &&
+                  slotEnd.isAfter(resStart) &&
+                  !slot.isReserved
+                ) {
+                  return { ...slot, isReserved: true };
+                }
+                return slot;
+              });
+            }
+            return updatedSlots;
+          });
         }
       };
 
@@ -372,18 +489,25 @@ const ClientDashboard = memo(({ handleLogout }) => {
         console.log("WebSocket cleanup: closed connection");
       }
     };
-  }, [village, fetchAvailableSlots]);
+  }, [village, fetchAvailableSlots, currentWeekStart]);
 
   const isSlotReserved = useCallback(
     (currentDate, slot, dayIndex) => {
-      const slotDate = moment(currentWeekStart).add(dayIndex, "days").format("YYYY-MM-DD");
+      const slotDate = moment(currentWeekStart)
+        .add(dayIndex, "days")
+        .format("YYYY-MM-DD");
       const slotStart = moment(`${slotDate} ${slot.time}`, "YYYY-MM-DD HH:mm");
       const slotEnd = slotStart.clone().add(1, "hour");
-
-      return reservations.some((reservation) => {
-        const reservationStart = moment(`${reservation.reservation_date} ${reservation.start_time}`, "YYYY-MM-DD HH:mm");
-        const reservationEnd = moment(`${reservation.reservation_date} ${reservation.end_time}`, "YYYY-MM-DD HH:mm");
-
+  
+      const isReservedInReservations = reservations.some((reservation) => {
+        const reservationStart = moment(
+          `${reservation.reservation_date} ${reservation.start_time}`,
+          "YYYY-MM-DD HH:mm"
+        );
+        const reservationEnd = moment(
+          `${reservation.reservation_date} ${reservation.end_time}`,
+          "YYYY-MM-DD HH:mm"
+        );
         return (
           reservation.reservation_date === slotDate &&
           slotStart.isBefore(reservationEnd) &&
@@ -391,35 +515,77 @@ const ClientDashboard = memo(({ handleLogout }) => {
           (reservation.status === "pending" || reservation.status === "accepted")
         );
       });
+  
+      const isReservedInPersonal = personalReservations.some((reservation) => {
+        const reservationStart = moment(
+          `${reservation.reservation_date} ${reservation.start_time}`,
+          "YYYY-MM-DD HH:mm"
+        );
+        const reservationEnd = moment(
+          `${reservation.reservation_date} ${reservation.end_time}`,
+          "YYYY-MM-DD HH:mm"
+        );
+        return (
+          reservation.reservation_date === slotDate &&
+          slotStart.isBefore(reservationEnd) &&
+          slotEnd.isAfter(reservationStart) &&
+          (reservation.status === "pending" || reservation.status === "accepted")
+        );
+      });
+  
+      return isReservedInReservations || isReservedInPersonal;
     },
-    [currentWeekStart, reservations]
+    [currentWeekStart, reservations, personalReservations]
   );
 
-  const showConfirmation = useCallback((volunteerId, startTime, dayIndex) => {
-    const reservationDate = moment(currentWeekStart).add(dayIndex, "days");
-    setConfirmationDetails({
-      volunteerId,
-      startTime,
-      dayIndex,
-      date: reservationDate.format("DD/MM/YYYY"),
-    });
-    setIsConfirmationVisible(true);
-  }, [currentWeekStart]);
+  const showConfirmation = useCallback(
+    (volunteerId, startTime, dayIndex) => {
+      const reservationDate = moment(currentWeekStart).add(dayIndex, "days");
+      setConfirmationDetails({
+        volunteerId,
+        startTime,
+        dayIndex,
+        date: reservationDate.format("DD/MM/YYYY"),
+      });
+      setIsConfirmationVisible(true);
+    },
+    [currentWeekStart]
+  );
 
   if (availableSlotsError || reservationsError || personalReservationsError) {
     return (
       <div className="container mx-auto p-6 dark:bg-gray-900">
         <div className="bg-white rounded-lg shadow-xl p-8 text-center dark:bg-gray-800">
-          <FontAwesomeIcon icon={faExclamationTriangle} className="text-red-500 text-4xl mb-4" />
-          {availableSlotsError && <p className="text-red-600 dark:text-red-400 mb-2">Slots Error: {availableSlotsError}</p>}
-          {reservationsError && <p className="text-red-600 dark:text-red-400 mb-2">Reservations Error: {reservationsError}</p>}
-          {personalReservationsError && <p className="text-red-600 dark:text-red-400">Personal Reservations Error: {personalReservationsError}</p>}
+          <FontAwesomeIcon
+            icon={faExclamationTriangle}
+            className="text-red-500 text-4xl mb-4"
+          />
+          {availableSlotsError && (
+            <p className="text-red-600 dark:text-red-400 mb-2">
+              Slots Error: {availableSlotsError}
+            </p>
+          )}
+          {reservationsError && (
+            <p className="text-red-600 dark:text-red-400 mb-2">
+              Reservations Error: {reservationsError}
+            </p>
+          )}
+          {personalReservationsError && (
+            <p className="text-red-600 dark:text-red-400">
+              Personal Reservations Error: {personalReservationsError}
+            </p>
+          )}
         </div>
       </div>
     );
   }
 
-  if (reservationsLoading || personalReservationsLoading || !dogs || !allAvailableSlots) {
+  if (
+    reservationsLoading ||
+    personalReservationsLoading ||
+    !dogs ||
+    !allAvailableSlots
+  ) {
     return (
       <div className="flex justify-center items-center h-screen bg-gray-100 dark:bg-gray-900">
         <ClipLoader color={"#3b82f6"} loading={true} size={50} />
@@ -451,7 +617,12 @@ const ClientDashboard = memo(({ handleLogout }) => {
             {showDogForm ? (
               <form onSubmit={handleDogFormSubmit} className="space-y-4">
                 <div>
-                  <label htmlFor="dogName" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Dog Name</label>
+                  <label
+                    htmlFor="dogName"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                  >
+                    Dog Name
+                  </label>
                   <input
                     type="text"
                     id="dogName"
@@ -464,7 +635,12 @@ const ClientDashboard = memo(({ handleLogout }) => {
                   />
                 </div>
                 <div>
-                  <label htmlFor="breed" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Race</label>
+                  <label
+                    htmlFor="breed"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                  >
+                    Race
+                  </label>
                   <input
                     type="text"
                     id="breed"
@@ -477,7 +653,12 @@ const ClientDashboard = memo(({ handleLogout }) => {
                   />
                 </div>
                 <div>
-                  <label htmlFor="age" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Age</label>
+                  <label
+                    htmlFor="age"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                  >
+                    Age
+                  </label>
                   <input
                     type="number"
                     id="age"
@@ -506,15 +687,37 @@ const ClientDashboard = memo(({ handleLogout }) => {
                 {dogs.length > 0 && (
                   <div className="space-y-3">
                     {dogs.map((dog) => (
-                      <div key={dog.id} className="p-4 border rounded-md border-gray-200 dark:border-gray-700 dark:bg-gray-900">
-                        <p className="dark:text-gray-300 text-sm"><span className="font-semibold dark:text-gray-100">Nom:</span> {dog.name}</p>
-                        <p className="dark:text-gray-300 text-sm"><span className="font-semibold dark:text-gray-100">Race:</span> {dog.breed}</p>
-                        <p className="dark:text-gray-300 text-sm"><span className="font-semibold dark:text-gray-100">Âge:</span> {dog.age}</p>
+                      <div
+                        key={dog.id}
+                        className="p-4 border rounded-md border-gray-200 dark:border-gray-700 dark:bg-gray-900"
+                      >
+                        <p className="dark:text-gray-300 text-sm">
+                          <span className="font-semibold dark:text-gray-100">
+                            Nom:
+                          </span>{" "}
+                          {dog.name}
+                        </p>
+                        <p className="dark:text-gray-300 text-sm">
+                          <span className="font-semibold dark:text-gray-100">
+                            Race:
+                          </span>{" "}
+                          {dog.breed}
+                        </p>
+                        <p className="dark:text-gray-300 text-sm">
+                          <span className="font-semibold dark:text-gray-100">
+                            Âge:
+                          </span>{" "}
+                          {dog.age}
+                        </p>
                       </div>
                     ))}
                   </div>
                 )}
-                {protectedError && <p className="text-red-500 dark:text-red-400">{protectedError}</p>}
+                {protectedError && (
+                  <p className="text-red-500 dark:text-red-400">
+                    {protectedError}
+                  </p>
+                )}
                 <button
                   onClick={() => setShowDogForm(true)}
                   className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline text-sm"
@@ -535,14 +738,18 @@ const ClientDashboard = memo(({ handleLogout }) => {
                 <select
                   value={selectedDog ? selectedDog.id : ""}
                   onChange={(e) => {
-                    const selectedDogData = dogs.find((dog) => dog.id === e.target.value);
+                    const selectedDogData = dogs.find(
+                      (dog) => dog.id === e.target.value
+                    );
                     setSelectedDog(selectedDogData);
                   }}
                   className="block w-full py-2 px-3 rounded-md border-gray-300 shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-700 dark:text-gray-300"
                 >
                   <option value="">Select a Dog</option>
                   {dogs.map((dog) => (
-                    <option key={dog.id} value={dog.id}>{dog.name} ({dog.breed})</option>
+                    <option key={dog.id} value={dog.id}>
+                      {dog.name} ({dog.breed})
+                    </option>
                   ))}
                 </select>
               </div>
@@ -554,7 +761,11 @@ const ClientDashboard = memo(({ handleLogout }) => {
               <FontAwesomeIcon icon={faCalendarAlt} className="mr-2" />
               Créneaux disponibles
             </h3>
-            {availableSlotsError && <p className="text-red-500 dark:text-red-400">{availableSlotsError}</p>}
+            {availableSlotsError && (
+              <p className="text-red-500 dark:text-red-400">
+                {availableSlotsError}
+              </p>
+            )}
             <div className="mb-4 flex justify-center space-x-3">
               <button
                 onClick={goToPreviousWeek}
@@ -580,45 +791,69 @@ const ClientDashboard = memo(({ handleLogout }) => {
             </div>
             <div className="flex flex-col">
               {daysOfWeek.map((dayName, dayIndex) => {
-                const currentDate = moment(currentWeekStart).add(dayIndex, "days");
+                const currentDate = moment(currentWeekStart).add(
+                  dayIndex,
+                  "days"
+                );
                 const isBeforeToday = currentDate.isBefore(moment(), "day");
 
                 if (isBeforeToday) return null;
 
-                const isPastDay = currentDate.isBefore(moment().subtract(2, "days"), "day");
+                const isPastDay = currentDate.isBefore(
+                  moment().subtract(2, "days"),
+                  "day"
+                );
 
                 return (
                   <div key={dayIndex} className="mb-5">
-                    <h4 className="text-lg font-semibold mb-2 dark:text-white">{dayName} ({currentDate.format("DD/MM")})</h4>
-                    {allAvailableSlots[dayIndex] && allAvailableSlots[dayIndex].length > 0 ? (
+                    <h4 className="text-lg font-semibold mb-2 dark:text-white">
+                      {dayName} ({currentDate.format("DD/MM")})
+                    </h4>
+                    {allAvailableSlots[dayIndex] &&
+                    allAvailableSlots[dayIndex].length > 0 ? (
                       <div className="flex flex-wrap">
                         {allAvailableSlots[dayIndex].map((slot) => {
-                          const isReserved = isSlotReserved(currentDate, slot, dayIndex);
-                          const isPastSlot = isPastDay || moment(`${currentDate.format("YYYY-MM-DD")} ${slot.time}`, "YYYY-MM-DD HH:mm").isBefore(moment());
+                          const isReserved = isSlotReserved(
+                            currentDate,
+                            slot,
+                            dayIndex
+                          );
+                          const isPastSlot =
+                            isPastDay ||
+                            moment(
+                              `${currentDate.format("YYYY-MM-DD")} ${
+                                slot.time
+                              }`,
+                              "YYYY-MM-DD HH:mm"
+                            ).isBefore(moment());
 
                           return (
-                            <button
-                              key={`${dayIndex}-${slot.time}`}
-                              className={`inline-block rounded-md border px-3 py-2 mr-2 mb-2 text-xs sm:text-sm
-                                ${isReserved || isPastSlot
-                                  ? "opacity-50 cursor-not-allowed bg-gray-200 border-gray-300 text-gray-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400"
-                                  : "border-blue-500 bg-white hover:bg-blue-100 dark:border-blue-400 dark:bg-gray-800 dark:hover:bg-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-500"}`}
-                              onClick={() => {
-                                if (!isPastSlot && !isReserved && !reservationLoading) {
-                                  showConfirmation(slot.volunteerIds[0], slot.time, dayIndex);
-                                } else if (isReserved) {
-                                  toast.error("This slot is already reserved.");
-                                }
-                              }}
-                              disabled={isReserved || isPastSlot || reservationLoading}
-                            >
-                              {slot.time}{isReserved && " (Créneau réservé)"}
-                            </button>
+<button
+  key={`${dayIndex}-${slot.time}`}
+  className={`inline-block rounded-md border px-3 py-2 mr-2 mb-2 text-xs sm:text-sm
+    ${
+      isReserved || isPastSlot
+        ? "opacity-50 cursor-not-allowed bg-gray-200 border-gray-300 text-gray-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400"
+        : "border-blue-500 bg-white hover:bg-blue-100 dark:border-blue-400 dark:bg-gray-800 dark:hover:bg-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-500"
+    }`}
+  onClick={() => {
+    if (!isPastSlot && !isReserved && !reservationLoading) {
+      showConfirmation(slot.volunteerIds[0], slot.time, dayIndex);
+    } else if (isReserved) {
+      toast.error("This slot is already reserved.");
+    }
+  }}
+  disabled={isReserved || isPastSlot || reservationLoading}
+>
+  {slot.time} {isReserved ? "(Réservé)" : ""}
+</button>
                           );
                         })}
                       </div>
                     ) : (
-                      <p className="text-gray-500 dark:text-gray-400 text-sm">Pas de disponibilités le {dayName}.</p>
+                      <p className="text-gray-500 dark:text-gray-400 text-sm">
+                        Pas de disponibilités le {dayName}.
+                      </p>
                     )}
                   </div>
                 );
@@ -626,14 +861,29 @@ const ClientDashboard = memo(({ handleLogout }) => {
             </div>
 
             {isConfirmationVisible && confirmationDetails && (
-              <div className="fixed inset-0 bg-gray-500 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex justify-center items-center p-4">
+              <div className="fixed inset-0 bg-primary-pink overflow-y-auto h-full w-full z-50 flex justify-center items-center p-4">
                 <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 space-y-4">
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
-                    <FontAwesomeIcon icon={faExclamationTriangle} className="mr-2 text-yellow-500" />
+                    <FontAwesomeIcon
+                      icon={faExclamationTriangle}
+                      className="mr-2 text-yellow-500"
+                    />
                     Confirmer la Réservation?
                   </h3>
                   <p className="text-gray-700 dark:text-gray-300 text-sm">
-                     Etes-vous certain de vouloir réserver le créneau à <span className="font-semibold">{confirmationDetails.startTime}</span> le <span className="font-semibold">{confirmationDetails.date}</span>?
+                    Etes-vous certain de vouloir réserver le créneau à{" "}
+                    <span className="font-semibold">
+                      {confirmationDetails.startTime}
+                    </span>{" "}
+                    le{" "}
+                    <span className="font-semibold">
+                      {confirmationDetails.date}
+                    </span>
+                    ?
+                  </p>
+                  <p className="bg-yellow-100 border-l-4 border-yellow-500 text-sm text-yellow-700 p-4 rounded-md">
+                    Pensez à apporter un sac à déjection ou une toutounette pour
+                    votre bénévole à votre prochaine rencontre !
                   </p>
                   <div className="flex justify-end space-x-4">
                     <button
@@ -664,16 +914,32 @@ const ClientDashboard = memo(({ handleLogout }) => {
                 <ClipLoader color={"#3b82f6"} loading={true} size={30} />
               </div>
             ) : personalReservationsError ? (
-              <p className="text-red-500 dark:text-red-400 text-sm">{personalReservationsError}</p>
+              <p className="text-red-500 dark:text-red-400 text-sm">
+                {personalReservationsError}
+              </p>
             ) : personalReservations.length === 0 ? (
-              <p className="text-gray-500 dark:text-gray-400 text-sm">Aucune réservation.</p>
+              <p className="text-gray-500 dark:text-gray-400 text-sm">
+                Aucune réservation.
+              </p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="min-w-full table-auto border-collapse w-full">
                   <thead className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
                     <tr>
-                      {["Bénévole", "Chien", "Jour", "Heure du début", "Heure de fin", "Statut"].map((header) => (
-                        <th key={header} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">{header}</th>
+                      {[
+                        "Bénévole",
+                        "Chien",
+                        "Jour",
+                        "Heure du début",
+                        "Heure de fin",
+                        "Statut",
+                      ].map((header) => (
+                        <th
+                          key={header}
+                          className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider"
+                        >
+                          {header}
+                        </th>
                       ))}
                     </tr>
                   </thead>
@@ -685,23 +951,34 @@ const ClientDashboard = memo(({ handleLogout }) => {
                       switch (reservation.status) {
                         case "accepted":
                           statusColor = "bg-green-200 text-green-800";
-                          statusIcon = <FontAwesomeIcon icon={faCheck} className="mr-1" />;
+                          statusIcon = (
+                            <FontAwesomeIcon icon={faCheck} className="mr-1" />
+                          );
                           statusName = "Accepté";
                           break;
                         case "pending":
                           statusColor = "bg-yellow-200 text-yellow-800";
-                          statusIcon = <FontAwesomeIcon icon={faClock} className="mr-1" />;
+                          statusIcon = (
+                            <FontAwesomeIcon icon={faClock} className="mr-1" />
+                          );
                           statusName = "En attente";
                           break;
                         case "rejected":
                         case "cancelled":
                           statusColor = "bg-red-200 text-red-800";
-                          statusIcon = <FontAwesomeIcon icon={faBan} className="mr-1" />;
+                          statusIcon = (
+                            <FontAwesomeIcon icon={faBan} className="mr-1" />
+                          );
                           statusName = "Rejeté";
                           break;
                         case "completed":
                           statusColor = "bg-blue-200 text-blue-800";
-                          statusIcon = <FontAwesomeIcon icon={faFlagCheckered} className="mr-1" />;
+                          statusIcon = (
+                            <FontAwesomeIcon
+                              icon={faFlagCheckered}
+                              className="mr-1"
+                            />
+                          );
                           statusName = "Complété";
                           break;
                         default:
@@ -711,15 +988,34 @@ const ClientDashboard = memo(({ handleLogout }) => {
                       }
 
                       return (
-                        <tr key={reservation.id} className="hover:bg-gray-100 dark:hover:bg-gray-900">
-                          <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300 text-sm">{reservation.volunteer_name}</td>
-                          <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300 text-sm">{reservation.dog_name}</td>
-                          <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300 text-sm">{moment(reservation.reservation_date, "YYYY-MM-DD").format("DD/MM/YYYY")}</td>
-                          <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300 text-sm">{reservation.start_time}</td>
-                          <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300 text-sm">{reservation.end_time}</td>
+                        <tr
+                          key={reservation.id}
+                          className="hover:bg-gray-100 dark:hover:bg-gray-900"
+                        >
+                          <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300 text-sm">
+                            {reservation.volunteer_name}
+                          </td>
+                          <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300 text-sm">
+                            {reservation.dog_name}
+                          </td>
+                          <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300 text-sm">
+                            {moment(
+                              reservation.reservation_date,
+                              "YYYY-MM-DD"
+                            ).format("DD/MM/YYYY")}
+                          </td>
+                          <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300 text-sm">
+                            {reservation.start_time}
+                          </td>
+                          <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300 text-sm">
+                            {reservation.end_time}
+                          </td>
                           <td className="border px-4 py-2 dark:border-gray-700 dark:text-gray-300 text-sm font-semibold text-center">
-                            <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-bold ${statusColor}`}>
-                              {statusIcon}{statusName}
+                            <span
+                              className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-bold ${statusColor}`}
+                            >
+                              {statusIcon}
+                              {statusName}
                             </span>
                           </td>
                         </tr>

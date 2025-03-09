@@ -28,168 +28,199 @@ module.exports = (
     : null;
 
   // CREATE A CLIENT RESERVATION
-  router.post("/reservations", authenticate, async (req, res) => {
-    const client = await pool.connect();
-    try {
-      await client.query("BEGIN");
-  
-      const { volunteerId, reservationDate, startTime, endTime, dogId } = req.body;
-  
-      if (!reservationDate || !startTime || !endTime || !dogId) {
-        throw new Error("Missing required fields");
-      }
-  
-      if (!moment(reservationDate, "YYYY-MM-DD", true).isValid()) {
-        throw new Error("Invalid date format");
-      }
-  
-      if (!isValidTime(startTime) || !isValidTime(endTime)) {
-        throw new Error("Invalid time format");
-      }
-  
-      if (moment(endTime, "HH:mm").isSameOrBefore(moment(startTime, "HH:mm"))) {
-        throw new Error("End time must be after start time");
-      }
-  
-      const reservationMoment = moment(reservationDate);
-      const threeDaysFromNow = moment().add(3, "days").startOf("day");
-      if (reservationMoment.isBefore(threeDaysFromNow)) {
-        throw new Error("Les réservations doivent se faire au moins 3 jours à l'avance.");
-      }
-  
-      const dogResult = await client.query(
-        "SELECT id, name FROM dogs WHERE id = $1 AND user_id = $2",
-        [dogId, req.user.userId]
-      );
-  
-      if (dogResult.rows.length === 0) {
-        throw new Error("Invalid dog ID or dog doesn't belong to you");
-      }
-  
-      const overlapQuery = `
-        SELECT id
-        FROM reservations
-        WHERE reservation_date = $1
-        AND volunteer_id = $2
-        AND status != 'rejected'
-        AND (
-          (start_time <= $3 AND end_time > $3)
-          OR (start_time < $4 AND end_time >= $4)
-          OR (start_time >= $3 AND end_time <= $4)
-        )`;
-      const overlapResult = await client.query(overlapQuery, [reservationDate, volunteerId, startTime, endTime]);
-  
-      if (overlapResult.rows.length > 0) {
-        throw new Error("This slot is already reserved. Please choose another time.");
-      }
-  
-      const clientOverlapQuery = `
-        SELECT id
-        FROM reservations
-        WHERE reservation_date = $1
-        AND client_id = $2
-        AND status != 'rejected'
-        AND (
-          (start_time <= $3 AND end_time > $3)
-          OR (start_time < $4 AND end_time >= $4)
-          OR (start_time >= $3 AND end_time <= $4)
-        )`;
-      const clientOverlapResult = await client.query(clientOverlapQuery, [reservationDate, req.user.userId, startTime, endTime]);
-  
-      if (clientOverlapResult.rows.length > 0) {
-        throw new Error("You already have a reservation for this slot.");
-      }
-  
-      const insertQuery = `
-        INSERT INTO reservations (
-          client_id,
-          volunteer_id,
-          dog_id,
-          reservation_date,
-          start_time,
-          end_time,
-          status,
-          created_at,
-          updated_at
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
-        RETURNING id`;
-      const values = [req.user.userId, volunteerId, dogId, reservationDate, startTime, endTime, "pending"];
-      const result = await client.query(insertQuery, values);
-      const newReservationId = result.rows[0].id;
-  
-      const reservationQuery = `
-        SELECT
-          r.id as reservation_id,
-          r.reservation_date,
-          r.start_time,
-          r.end_time,
-          r.status,
-          d.name as dog_name,
-          u_vol.username as volunteer_name,
-          u_vol.email as volunteer_email,
-          u_cli.village as client_village, -- Changed to fetch client's village
-          u_cli.username as client_name
-        FROM reservations r
-        JOIN dogs d ON r.dog_id = d.id
-        JOIN users u_vol ON r.volunteer_id = u_vol.id
-        JOIN users u_cli ON r.client_id = u_cli.id
-        WHERE r.id = $1`;
-      const newReservationDetails = await client.query(reservationQuery, [newReservationId]);
-  
-      const reservationDataForEmail = newReservationDetails.rows[0];
-  
-      await client.query("COMMIT");
-  
+// CREATE A CLIENT RESERVATION
+router.post("/reservations", authenticate, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const { volunteerId, reservationDate, startTime, endTime, dogId } = req.body;
+
+    // Validate required fields
+    if (!reservationDate || !startTime || !endTime || !dogId || !volunteerId) {
+      throw new Error("Missing required fields");
+    }
+
+    // Validate date and time formats
+    if (!moment(reservationDate, "YYYY-MM-DD", true).isValid()) {
+      throw new Error("Invalid date format");
+    }
+    if (!isValidTime(startTime) || !isValidTime(endTime)) {
+      throw new Error("Invalid time format");
+    }
+    if (moment(endTime, "HH:mm").isSameOrBefore(moment(startTime, "HH:mm"))) {
+      throw new Error("End time must be after start time");
+    }
+
+    // Enforce 3-day advance booking rule
+    const reservationMoment = moment(reservationDate);
+    const threeDaysFromNow = moment().add(3, "days").startOf("day");
+    if (reservationMoment.isBefore(threeDaysFromNow)) {
+      throw new Error("Les réservations doivent se faire au moins 3 jours à l'avance.");
+    }
+
+    // Verify dog belongs to the client
+    const dogResult = await client.query(
+      "SELECT id, name FROM dogs WHERE id = $1 AND user_id = $2",
+      [dogId, req.user.userId]
+    );
+    if (dogResult.rows.length === 0) {
+      throw new Error("Invalid dog ID or dog doesn't belong to you");
+    }
+
+    // Check for overlapping reservations with the volunteer
+    const overlapQuery = `
+      SELECT id
+      FROM reservations
+      WHERE reservation_date = $1
+      AND volunteer_id = $2
+      AND status != 'rejected'
+      AND (
+        (start_time <= $3 AND end_time > $3)
+        OR (start_time < $4 AND end_time >= $4)
+        OR (start_time >= $3 AND end_time <= $4)
+      )`;
+    const overlapResult = await client.query(overlapQuery, [reservationDate, volunteerId, startTime, endTime]);
+    if (overlapResult.rows.length > 0) {
+      throw new Error("This slot is already reserved. Please choose another time.");
+    }
+
+    // Check for overlapping reservations by the client
+    const clientOverlapQuery = `
+      SELECT id
+      FROM reservations
+      WHERE reservation_date = $1
+      AND client_id = $2
+      AND status != 'rejected'
+      AND (
+        (start_time <= $3 AND end_time > $3)
+        OR (start_time < $4 AND end_time >= $4)
+        OR (start_time >= $3 AND end_time <= $4)
+      )`;
+    const clientOverlapResult = await client.query(clientOverlapQuery, [reservationDate, req.user.userId, startTime, endTime]);
+    if (clientOverlapResult.rows.length > 0) {
+      throw new Error("You already have a reservation for this slot.");
+    }
+
+    // Insert the new reservation
+    const insertQuery = `
+      INSERT INTO reservations (
+        client_id,
+        volunteer_id,
+        dog_id,
+        reservation_date,
+        start_time,
+        end_time,
+        status,
+        created_at,
+        updated_at
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+      RETURNING id`;
+    const values = [req.user.userId, volunteerId, dogId, reservationDate, startTime, endTime, "pending"];
+    const result = await client.query(insertQuery, values);
+    const newReservationId = result.rows[0].id;
+
+    // Fetch full reservation details for response and notifications
+    const reservationQuery = `
+      SELECT
+        r.id as reservation_id,
+        r.reservation_date,
+        r.start_time,
+        r.end_time,
+        r.status,
+        d.name as dog_name,
+        u_vol.username as volunteer_name,
+        u_vol.email as volunteer_email,
+        u_cli.village as client_village,
+        u_cli.username as client_name
+      FROM reservations r
+      JOIN dogs d ON r.dog_id = d.id
+      JOIN users u_vol ON r.volunteer_id = u_vol.id
+      JOIN users u_cli ON r.client_id = u_cli.id
+      WHERE r.id = $1`;
+    const newReservationDetails = await client.query(reservationQuery, [newReservationId]);
+    
+    if (newReservationDetails.rows.length === 0) {
+      throw new Error("Failed to fetch reservation details; reservation not found.");
+    }
+    const reservationData = newReservationDetails.rows[0];
+    console.log("Reservation details fetched:", reservationData);
+
+    await client.query("COMMIT");
+
+    // Send email notification to volunteer (only if volunteer_email exists)
+    if (reservationData.volunteer_email) {
       try {
         await sendReservationRequestEmailToVolunteer(
-          reservationDataForEmail.volunteer_email,
-          reservationDataForEmail.volunteer_name,
-          reservationDataForEmail.client_name,
-          reservationDataForEmail.dog_name,
-          reservationDataForEmail.reservation_date,
-          reservationDataForEmail.start_time,
-          reservationDataForEmail.end_time,
-          reservationDataForEmail.reservation_id,
-          reservationDataForEmail.client_village // Pass the client's village
+          reservationData.volunteer_email,
+          reservationData.volunteer_name,
+          reservationData.client_name,
+          reservationData.dog_name,
+          reservationData.reservation_date,
+          reservationData.start_time,
+          reservationData.end_time,
+          reservationData.reservation_id,
+          reservationData.client_village
         );
       } catch (emailError) {
         console.error("Error sending reservation request email:", emailError);
+        // Don’t throw here; email failure shouldn’t block the response
       }
-  
-      const reservationData = newReservationDetails.rows[0];
-      connectedClients.forEach((ws) => {
-        if (ws.readyState === WebSocket.OPEN && ws.village === reservationDataForEmail.client_village) { // Use client_village here
-          ws.send(
-            JSON.stringify({
-              type: "reservation_update",
-              reservation: reservationData,
-            })
-          );
-        }
-      });
-  
-      res.status(201).json({
-        message: "Reservation created successfully",
-        reservation: reservationData,
-      });
-    } catch (error) {
-      await client.query("ROLLBACK");
-      console.error("Reservation creation error:", error);
-      res.status(400).json({ error: error.message });
-    } finally {
-      client.release();
+    } else {
+      console.warn("No volunteer email found; skipping email notification.");
     }
-  });
 
-  // FETCH PERSONAL RESERVATIONS
+    // Fetch volunteer's covered villages for WebSocket broadcast
+    const volunteerQuery = await client.query(
+      "SELECT villages_covered FROM users WHERE id = $1",
+      [volunteerId]
+    );
+    if (volunteerQuery.rows.length === 0) {
+      console.error("Volunteer not found for ID:", volunteerId);
+      throw new Error("Volunteer not found");
+    }
+    const volunteerVillages = volunteerQuery.rows[0].villages_covered || [];
+    console.log("Volunteer villages covered:", volunteerVillages);
+
+    // Broadcast reservation update to all clients in volunteer's covered villages
+    connectedClients.forEach((ws) => {
+      if (
+        ws.readyState === WebSocket.OPEN &&
+        volunteerVillages.includes(ws.village)
+      ) {
+        ws.send(
+          JSON.stringify({
+            type: "reservation_update",
+            reservation: reservationData,
+          })
+        );
+        console.log(`Sent reservation update to client in village: ${ws.village}`);
+      }
+    });
+
+    // Respond to the client
+    res.status(201).json({
+      message: "Reservation created successfully",
+      reservation: reservationData,
+    });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error("Reservation creation error:", error);
+    res.status(400).json({ error: error.message });
+  } finally {
+    client.release();
+  }
+});
+
+// FETCH PERSONAL RESERVATIONS
   router.get("/client/personal-reservations", authenticate, async (req, res) => {
     try {
       let clientId = req.user.userId || req.user.id || req.user._id;
       if (!clientId) {
         return res.status(400).json({ error: "Could not identify user ID from token." });
       }
-
+  
       const query = `
         SELECT
             TO_CHAR(r.reservation_date, 'YYYY-MM-DD') as reservation_date,
@@ -208,10 +239,10 @@ module.exports = (
         WHERE r.client_id = $1
         ORDER BY r.reservation_date, r.start_time
       `;
-
+  
       const reservationsResult = await pool.query(query, [clientId]);
       const reservations = reservationsResult.rows;
-
+  
       const now = moment();
       const updatedReservations = reservations.map((reservation) => {
         const endDateTime = moment(
@@ -223,10 +254,28 @@ module.exports = (
         }
         return reservation;
       });
-
+  
       res.json(updatedReservations || []);
     } catch (err) {
       console.error("Error fetching personal client reservations:", err);
+      res.status(500).json({ error: "Internal Server Error" });
+    }
+  });
+
+  // FETCH USER
+  router.get("/fetchUser", authenticate, async (req, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await pool.query(
+        "SELECT username, village FROM users WHERE id = $1",
+        [userId]
+      );
+      if (user.rows.length === 0) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      res.json(user.rows[0]);
+    } catch (error) {
+      console.error("Error fetching user:", error);
       res.status(500).json({ error: "Internal Server Error" });
     }
   });
@@ -345,25 +394,25 @@ module.exports = (
     try {
       const clientVillage = req.user.village;
       const date = req.query.date;
-
+  
       if (!date) {
         return res.status(400).json({ error: "Date parameter is required." });
       }
-
+  
       const dayOfWeek = moment(date, "YYYY-MM-DD").isoWeekday();
       if (isNaN(dayOfWeek) || dayOfWeek < 1 || dayOfWeek > 7) {
         return res.status(400).json({ error: "Invalid date format. Use YYYY-MM-DD." });
       }
-
+  
       const volunteersQuery = `
         SELECT
-            u.id,
-            u.username,
-            u.email,
-            u.villages_covered,
-            COALESCE(json_agg(
-                json_build_object('day_of_week', a.day_of_week, 'start_time', a.start_time::TEXT, 'end_time', a.end_time::TEXT)
-            ) FILTER (WHERE a.id IS NOT NULL), '[]'::json) AS availabilities
+          u.id,
+          u.username,
+          u.email,
+          u.villages_covered,
+          COALESCE(json_agg(
+            json_build_object('day_of_week', a.day_of_week, 'start_time', a.start_time::TEXT, 'end_time', a.end_time::TEXT)
+          ) FILTER (WHERE a.id IS NOT NULL), '[]'::json) AS availabilities
         FROM users u
         LEFT JOIN availabilities a ON u.id = a.user_id AND a.day_of_week = $1
         WHERE u.role = 'volunteer'
@@ -372,28 +421,30 @@ module.exports = (
           AND u.villages_covered @> jsonb_build_array(CAST($2 AS TEXT))
         GROUP BY u.id, u.username, u.email, u.villages_covered
       `;
-
+  
       const reservationsQuery = `
         SELECT
-            TO_CHAR(r.reservation_date, 'YYYY-MM-DD') as reservation_date,
-            TO_CHAR(r.start_time, 'HH24:MI') as start_time,
-            TO_CHAR(r.end_time, 'HH24:MI') as end_time,
-            r.volunteer_id,
-            r.id,
-            r.status
+          TO_CHAR(r.reservation_date, 'YYYY-MM-DD') as reservation_date,
+          TO_CHAR(r.start_time, 'HH24:MI') as start_time,
+          TO_CHAR(r.end_time, 'HH24:MI') as end_time,
+          r.volunteer_id,
+          r.id,
+          r.status
         FROM reservations r
         JOIN users v ON r.volunteer_id = v.id
         WHERE r.reservation_date = $1
           AND v.role = 'volunteer'
-          AND v.villages_covered @> jsonb_build_array($2::TEXT)
+          AND v.villages_covered @> jsonb_build_array(CAST($2 AS TEXT))
           AND r.status IN ('pending', 'accepted')
       `;
-
+  
+      console.log("Fetching volunteers for village:", clientVillage, "on date:", date);
+  
       const [volunteersResult, reservationsResult] = await Promise.all([
         pool.query(volunteersQuery, [dayOfWeek, clientVillage]),
         pool.query(reservationsQuery, [date, clientVillage]),
       ]);
-
+  
       res.json({
         mergedAvailabilities: mergeAvailabilities(volunteersResult.rows, reservationsResult.rows, date),
         reservations: reservationsResult.rows,

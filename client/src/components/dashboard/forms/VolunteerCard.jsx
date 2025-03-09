@@ -155,7 +155,7 @@ const fullProfilePictureUrl = profilePictureUrl?.startsWith("http")
 
   if (!subscriptionPaid) {
     return (
-      <div className="flex justify-center my-8">
+      <div className="my-8">
         <div className="w-full max-w-md">
           <div className="relative rounded-lg shadow-md overflow-hidden flex flex-row h-[200px] bg-transparent">
             <div className="bg-[#F7749D] w-[30%] flex items-center justify-center">
