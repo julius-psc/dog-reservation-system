@@ -90,14 +90,13 @@ module.exports = (
               Bucket: process.env.S3_BUCKET_NAME,
               Key: `profile-pictures/${key}`,
               Body: buffer,
-              ContentType: "image/png",
-              ACL: "public-read",
+              ContentType: "image/png", // No ACL here
             };
             const command = new PutObjectCommand(params);
             await s3Client.send(command);
             return `${baseUrl}/profile-pictures/${key}`;
           };
-
+          
           profilePictureUrl = await uploadToS3(pngBuffer, profilePictureFilename);
           console.log("Uploaded to S3:", profilePictureUrl);
         } else {
@@ -572,16 +571,16 @@ module.exports = (
           let charterPath, insurancePath;
     
           if (isProduction) {
-            const uploadToS3 = async (file, key) => {
+            const uploadToS3 = async (buffer, key) => {
               const params = {
                 Bucket: process.env.S3_BUCKET_NAME,
-                Key: `forms/${key}`,
-                Body: file.data,
-                ContentType: file.mimetype,
+                Key: `profile-pictures/${key}`,
+                Body: buffer,
+                ContentType: "image/png", // No ACL here
               };
               const command = new PutObjectCommand(params);
               await s3Client.send(command);
-              return `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION || "us-east-1"}.amazonaws.com/forms/${key}`;
+              return `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION || "us-east-1"}.amazonaws.com/profile-pictures/${key}`;
             };
     
             charterPath = await uploadToS3(charterFile, `charters/${charterFilename}`);

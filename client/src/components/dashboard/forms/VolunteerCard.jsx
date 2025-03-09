@@ -20,9 +20,9 @@ const VolunteerCard = () => {
   const cardRef = useRef(null);
 
   const baseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
-  const fullProfilePictureUrl = profilePictureUrl?.startsWith("http")
-    ? profilePictureUrl
-    : `${baseUrl}${profilePictureUrl}`;
+const fullProfilePictureUrl = profilePictureUrl?.startsWith("http")
+  ? profilePictureUrl
+  : `${baseUrl}${profilePictureUrl}`.replace("http://", "https://"); 
 
   useEffect(() => {
     const fetchVolunteerData = async () => {
