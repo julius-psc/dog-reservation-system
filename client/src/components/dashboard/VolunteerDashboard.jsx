@@ -135,6 +135,10 @@ const VolunteerDashboard = ({ handleLogout }) => {
   const [hasVillagesCoveredBeenSet, setHasVillagesCoveredBeenSet] = useState(false);
   const [loadingVillages, setLoadingVillages] = useState(true);
   const [errorVillages, setErrorVillages] = useState(null);
+  const [volunteerId, setVolunteerId] = useState(null);
+  const [username, setUsername] = useState('');
+  const [loadingVolunteerInfo, setLoadingVolunteerInfo] = useState(true);
+  const [errorVolunteerInfo, setErrorVolunteerInfo] = useState(null);
   const [subscriptionStatus, setSubscriptionStatus] = useState({
     paid: false,
     expiryDate: null,
@@ -157,6 +161,31 @@ const VolunteerDashboard = ({ handleLogout }) => {
     cancelled: "Annulée",
     completed: "Terminé",
   };
+
+  const fetchVolunteerInfo = useCallback(async () => {
+    setLoadingVolunteerInfo(true);
+    setErrorVolunteerInfo(null);
+    const token = Cookies.get("token");
+    if (!token) {
+      setErrorVolunteerInfo("Authentification requise");
+      setLoadingVolunteerInfo(false);
+      return;
+    }
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/volunteer/profile`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error("Échec du chargement des informations du bénévole");
+      const userData = await response.json();
+  
+      setVolunteerId(userData.personalId); // Use personalId from the response
+      setUsername(userData.username);
+    } catch (err) {
+      setErrorVolunteerInfo(err.message);
+    } finally {
+      setLoadingVolunteerInfo(false);
+    }
+  }, []);
 
   const handleVillageChange = (newValue) => {
     if (newValue) {
@@ -290,7 +319,8 @@ const VolunteerDashboard = ({ handleLogout }) => {
     fetchReservations();
     fetchVolunteerData();
     fetchSubscriptionStatus();
-  }, [fetchAvailabilities, fetchReservations, fetchVolunteerData, fetchSubscriptionStatus]);
+    fetchVolunteerInfo();
+  }, [fetchAvailabilities, fetchReservations, fetchVolunteerData, fetchSubscriptionStatus, fetchVolunteerInfo]);
 
   const handleAvailabilitySaved = () => {
     setShowAvailabilityForm(false);
@@ -401,7 +431,7 @@ const VolunteerDashboard = ({ handleLogout }) => {
     }
   };
 
-  if (loadingAvailabilities || reservationsLoading || loadingVillages || loadingSubscription) {
+  if (loadingAvailabilities || reservationsLoading || loadingVillages || loadingSubscription || loadingVolunteerInfo) {
     return (
       <div className="flex justify-center items-center h-screen bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900">
         <ClipLoader color="#72B5F4" loading={true} size={60} />
@@ -409,7 +439,7 @@ const VolunteerDashboard = ({ handleLogout }) => {
     );
   }
 
-  if (errorAvailabilities || reservationsError || errorVillages || errorSubscription) {
+  if (errorAvailabilities || reservationsError || errorVillages || errorSubscription || errorVolunteerInfo) {
     return (
       <div className="container mx-auto p-6 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 min-h-screen">
         <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl p-8 text-center transform transition-all duration-300">
@@ -417,7 +447,8 @@ const VolunteerDashboard = ({ handleLogout }) => {
           {errorAvailabilities && <p className="text-red-600 dark:text-red-400 mb-2 font-semibold">Erreur disponibilités: {errorAvailabilities}</p>}
           {reservationsError && <p className="text-red-600 dark:text-red-400 mb-2 font-semibold">Erreur réservations: {reservationsError}</p>}
           {errorVillages && <p className="text-red-600 dark:text-red-400 mb-2 font-semibold">Erreur villages: {errorVillages}</p>}
-          {errorSubscription && <p className="text-red-600 dark:text-red-400 font-semibold">Erreur abonnement: {errorSubscription}</p>}
+          {errorSubscription && <p className="text-red-600 dark:text-red-400 mb-2 font-semibold">Erreur abonnement: {errorSubscription}</p>}
+          {errorVolunteerInfo && <p className="text-red-600 dark:text-red-400 font-semibold">Erreur info bénévole: {errorVolunteerInfo}</p>}
         </div>
       </div>
     );
@@ -433,6 +464,8 @@ const VolunteerDashboard = ({ handleLogout }) => {
             <FontAwesomeIcon icon={faPaw} className="mr-3 text-primary-blue animate-pulse" />
             Tableau de Bord Bénévole
           </h2>
+          <div className="mt-2">
+            </div>
           <LogoutButton handleLogout={handleLogout} />
         </div>
       </header>
@@ -487,7 +520,14 @@ const VolunteerDashboard = ({ handleLogout }) => {
             </Elements>
           </div>
         )}
-
+                      <div>
+                        <p className="text-3xl text-primary-blue font-semibold dark:text-white">
+                                        Bonjour {username} !
+                                      </p>
+                                      <p className="text-md text-gray-600 dark:text-gray-400">
+                                        Votre Numéro Promeneur (NP) : <span className="font-bold">{volunteerId}</span>
+                                      </p>
+                      </div>
         <VolunteerCard/>
 
         {/* Combined Availability and Location Settings */}

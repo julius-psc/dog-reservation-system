@@ -57,10 +57,10 @@ const AdminDashboard = ({ handleLogout }) => {
         });
         if (!response.ok) throw new Error("Failed to fetch volunteers");
         const data = await response.json();
-        setVolunteers(data || []); 
+        setVolunteers(data || []);
       } catch (err) {
         setError(err.message);
-        setVolunteers([]); 
+        setVolunteers([]);
       } finally {
         setLoading(false);
       }
@@ -482,14 +482,22 @@ const AdminDashboard = ({ handleLogout }) => {
                             {editingPersonalId === volunteer.id ? (
                               <div className="flex items-center space-x-2">
                                 <input
-                                  type="text"
+                                  type="text" // Changed to text for better control
                                   value={newPersonalId}
-                                  onChange={(e) =>
-                                    setNewPersonalId(e.target.value)
-                                  }
+                                  onChange={(e) => {
+                                    const value = e.target.value.replace(
+                                      /\D/g,
+                                      ""
+                                    ); // Remove non-digits
+                                    if (value.length <= 5) {
+                                      setNewPersonalId(value);
+                                    }
+                                  }}
                                   className="px-2 py-1 border rounded-lg dark:bg-gray-700 dark:text-white"
                                   placeholder="Numéro promeneur"
-                                  maxLength={50}
+                                  maxLength={5}
+                                  pattern="[0-9]*" // HTML5 validation for numbers only
+                                  inputMode="numeric" // Shows numeric keyboard on mobile
                                 />
                                 <button
                                   onClick={(e) => {
@@ -589,7 +597,8 @@ const AdminDashboard = ({ handleLogout }) => {
                                     Disponibilités:
                                   </span>
                                 </p>
-                                {(volunteer.availabilities || []).length === 0 ? (
+                                {(volunteer.availabilities || []).length ===
+                                0 ? (
                                   <p>Aucune disponibilité définie</p>
                                 ) : (
                                   <ul className="list-disc pl-4">
