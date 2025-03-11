@@ -24,9 +24,21 @@ const VolunteerSignup = ({ onLoginSuccess }) => {
   const [validationErrors, setValidationErrors] = useState({});
 
   const villageOptions = [
-    "Anisy", "Mathieu", "Epron", "Cambes-en-Plaine", "Authie", "Saint-Contest",
-    "Banville", "Biéville-Beuville", "Périers-sur-le-Dan", "Blainville-sur-Orne",
-    "Caen", "Douvres-la-Délivrande", "Hérouville-Saint-Clair", "Ouistreham", "Vire",
+    "Anisy",
+    "Authie",
+    "Banville",
+    "Biéville-Beuville",
+    "Blainville-sur-Orne",
+    "Caen",
+    "Cambes-en-Plaine",
+    "Douvres-la-Délivrande",
+    "Epron",
+    "Hérouville-Saint-Clair",
+    "Mathieu",
+    "Ouistreham",
+    "Périers-sur-le-Dan",
+    "Saint-Contest",
+    "Vire",
     "Autre commune",
   ];
 
@@ -38,13 +50,13 @@ const VolunteerSignup = ({ onLoginSuccess }) => {
   }, [signupError]);
 
   // Validation Functions
-  const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? null : "Adresse email invalide";
-  const validatePhoneNumber = (phoneNumber) => /^[0-9]{8,}$/.test(phoneNumber) ? null : "Numéro de téléphone invalide (au moins 8 chiffres)";
-  const validateRequired = (value) => value ? null : "Ce champ est obligatoire";
-  const validateUsername = (username) => username.length >= 3 ? null : "Le nom d'utilisateur doit comporter au moins 3 caractères";
-  const validatePassword = (password) => password.length >= 6 ? null : "Le mot de passe doit comporter au moins 6 caractères";
-  const validateCommitments = () => Object.values(commitments).every(val => val) ? null : "Vous devez accepter tous les engagements";
-  const validateInsurance = (file) => file ? null : "Veuillez téléverser votre certificat d'assurance";
+  const validateEmail = (email) => (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? null : "Adresse email invalide");
+  const validatePhoneNumber = (phoneNumber) => (/^[0-9]{8,}$/.test(phoneNumber) ? null : "Numéro de téléphone invalide (au moins 8 chiffres)");
+  const validateRequired = (value) => (value ? null : "Ce champ est obligatoire");
+  const validateUsername = (username) => (username.length >= 3 ? null : "Le nom d'utilisateur doit comporter au moins 3 caractères");
+  const validatePassword = (password) => (password.length >= 6 ? null : "Le mot de passe doit comporter au moins 6 caractères");
+  const validateCommitments = () => (Object.values(commitments).every((val) => val) ? null : "Vous devez accepter tous les engagements");
+  const validateInsurance = (file) => (file ? null : "Veuillez téléverser votre certificat d'assurance");
 
   const handleVillageChange = (e) => {
     const value = e.target.value;
@@ -89,7 +101,7 @@ const VolunteerSignup = ({ onLoginSuccess }) => {
       insurance: validateInsurance(insuranceFile),
     };
 
-    if (Object.values(errors).some(error => error)) {
+    if (Object.values(errors).some((error) => error)) {
       setValidationErrors(errors);
       toast.error("Veuillez corriger les erreurs dans le formulaire");
       return;
@@ -152,7 +164,9 @@ const VolunteerSignup = ({ onLoginSuccess }) => {
 
             <form onSubmit={handleSubmit} className="mt-8 grid grid-cols-6 gap-6">
               <div className="col-span-6 sm:col-span-3">
-                <label htmlFor="username" className="block text-sm font-medium text-gray-700 dark:text-gray-200">Nom d&#39;utilisateur</label>
+                <label htmlFor="username" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                  Nom d&#39;utilisateur
+                </label>
                 <input
                   type="text"
                   id="username"
@@ -167,7 +181,9 @@ const VolunteerSignup = ({ onLoginSuccess }) => {
               </div>
 
               <div className="col-span-6 sm:col-span-3">
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-200">Mot de passe</label>
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                  Mot de passe
+                </label>
                 <input
                   type="password"
                   id="password"
@@ -182,7 +198,9 @@ const VolunteerSignup = ({ onLoginSuccess }) => {
               </div>
 
               <div className="col-span-6 sm:col-span-3">
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-200">Email</label>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                  Email
+                </label>
                 <input
                   type="email"
                   id="email"
@@ -197,7 +215,9 @@ const VolunteerSignup = ({ onLoginSuccess }) => {
               </div>
 
               <div className="col-span-6 sm:col-span-3">
-                <label htmlFor="village" className="block text-sm font-medium text-gray-700 dark:text-gray-200">Commune</label>
+                <label htmlFor="village" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                  Commune
+                </label>
                 <select
                   id="village"
                   name="village"
@@ -206,8 +226,14 @@ const VolunteerSignup = ({ onLoginSuccess }) => {
                   required
                   className="mt-1 py-2 px-3 w-full rounded-md border-gray-200 bg-white text-sm text-gray-700 shadow-xs dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
                 >
-                  <option value="" disabled>Sélectionnez votre commune</option>
-                  {villageOptions.map(option => <option key={option} value={option}>{option}</option>)}
+                  <option value="" disabled>
+                    Sélectionnez votre commune
+                  </option>
+                  {villageOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
                 </select>
                 {selectedVillage === "Autre commune" && (
                   <input
@@ -225,7 +251,9 @@ const VolunteerSignup = ({ onLoginSuccess }) => {
               </div>
 
               <div className="col-span-6 sm:col-span-3">
-                <label htmlFor="address" className="block text-sm font-medium text-gray-700 dark:text-gray-200">Adresse</label>
+                <label htmlFor="address" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                  Adresse
+                </label>
                 <input
                   type="text"
                   id="address"
@@ -240,7 +268,9 @@ const VolunteerSignup = ({ onLoginSuccess }) => {
               </div>
 
               <div className="col-span-6 sm:col-span-3">
-                <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-700 dark:text-gray-200">Numéro de téléphone</label>
+                <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                  Numéro de téléphone
+                </label>
                 <input
                   type="tel"
                   id="phoneNumber"
@@ -266,7 +296,9 @@ const VolunteerSignup = ({ onLoginSuccess }) => {
                       onChange={() => setIsAdult(true)}
                       className="h-4 w-4 text-primary-pink focus:ring-primary-pink border-gray-300"
                     />
-                    <label htmlFor="isAdult" className="ml-2 text-sm text-gray-700 dark:text-gray-200">Je suis majeur(e)</label>
+                    <label htmlFor="isAdult" className="ml-2 text-sm text-gray-700 dark:text-gray-200">
+                      Je suis majeur(e)
+                    </label>
                   </div>
                   <div className="flex items-center">
                     <input
@@ -277,14 +309,18 @@ const VolunteerSignup = ({ onLoginSuccess }) => {
                       onChange={() => setIsAdult(false)}
                       className="h-4 w-4 text-primary-pink focus:ring-primary-pink border-gray-300"
                     />
-                    <label htmlFor="isMinor" className="ml-2 text-sm text-gray-700 dark:text-gray-200">Je suis mineur(e) et je m’engage à fournir une attestation parentale</label>
+                    <label htmlFor="isMinor" className="ml-2 text-sm text-gray-700 dark:text-gray-200">
+                      Je suis mineur(e) et je m’engage à fournir une attestation parentale
+                    </label>
                   </div>
                 </div>
                 {validationErrors.isAdult && <p className="mt-1 text-xs text-red-500 dark:text-red-400">{validationErrors.isAdult}</p>}
               </div>
 
               <div className="col-span-6">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">En tant que bénévole promeneur, je m’engage à :</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                  En tant que bénévole promeneur, je m’engage à :
+                </label>
                 <div className="mt-2 space-y-2">
                   <div className="flex items-center">
                     <input
@@ -295,7 +331,9 @@ const VolunteerSignup = ({ onLoginSuccess }) => {
                       onChange={handleCommitmentChange}
                       className="h-4 w-4 text-primary-pink focus:ring-primary-pink border-gray-300"
                     />
-                    <label htmlFor="honorWalks" className="ml-2 text-sm text-gray-700 dark:text-gray-200">Honorer les promenades que j’ai acceptées</label>
+                    <label htmlFor="honorWalks" className="ml-2 text-sm text-gray-700 dark:text-gray-200">
+                      Honorer les promenades que j’ai acceptées
+                    </label>
                   </div>
                   <div className="flex items-center">
                     <input
@@ -306,7 +344,9 @@ const VolunteerSignup = ({ onLoginSuccess }) => {
                       onChange={handleCommitmentChange}
                       className="h-4 w-4 text-primary-pink focus:ring-primary-pink border-gray-300"
                     />
-                    <label htmlFor="keepLeash" className="ml-2 text-sm text-gray-700 dark:text-gray-200">Tenir le chien en laisse en permanence</label>
+                    <label htmlFor="keepLeash" className="ml-2 text-sm text-gray-700 dark:text-gray-200">
+                      Tenir le chien en laisse en permanence
+                    </label>
                   </div>
                   <div className="flex items-center">
                     <input
@@ -317,14 +357,18 @@ const VolunteerSignup = ({ onLoginSuccess }) => {
                       onChange={handleCommitmentChange}
                       className="h-4 w-4 text-primary-pink focus:ring-primary-pink border-gray-300"
                     />
-                    <label htmlFor="reportBehavior" className="ml-2 text-sm text-gray-700 dark:text-gray-200">Signaler à Chiens en Cavale tout comportement anormal du chien</label>
+                    <label htmlFor="reportBehavior" className="ml-2 text-sm text-gray-700 dark:text-gray-200">
+                      Signaler à Chiens en Cavale tout comportement anormal du chien
+                    </label>
                   </div>
                 </div>
                 {validationErrors.commitments && <p className="mt-1 text-xs text-red-500 dark:text-red-400">{validationErrors.commitments}</p>}
               </div>
 
               <div className="col-span-6">
-                <label htmlFor="insurance" className="block text-sm font-medium text-gray-700 dark:text-gray-200">Attestation d’assurance (JPG, PNG, PDF)</label>
+                <label htmlFor="insurance" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                  Attestation d’assurance (JPG, PNG, PDF)
+                </label>
                 <div className="mt-1 flex items-center space-x-4">
                   <input
                     type="file"
