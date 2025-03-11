@@ -15,10 +15,12 @@ import {
   faUserShield,
   faMapMarkerAlt,
   faFileDownload,
-  faCheck,          // For status icons
-  faClock,          // For status icons
-  faBan,            // For status icons
-  faFlagCheckered,  // For "completed" status
+  faCheck,
+  faClock,
+  faBan,
+  faFlagCheckered,
+  faUser, // Added for is_adult icon
+  faListCheck, // Added for commitments icon
 } from "@fortawesome/free-solid-svg-icons";
 import LogoutButton from "./recycled/LogoutButton";
 
@@ -218,7 +220,7 @@ const AdminDashboard = ({ handleLogout }) => {
             : user
         )
       );
-      toast.success(`Volunteer status updated to ${newStatus}`);
+      toast.success(`Statut du bénévole mis à jour à ${newStatus}`);
       if (newStatus === "approved") {
         const volunteer = volunteers.find((vol) => vol.id === volunteerId);
         await fetch(`${API_BASE_URL}/send-approval-email`, {
@@ -234,7 +236,7 @@ const AdminDashboard = ({ handleLogout }) => {
         });
       }
     } catch (error) {
-      toast.error(`Failed to update status: ${error.message}`);
+      toast.error(`Échec de la mise à jour du statut: ${error.message}`);
     }
   };
 
@@ -288,7 +290,6 @@ const AdminDashboard = ({ handleLogout }) => {
     v.username.toLowerCase().includes(volunteerFilter.toLowerCase())
   );
 
-  // Function to determine if a reservation is "completed" based on date/time
   const isReservationCompleted = (reservation) => {
     const endDateTime = moment(
       `${reservation.reservation_date} ${reservation.end_time}`,
@@ -604,7 +605,7 @@ const AdminDashboard = ({ handleLogout }) => {
                                   <span className="font-semibold">
                                     Numéro promeneur:
                                   </span>{" "}
-                                  {volunteer.personal_id || "Not set"}
+                                  {volunteer.personal_id || "Non défini"}
                                 </p>
                                 <p>
                                   <span className="font-semibold">
@@ -637,31 +638,6 @@ const AdminDashboard = ({ handleLogout }) => {
                                   </ul>
                                 )}
                                 <p>
-                                  <span className="font-semibold">Charte:</span>{" "}
-                                  {volunteer.charter_file_path ? (
-                                    <a
-                                      href={
-                                        isProduction
-                                          ? volunteer.charter_file_path
-                                          : `${API_BASE_URL}${volunteer.charter_file_path}`
-                                      }
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-blue-600 hover:underline dark:text-blue-500 ml-2 flex items-center"
-                                    >
-                                      <FontAwesomeIcon
-                                        icon={faFileDownload}
-                                        className="mr-1"
-                                      />
-                                      Voir / Télécharger
-                                    </a>
-                                  ) : (
-                                    <span className="ml-2 text-gray-500">
-                                      Aucune charte bénévole téléversée
-                                    </span>
-                                  )}
-                                </p>
-                                <p>
                                   <span className="font-semibold">
                                     Assurance:
                                   </span>{" "}
@@ -685,6 +661,55 @@ const AdminDashboard = ({ handleLogout }) => {
                                   ) : (
                                     <span className="ml-2 text-gray-500">
                                       Aucune assurance téléversée
+                                    </span>
+                                  )}
+                                </p>
+                                <p>
+                                  <span className="font-semibold">
+                                    <FontAwesomeIcon
+                                      icon={faUser}
+                                      className="mr-1"
+                                    />
+                                    Majeur(e):
+                                  </span>{" "}
+                                  {volunteer.is_adult === true
+                                    ? "Oui"
+                                    : volunteer.is_adult === false
+                                    ? "Non"
+                                    : "Non spécifié"}
+                                </p>
+                                <p>
+                                  <span className="font-semibold">
+                                    <FontAwesomeIcon
+                                      icon={faListCheck}
+                                      className="mr-1"
+                                    />
+                                    Engagements:
+                                  </span>
+                                  {volunteer.commitments ? (
+                                    <ul className="list-disc pl-4">
+                                      <li>
+                                        Honorer les promenades:{" "}
+                                        {volunteer.commitments.honorWalks
+                                          ? "Oui"
+                                          : "Non"}
+                                      </li>
+                                      <li>
+                                        Tenir en laisse:{" "}
+                                        {volunteer.commitments.keepLeash
+                                          ? "Oui"
+                                          : "Non"}
+                                      </li>
+                                      <li>
+                                        Signaler les comportements:{" "}
+                                        {volunteer.commitments.reportBehavior
+                                          ? "Oui"
+                                          : "Non"}
+                                      </li>
+                                    </ul>
+                                  ) : (
+                                    <span className="ml-2 text-gray-500">
+                                      Aucun engagement spécifié
                                     </span>
                                   )}
                                 </p>
