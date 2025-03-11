@@ -2,82 +2,119 @@ const express = require("express");
 const router = express.Router();
 const crypto = require("crypto");
 const moment = require("moment");
+const path = require("path"); // For local file handling and file extension
+const fs = require("fs").promises; // For local file operations
+const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3"); // AWS S3 SDK
+const { sendAdminDocumentSubmissionEmail } = require("../email/emailService"); // Import email service
 
 module.exports = (pool, bcrypt, jwt, sendPasswordResetEmail) => {
+  // Initialize S3 client based on environment
+  const isProduction = process.env.NODE_ENV === "production";
+  const s3Client = isProduction
+    ? new S3Client({
+        region: process.env.AWS_REGION || "us-east-1",
+        credentials: {
+          accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+          secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+        },
+      })
+    : null;
+
   // Register endpoint
   router.post("/register", async (req, res) => {
-    const { username, password, email, role, village, address, phoneNumber } = req.body;
+    const { username, password, email, role, village, address, phoneNumber, isAdult, commitments } = req.body;
+    const insuranceFile = req.files?.insurance; // Using express-fileupload
 
-    // Enhanced validation for regular signup
-    if (!username || !password || !email || !role || !village) {
-      return res.status(400).json({
-        error: "Username, password, email, role, and village are required",
-      });
+    if (!username || !password || !email || !role || !village || isAdult === undefined || !commitments || !insuranceFile) {
+      return res.status(400).json({ error: "Tous les champs requis doivent être fournis, y compris l'assurance" });
     }
 
-    // Optional phone number validation
     if (phoneNumber && !/^\d{10}$/.test(phoneNumber)) {
-      return res.status(400).json({
-        error: "Numéro de téléphone invalide",
-      });
+      return res.status(400).json({ error: "Numéro de téléphone invalide" });
+    }
+
+    if (!Object.values(JSON.parse(commitments)).every((val) => val)) {
+      return res.status(400).json({ error: "Tous les engagements doivent être acceptés" });
     }
 
     try {
       const hashedPassword = await bcrypt.hash(password, 10);
+      const insuranceFilename = `insurance_${username}_${Date.now()}${path.extname(insuranceFile.name)}`;
+      let insurancePath;
+
+      const baseUrl = isProduction
+        ? `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION || "us-east-1"}.amazonaws.com`
+        : `http://localhost:${process.env.PORT || 3000}`;
+
+      if (isProduction) {
+        // S3 upload function
+        const uploadToS3 = async (file, key) => {
+          const params = {
+            Bucket: process.env.S3_BUCKET_NAME,
+            Key: `insurance/${key}`,
+            Body: file.data, // express-fileupload provides .data
+            ContentType: file.mimetype,
+          };
+          const command = new PutObjectCommand(params);
+          await s3Client.send(command);
+          return `${baseUrl}/insurance/${key}`;
+        };
+
+        insurancePath = await uploadToS3(insuranceFile, insuranceFilename);
+        console.log("Uploaded insurance to S3:", insurancePath);
+      } else {
+        const insuranceUploadDir = path.join(__dirname, "../forms/insurance");
+        await fs.mkdir(insuranceUploadDir, { recursive: true });
+        insurancePath = `/insurance/${insuranceFilename}`;
+        const insuranceFullPath = path.join(insuranceUploadDir, insuranceFilename);
+        await insuranceFile.mv(insuranceFullPath); // express-fileupload .mv method
+        insurancePath = `${baseUrl}${insurancePath}`;
+        console.log("Saved insurance locally:", insuranceFullPath);
+      }
 
       const newUser = await pool.query(
         `INSERT INTO users (
-              username, 
-              password, 
-              email, 
-              role, 
-              village, 
-              address, 
-              phone_number
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7) 
-          RETURNING 
-              id, 
-              username, 
-              email, 
-              role, 
-              village, 
-              address, 
-              phone_number`,
-        [username, hashedPassword, email, role, village, address, phoneNumber]
+          username, password, email, role, village, address, phone_number, is_adult, commitments, volunteer_status, insurance_file_path
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        RETURNING id, username, email, role, volunteer_status`,
+        [username, hashedPassword, email, role, village, address, phoneNumber, isAdult, commitments, "pending", insurancePath]
+      );
+
+      const token = jwt.sign({ userId: newUser.rows[0].id, role }, process.env.JWT_SECRET, { expiresIn: "7d" });
+
+      await sendAdminDocumentSubmissionEmail(
+        "admin@example.com", // Replace with your actual admin email
+        username,
+        null, // No charter file in this case
+        insurancePath
       );
 
       res.status(201).json({
-        message: "User registered successfully",
+        message: "Utilisateur enregistré avec succès",
         user: newUser.rows[0],
+        token,
       });
     } catch (error) {
+      console.error("Registration error:", error);
       if (error.code === "23505") {
         const detail = error.detail.toLowerCase();
-        if (detail.includes("username")) {
-          return res.status(409).json({ error: "Ce nom d'utilisateur est déjà utilisé" });
-        }
-        if (detail.includes("email")) {
-          return res.status(409).json({ error: "Cet email est déjà enregistré" });
-        }
+        if (detail.includes("username")) return res.status(409).json({ error: "Ce nom d'utilisateur est déjà utilisé" });
+        if (detail.includes("email")) return res.status(409).json({ error: "Cet email est déjà enregistré" });
         return res.status(409).json({ error: "Violation de données uniques" });
       }
-      console.error("Registration error:", error);
-      res.status(500).json({
-        error: "Échec de l'inscription",
-        details: error.message,
-      });
+      res.status(500).json({ error: "Échec de l'inscription", details: error.message });
     }
   });
 
   // Login endpoint
   router.post("/login", async (req, res) => {
-    const { identifier, password } = req.body; // Changed from username to identifier
+    const { identifier, password } = req.body;
     if (!identifier || !password) {
       return res
         .status(400)
         .json({ error: "Veuillez entrer un identifiant (email ou nom d'utilisateur) et un mot de passe." });
     }
-  
+
     try {
       const userResult = await pool.query(
         "SELECT * FROM users WHERE username = $1 OR email = $1",
@@ -86,13 +123,13 @@ module.exports = (pool, bcrypt, jwt, sendPasswordResetEmail) => {
       if (userResult.rows.length === 0) {
         return res.status(401).json({ error: "Identifiant ou mot de passe incorrect" });
       }
-  
+
       const user = userResult.rows[0];
       const passwordMatch = await bcrypt.compare(password, user.password);
       if (!passwordMatch) {
         return res.status(401).json({ error: "Identifiant ou mot de passe incorrect" });
       }
-  
+
       const token = jwt.sign(
         { userId: user.id, role: user.role },
         process.env.JWT_SECRET,
@@ -104,7 +141,7 @@ module.exports = (pool, bcrypt, jwt, sendPasswordResetEmail) => {
         sameSite: "Strict",
       });
       res.json({
-        message: "Connexion réussie!",
+        message: "Connexion réussie !",
         token: token,
         user: { id: user.id, username: user.username, role: user.role },
       });
@@ -181,7 +218,6 @@ module.exports = (pool, bcrypt, jwt, sendPasswordResetEmail) => {
     }
   });
 
-  // Fetch all villages from volunteers
   router.get("/villages", async (req, res) => {
     try {
       const query = `
@@ -197,12 +233,12 @@ module.exports = (pool, bcrypt, jwt, sendPasswordResetEmail) => {
         WHERE village_name IS NOT NULL
       `;
       const result = await pool.query(query);
-      
-      const villages = result.rows.map(row => row.village_name);
+
+      const villages = result.rows.map((row) => row.village_name);
       res.json({ villages });
     } catch (error) {
       console.error("Error fetching villages:", error);
-      res.status(500).json({ error: "Failed to fetch villages", details: error.message });
+      res.status(500).json({ error: "Échec de la récupération des villages", details: error.message });
     }
   });
 

@@ -16,9 +16,9 @@ const ClientSignup = () => {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [signupError, setSignupError] = useState("");
   const [validationErrors, setValidationErrors] = useState({});
-  const [noRiskConfirmed, setNoRiskConfirmed] = useState(false); // New state for "no risk"
-  const [unableToWalkConfirmed, setUnableToWalkConfirmed] = useState(false); // New state for "unable to walk"
-  const [photoPermission, setPhotoPermission] = useState(false); // New state for optional photo permission
+  const [noRiskConfirmed, setNoRiskConfirmed] = useState(false);
+  const [unableToWalkConfirmed, setUnableToWalkConfirmed] = useState(false);
+  const [photoPermission, setPhotoPermission] = useState(false);
   const [allVillages, setAllVillages] = useState([]);
 
   // Memoized static village options
@@ -37,11 +37,36 @@ const ClientSignup = () => {
         if (!response.ok) throw new Error("Failed to fetch villages");
         const data = await response.json();
         const volunteerVillages = data.villages || [];
-        const combinedVillages = [...new Set([...staticVillageOptions, ...volunteerVillages])].sort();
-        setAllVillages(combinedVillages);
+        
+        // Combine and deduplicate villages (case-insensitive)
+        const combinedVillagesSet = [...new Set([
+          ...staticVillageOptions,
+          ...volunteerVillages
+        ].map(v => v.toLowerCase()))];
+        
+        // Separate "Autres communes" and sort the rest
+        const autresCommunes = "autres communes";
+        const villagesWithoutAutres = combinedVillagesSet
+          .filter(v => v.toLowerCase() !== autresCommunes)
+          .sort((a, b) => a.localeCompare(b))
+          .map(v => v.charAt(0).toUpperCase() + v.slice(1));
+        
+        // Add "Autres communes" at the end
+        const finalVillages = [
+          ...villagesWithoutAutres,
+          "Autres communes" // Ensure exact match with static option
+        ];
+        
+        setAllVillages(finalVillages);
       } catch (error) {
         console.error("Error fetching villages:", error);
-        setAllVillages(staticVillageOptions);
+        // Fallback: Sort static options and put "Autres communes" at the end
+        const autresCommunes = "Autres communes";
+        const villagesWithoutAutres = staticVillageOptions
+          .filter(v => v !== autresCommunes)
+          .sort((a, b) => a.localeCompare(b))
+          .map(v => v.charAt(0).toUpperCase() + v.slice(1));
+        setAllVillages([...villagesWithoutAutres, autresCommunes]);
       }
     };
     fetchVillages();
@@ -90,7 +115,7 @@ const ClientSignup = () => {
     let endpoint = `${import.meta.env.VITE_API_BASE_URL}/register`;
     let registrationData = {
       username, password, email, village, role, address, phoneNumber,
-      noRiskConfirmed, unableToWalkConfirmed, photoPermission // Include checkbox data
+      noRiskConfirmed, unableToWalkConfirmed, photoPermission
     };
 
     if (showAutresCommunesForm) {
@@ -192,7 +217,7 @@ const ClientSignup = () => {
             </p>
 
             <form onSubmit={handleSubmit} className="mt-8 grid grid-cols-6 gap-6">
-              {/* Existing Fields */}
+              {/* Username */}
               <div className="col-span-6 sm:col-span-3">
                 <label htmlFor="username" className="block text-sm font-medium text-gray-700 dark:text-gray-200">Nom d&#39;utilisateur</label>
                 <input
@@ -208,6 +233,7 @@ const ClientSignup = () => {
                 {validationErrors.username && <p className="mt-1 text-xs text-red-500 dark:text-red-400">{validationErrors.username}</p>}
               </div>
 
+              {/* Password */}
               <div className="col-span-6 sm:col-span-3">
                 <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-200">Mot de passe</label>
                 <input
@@ -223,6 +249,7 @@ const ClientSignup = () => {
                 {validationErrors.password && <p className="mt-1 text-xs text-red-500 dark:text-red-400">{validationErrors.password}</p>}
               </div>
 
+              {/* Email */}
               <div className="col-span-6 sm:col-span-3">
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-200">Email</label>
                 <input
@@ -238,6 +265,7 @@ const ClientSignup = () => {
                 {validationErrors.email && <p className="mt-1 text-xs text-red-500 dark:text-red-400">{validationErrors.email}</p>}
               </div>
 
+              {/* Phone Number */}
               <div className="col-span-6 sm:col-span-3">
                 <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-700 dark:text-gray-200">Numéro de téléphone portable</label>
                 <input
@@ -253,6 +281,7 @@ const ClientSignup = () => {
                 {validationErrors.phoneNumber && <p className="mt-1 text-xs text-red-500 dark:text-red-400">{validationErrors.phoneNumber}</p>}
               </div>
 
+              {/* Village Selection */}
               <div className="col-span-6 sm:col-span-3">
                 <label htmlFor="village" className="block text-sm font-medium text-gray-700 dark:text-gray-200">Commune de résidence</label>
                 <div className="relative">
@@ -266,7 +295,9 @@ const ClientSignup = () => {
                   >
                     <option value="" disabled>Sélectionnez votre commune</option>
                     {allVillages.map((option) => (
-                      <option key={option} value={option}>{option}</option>
+                      <option key={option} value={option}>
+                        {option.toUpperCase()}
+                      </option>
                     ))}
                   </select>
                   <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
@@ -278,6 +309,7 @@ const ClientSignup = () => {
                 {validationErrors.village && <p className="mt-1 text-xs text-red-500 dark:text-red-400">{validationErrors.village}</p>}
               </div>
 
+              {/* Address */}
               <div className="col-span-6 sm:col-span-3">
                 <label htmlFor="address" className="block text-sm font-medium text-gray-700 dark:text-gray-200">Voie</label>
                 <input
@@ -293,6 +325,7 @@ const ClientSignup = () => {
                 {validationErrors.address && <p className="mt-1 text-xs text-red-500 dark:text-red-400">{validationErrors.address}</p>}
               </div>
 
+              {/* Autres Communes Form */}
               {showAutresCommunesForm && (
                 <div className="col-span-6 p-4 bg-gray-50 rounded-md border border-gray-200 dark:border-gray-700 dark:bg-gray-800">
                   <h3 className="text-lg font-semibold mb-2 text-gray-800 dark:text-gray-200">Demande pour autres communes</h3>
@@ -309,7 +342,7 @@ const ClientSignup = () => {
                 </div>
               )}
 
-              {/* New Checkboxes */}
+              {/* Checkboxes */}
               <div className="col-span-6">
                 <p className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">J&#39;atteste sur l&#39;honneur que :</p>
 
@@ -325,7 +358,6 @@ const ClientSignup = () => {
                   />
                   <span className="text-sm text-gray-700 dark:text-gray-200">Mon animal ne présente aucun risque pour le promeneur (pas d&#39;antécédents d&#39;agressivité, morsures ou autres comportements dangereux).</span>
                 </label>
-            
 
                 {validationErrors.unableToWalkConfirmed && <p className="mt-1 text-xs text-red-500 dark:text-red-400">{validationErrors.unableToWalkConfirmed}</p>}
                 <label className="flex items-center space-x-2 mb-2">
@@ -352,6 +384,7 @@ const ClientSignup = () => {
                 </label>
               </div>
 
+              {/* Submit Button */}
               <div className="col-span-6">
                 <button
                   type="submit"
@@ -361,6 +394,7 @@ const ClientSignup = () => {
                 </button>
               </div>
 
+              {/* Login Link */}
               <div className="col-span-6 sm:col-span-6 sm:flex-none sm:items-center sm:gap-4 text-center">
                 <p className="mt-4 text-sm text-gray-500 dark:text-gray-400 sm:mt-0">
                   Vous avez déjà un compte ?

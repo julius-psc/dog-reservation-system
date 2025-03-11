@@ -24,7 +24,7 @@ const Hero = () => {
           temporaire ou permanent (handicap, douleurs, mobilité réduite,
           grossesse, accident de vie,...), notre réseau de bénévoles passionés
           est là pour vous aider! Des balades 100%{" "}
-          <span className="text-primary-pink">gratuites</span>, pour le bien-être de votre compagnon et votre tranquilité d&#39;esprit.<br></br>Faites appel à nous ou rejoignez l&#39;aventure!
+          <span className="text-primary-pink">gratuites</span>, pour le bien-être de votre compagnon.<br></br>Faites appel à nous ou rejoignez l&#39;aventure!
         </p>
         <div className="">
           <button className="bg-primary-pink hover:bg-pink-400 text-white font-semibold py-3 px-6 mt-4 rounded-xl transition duration-200 mr-2">
