@@ -88,13 +88,11 @@ wss.on("connection", (ws) => {
   console.log("Client connected to WebSocket server");
 
   ws.on("message", (message) => {
-    console.log(`Received: ${message}`);
     try {
       const parsedMessage = JSON.parse(message);
       if (parsedMessage.type === "join_village") {
         ws.village = parsedMessage.village;
         connectedClients.add(ws);
-        console.log(`Client joined village: ${ws.village}`);
       }
     } catch (error) {
       console.error("Error parsing message or joining village:", error);

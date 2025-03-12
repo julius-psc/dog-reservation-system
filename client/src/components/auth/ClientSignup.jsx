@@ -22,6 +22,17 @@ const ClientSignup = () => {
   const [allVillages, setAllVillages] = useState([]);
   const [showPassword, setShowPassword] = useState(false);
 
+  // Function to capitalize each word in a string
+  const capitalizeEachWord = (str) => {
+    if (!str) return str;
+    return str
+      .toLowerCase()
+      .split(' ')
+      .map(word => word.split('-').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('-'))
+      .join(' ');
+  };
+
+
   const staticVillageOptions = useMemo(
     () => [
       "Anisy",
@@ -40,7 +51,7 @@ const ClientSignup = () => {
       "Ouistreham",
       "Vire",
       "Autres communes",
-    ],
+    ].map(village => capitalizeEachWord(village)), // Capitalize static villages here
     []
   );
 
@@ -51,23 +62,24 @@ const ClientSignup = () => {
         if (!response.ok) throw new Error("Failed to fetch villages");
         const data = await response.json();
         const volunteerVillages = data.villages || [];
+        // Capitalize fetched villages and static villages, then combine
         const combinedVillagesSet = [
-          ...new Set([...staticVillageOptions, ...volunteerVillages].map((v) => v.toLowerCase())),
+          ...new Set([...staticVillageOptions, ...volunteerVillages.map(v => capitalizeEachWord(v))].map((v) => v.toLowerCase())),
         ];
-        const autresCommunes = "autres communes";
+        const autresCommunes = capitalizeEachWord("autres communes"); // Ensure "Autres communes" is correctly capitalized
         const villagesWithoutAutres = combinedVillagesSet
-          .filter((v) => v.toLowerCase() !== autresCommunes)
+          .filter((v) => v.toLowerCase() !== autresCommunes.toLowerCase()) // Compare with lowercase for filter
           .sort((a, b) => a.localeCompare(b))
-          .map((v) => v.charAt(0).toUpperCase() + v.slice(1));
-        const finalVillages = [...villagesWithoutAutres, "Autres communes"];
+          .map((v) => capitalizeEachWord(v)); // Capitalize after sorting for consistent display
+        const finalVillages = [...villagesWithoutAutres, capitalizeEachWord("Autres communes")]; // Ensure "Autres communes" is at the end and capitalized
         setAllVillages(finalVillages);
       } catch (error) {
         console.error("Error fetching villages:", error);
-        const autresCommunes = "Autres communes";
+        const autresCommunes = capitalizeEachWord("Autres communes");
         const villagesWithoutAutres = staticVillageOptions
           .filter((v) => v !== autresCommunes)
           .sort((a, b) => a.localeCompare(b))
-          .map((v) => v.charAt(0).toUpperCase() + v.slice(1));
+          .map((v) => capitalizeEachWord(v));
         setAllVillages([...villagesWithoutAutres, autresCommunes]);
       }
     };
@@ -122,7 +134,7 @@ const ClientSignup = () => {
       username,
       password,
       email,
-      village,
+      village: village.toUpperCase(), // Save village in ALL CAPS
       role,
       address,
       phoneNumber,
@@ -137,8 +149,8 @@ const ClientSignup = () => {
         autreCommuneNom: username,
         autreCommuneEmail: email,
         autreCommuneTelephone: phoneNumber,
-        autreCommuneVillageSouhaite,
-        village: "Autres communes",
+        autreCommuneVillageSouhaite: autreCommuneVillageSouhaite.toUpperCase(), // Save autreCommuneVillageSouhaite in ALL CAPS
+        village: "Autres communes".toUpperCase(), // Consistent "Autres communes" in ALL CAPS
         role: "client",
         noRiskConfirmed,
         unableToWalkConfirmed,
@@ -189,7 +201,7 @@ const ClientSignup = () => {
 
   const handleVillageChange = (e) => {
     setVillage(e.target.value);
-    setShowAutresCommunesForm(e.target.value === "Autres communes");
+    setShowAutresCommunesForm(e.target.value === capitalizeEachWord("Autres communes")); // Use capitalized "Autres communes" for comparison
   };
 
   const handleInputChange = (e, setter, validator) => {
@@ -399,7 +411,7 @@ const ClientSignup = () => {
                     </option>
                     {allVillages.map((option) => (
                       <option key={option} value={option}>
-                        {option.toUpperCase()}
+                        {option}
                       </option>
                     ))}
                   </select>

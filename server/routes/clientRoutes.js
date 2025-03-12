@@ -285,34 +285,39 @@ router.post("/reservations", authenticate, async (req, res) => {
     try {
       const { village } = req.user;
       const { startDate, endDate } = req.query;
-
+  
       let query = `
         SELECT
-            TO_CHAR(r.reservation_date, 'YYYY-MM-DD') as reservation_date,
-            TO_CHAR(r.start_time, 'HH24:MI') as start_time,
-            TO_CHAR(r.end_time, 'HH24:MI') as end_time,
-            r.volunteer_id,
-            r.id,
-            d.name AS dog_name,
-            v.username AS volunteer_name,
-            r.status,
-            r.client_id
+          TO_CHAR(r.reservation_date, 'YYYY-MM-DD') as reservation_date,
+          TO_CHAR(r.start_time, 'HH24:MI') as start_time,
+          TO_CHAR(r.end_time, 'HH24:MI') as end_time,
+          r.volunteer_id,
+          r.id,
+          d.name AS dog_name,
+          v.username AS volunteer_name,
+          r.status,
+          r.client_id
         FROM reservations r
         JOIN dogs d ON r.dog_id = d.id
         JOIN users v ON r.volunteer_id = v.id
-        WHERE r.volunteer_id IN (SELECT id FROM users WHERE role = 'volunteer' AND village = $1)
-          AND r.status IN ('pending', 'accepted')
+        WHERE r.volunteer_id IN (
+          SELECT id FROM users 
+          WHERE role = 'volunteer' 
+          AND villages_covered @> jsonb_build_array(CAST($1 AS TEXT))
+        )
+        AND r.status IN ('pending', 'accepted')
       `;
       const queryParams = [village];
-
+  
       if (startDate && endDate) {
         query += " AND r.reservation_date BETWEEN $2 AND $3";
         queryParams.push(startDate, endDate);
       }
-
+  
       query += " ORDER BY r.reservation_date, r.start_time";
-
+  
       const reservations = await pool.query(query, queryParams);
+      console.log(`Fetched ${reservations.rows.length} reservations for village: ${village}`);
       res.json(reservations.rows || []);
     } catch (err) {
       console.error("Error fetching client reservations:", err);
@@ -423,22 +428,23 @@ router.post("/reservations", authenticate, async (req, res) => {
       `;
   
       const reservationsQuery = `
-        SELECT
-          TO_CHAR(r.reservation_date, 'YYYY-MM-DD') as reservation_date,
-          TO_CHAR(r.start_time, 'HH24:MI') as start_time,
-          TO_CHAR(r.end_time, 'HH24:MI') as end_time,
-          r.volunteer_id,
-          r.id,
-          r.status
-        FROM reservations r
-        JOIN users v ON r.volunteer_id = v.id
-        WHERE r.reservation_date = $1
-          AND v.role = 'volunteer'
-          AND v.villages_covered @> jsonb_build_array(CAST($2 AS TEXT))
-          AND r.status IN ('pending', 'accepted')
-      `;
+      SELECT
+        TO_CHAR(r.reservation_date, 'YYYY-MM-DD') as reservation_date,
+        TO_CHAR(r.start_time, 'HH24:MI') as start_time,
+        TO_CHAR(r.end_time, 'HH24:MI') as end_time,
+        r.volunteer_id,
+        r.id,
+        r.status
+      FROM reservations r
+      WHERE r.reservation_date = $1
+        AND r.volunteer_id IN (
+          SELECT id FROM users
+          WHERE role = 'volunteer'
+          AND villages_covered @> jsonb_build_array(CAST($2 AS TEXT))
+        )
+        AND r.status IN ('pending', 'accepted')
+    `;
   
-      console.log("Fetching volunteers for village:", clientVillage, "on date:", date);
   
       const [volunteersResult, reservationsResult] = await Promise.all([
         pool.query(volunteersQuery, [dayOfWeek, clientVillage]),

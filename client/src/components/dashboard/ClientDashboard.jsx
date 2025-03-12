@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, memo } from "react";
+import { useState, useEffect, useCallback, useMemo, memo, useRef } from "react";
 import Cookies from "js-cookie";
 import PropTypes from "prop-types";
 import moment from "moment";
@@ -177,7 +177,7 @@ const ClientDashboard = memo(({ handleLogout }) => {
     setReservationsLoading(true);
     setReservationsError(null);
     const token = Cookies.get("token");
-
+  
     try {
       const url = `${
         import.meta.env.VITE_API_BASE_URL
@@ -189,13 +189,14 @@ const ClientDashboard = memo(({ handleLogout }) => {
       const response = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
-
+  
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || "Failed to fetch reservations");
       }
-
+  
       const reservationsData = await response.json();
+      console.log("Fetched reservations for village", village, ":", reservationsData);
       setReservations(reservationsData);
     } catch (err) {
       console.error("Error fetching reservations:", err);
@@ -203,7 +204,7 @@ const ClientDashboard = memo(({ handleLogout }) => {
     } finally {
       setReservationsLoading(false);
     }
-  }, [currentWeekStart]);
+  }, [currentWeekStart, village])
 
   const handleReservation = useCallback(
     async (volunteerId, startTime, dayIndex) => {
@@ -221,6 +222,14 @@ const ClientDashboard = memo(({ handleLogout }) => {
         const token = Cookies.get("token");
         const startMoment = moment(startTime, "HH:mm");
         const endMoment = startMoment.clone().add(1, "hour");
+  
+        console.log("Creating reservation:", {
+          volunteerId,
+          reservationDate: formattedDate,
+          startTime: startMoment.format("HH:mm"),
+          endTime: endMoment.format("HH:mm"),
+          dogId: selectedDog.id,
+        });
   
         const response = await fetch(
           `${import.meta.env.VITE_API_BASE_URL}/reservations`,
@@ -248,24 +257,57 @@ const ClientDashboard = memo(({ handleLogout }) => {
         const reservationData = await response.json();
         const newReservation = reservationData.reservation;
   
-        // Update reservations state immediately
-        setReservations((prev) => [...prev, newReservation]);
-        // Update personalReservations state immediately
-        setPersonalReservations((prev) => [...prev, newReservation]);
+        // Update local state immediately
+        setReservations((prev) => {
+          const updated = [...prev, newReservation];
+          console.log("Updated reservations:", updated);
+          return updated;
+        });
+        setPersonalReservations((prev) => {
+          const updated = [...prev, newReservation];
+          console.log("Updated personalReservations:", updated);
+          return updated;
+        });
+        setAllAvailableSlots((prevSlots) => {
+          const updatedSlots = { ...prevSlots };
+          if (updatedSlots[dayIndex]) {
+            updatedSlots[dayIndex] = updatedSlots[dayIndex].map((slot) => {
+              const slotStart = moment(slot.time, "HH:mm");
+              const slotEnd = slotStart.clone().add(1, "hour");
+              const resStart = moment(newReservation.start_time, "HH:mm");
+              const resEnd = moment(newReservation.end_time, "HH:mm");
+              if (
+                slotStart.isBefore(resEnd) &&
+                slotEnd.isAfter(resStart) &&
+                !slot.isReserved
+              ) {
+                console.log(`Marking slot ${slot.time} as reserved`);
+                return { ...slot, isReserved: true };
+              }
+              return slot;
+            });
+          }
+          console.log("Updated allAvailableSlots:", updatedSlots);
+          return updatedSlots;
+        });
   
         toast.success(
           "Demande de réservation envoyée. Veuillez attendre la confirmation d'un bénévole."
         );
-      } catch (error) {
-        toast.error(`${error.message}`);
-      } finally {
-        setReservationLoading(false);
-        // Sync with server data
+  
+        // Force server sync to ensure all clients see the update
+        console.log("Fetching updated data from server...");
         await Promise.all([
           fetchAvailableSlots(),
           fetchReservations(),
           fetchPersonalReservations(),
         ]);
+        console.log("Server data sync completed.");
+      } catch (error) {
+        console.error("Reservation error:", error);
+        toast.error(`${error.message}`);
+      } finally {
+        setReservationLoading(false);
       }
     },
     [
@@ -382,14 +424,29 @@ const ClientDashboard = memo(({ handleLogout }) => {
     []
   );
 
+  const currentWeekStartRef = useRef(currentWeekStart);
+useEffect(() => {
+  currentWeekStartRef.current = currentWeekStart;
+}, [currentWeekStart]);
+
   useEffect(() => {
-    fetchDogData();
-    fetchVillage();
-  }, [fetchDogData, fetchVillage]);
+    const fetchInitialData = async () => {
+      console.log(
+        "Fetching initial data ONCE for week starting:",
+        currentWeekStart.format("YYYY-MM-DD")
+      );
+      try {
+        await Promise.all([fetchDogData(), fetchVillage()]);
+      } catch (error) {
+        console.error("Error fetching initial data:", error);
+      }
+    };
+    fetchInitialData();
+  }, [fetchDogData, fetchVillage, currentWeekStart]); 
 
   useEffect(() => {
     console.log(
-      "Fetching data for week starting:",
+      "Fetching weekly data for week starting:",
       currentWeekStart.format("YYYY-MM-DD")
     );
     const fetchAllData = async () => {
@@ -406,41 +463,54 @@ const ClientDashboard = memo(({ handleLogout }) => {
     fetchAllData();
   }, [
     currentWeekStart,
-    fetchAvailableSlots,
     fetchReservations,
+    fetchAvailableSlots,
     fetchPersonalReservations,
   ]);
 
   useEffect(() => {
     const token = Cookies.get("token");
-    if (!token) return;
-
-    let ws;
-    // Align WebSocket URL with API base URL, replacing http with ws
-    const apiBaseUrl =
-      import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
+    if (!token || !village) return;
+  
+    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
     const wsUrl = apiBaseUrl.replace(/^http/, "ws").replace(/^https/, "wss");
-
+    let ws;
+  
     const connectWebSocket = () => {
       ws = new WebSocket(wsUrl);
-
+  
       ws.onopen = () => {
         console.log("WebSocket connected to", wsUrl);
-        if (village) {
-          ws.send(JSON.stringify({ type: "join_village", village }));
-          console.log(`Sent join_village for: ${village}`);
-        }
+        ws.send(JSON.stringify({ type: "join_village", village }));
+        console.log(`Sent join_village for: ${village}`);
       };
+  
       ws.onmessage = (event) => {
         const message = JSON.parse(event.data);
         if (message.type === "reservation_update") {
-          console.log("Received reservation update:", message.reservation);
+          console.log(`WebSocket update for ${village}:`, message.reservation);
           setReservations((prev) => {
             const exists = prev.some((res) => res.id === message.reservation.id);
-            if (!exists) return [...prev, message.reservation];
-            return prev;
+            if (!exists) {
+              console.log("Adding new reservation to state:", message.reservation);
+              return [...prev, message.reservation];
+            }
+            return prev.map((res) =>
+              res.id === message.reservation.id ? message.reservation : res
+            );
           });
           setPersonalReservations((prev) => {
+            const reservation = message.reservation;
+            if (reservation.client_id === Cookies.get("userId")) {
+              const exists = prev.some((res) => res.id === reservation.id);
+              if (!exists) {
+                console.log("Adding to personalReservations:", reservation);
+                return [...prev, reservation];
+              }
+              return prev.map((res) =>
+                res.id === reservation.id ? reservation : res
+              );
+            }
             return prev;
           });
           setAllAvailableSlots((prevSlots) => {
@@ -461,35 +531,34 @@ const ClientDashboard = memo(({ handleLogout }) => {
                   slotEnd.isAfter(resStart) &&
                   !slot.isReserved
                 ) {
+                  console.log(`Marking slot ${slot.time} as reserved via WebSocket`);
                   return { ...slot, isReserved: true };
                 }
                 return slot;
               });
             }
+            console.log("Updated allAvailableSlots:", updatedSlots);
             return updatedSlots;
           });
         }
       };
-
-      ws.onerror = (error) => {
-        console.error("WebSocket error:", error);
-      };
-
+  
+      ws.onerror = (error) => console.error("WebSocket error:", error);
       ws.onclose = (event) => {
         console.log("WebSocket closed:", event.code, event.reason);
         setTimeout(connectWebSocket, 1000);
       };
     };
-
+  
     connectWebSocket();
-
+  
     return () => {
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.close(1000, "Component unmounting");
         console.log("WebSocket cleanup: closed connection");
       }
     };
-  }, [village, fetchAvailableSlots, currentWeekStart]);
+  }, [village, currentWeekStart]); 
 
   const isSlotReserved = useCallback(
     (currentDate, slot, dayIndex) => {
@@ -499,7 +568,22 @@ const ClientDashboard = memo(({ handleLogout }) => {
       const slotStart = moment(`${slotDate} ${slot.time}`, "YYYY-MM-DD HH:mm");
       const slotEnd = slotStart.clone().add(1, "hour");
   
-      const isReservedInReservations = reservations.some((reservation) => {
+      const isReserved = reservations.some((reservation) => {
+        const reservationStart = moment(
+          `${reservation.reservation_date} ${reservation.start_time}`,
+          "YYYY-MM-DD HH:mm"
+        );
+        const reservationEnd = moment(
+          `${reservation.reservation_date} ${reservation.end_time}`,
+          "YYYY-MM-DD HH:mm"
+        );
+        return (
+          reservation.reservation_date === slotDate &&
+          slotStart.isBefore(reservationEnd) &&
+          slotEnd.isAfter(reservationStart) &&
+          (reservation.status === "pending" || reservation.status === "accepted")
+        );
+      }) || personalReservations.some((reservation) => {
         const reservationStart = moment(
           `${reservation.reservation_date} ${reservation.start_time}`,
           "YYYY-MM-DD HH:mm"
@@ -516,24 +600,10 @@ const ClientDashboard = memo(({ handleLogout }) => {
         );
       });
   
-      const isReservedInPersonal = personalReservations.some((reservation) => {
-        const reservationStart = moment(
-          `${reservation.reservation_date} ${reservation.start_time}`,
-          "YYYY-MM-DD HH:mm"
-        );
-        const reservationEnd = moment(
-          `${reservation.reservation_date} ${reservation.end_time}`,
-          "YYYY-MM-DD HH:mm"
-        );
-        return (
-          reservation.reservation_date === slotDate &&
-          slotStart.isBefore(reservationEnd) &&
-          slotEnd.isAfter(reservationStart) &&
-          (reservation.status === "pending" || reservation.status === "accepted")
-        );
-      });
-  
-      return isReservedInReservations || isReservedInPersonal;
+      if (isReserved) {
+        console.log(`Slot ${slot.time} on ${slotDate} is reserved`);
+      }
+      return isReserved;
     },
     [currentWeekStart, reservations, personalReservations]
   );
