@@ -5,7 +5,7 @@ const DogLoader = ({ duration = 3000 }) => {
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
-    const interval = duration / 3; // Divide the duration into 3 parts
+    const interval = duration / 3;
     const timer1 = setTimeout(() => setProgress(20), interval);
     const timer2 = setTimeout(() => setProgress(60), interval * 2);
     const timer3 = setTimeout(() => setProgress(100), duration);
@@ -18,7 +18,7 @@ const DogLoader = ({ duration = 3000 }) => {
   }, [duration]);
 
   return (
-    <div className="relative h-screen w-full overflow-hidden flex flex-col items-center justify-center">
+    <div className="relative h-screen md:h-screen w-full overflow-hidden flex flex-col items-center justify-center">
       <div className="absolute inset-0 m-auto h-64 w-64 animate-[bounce_0.25s_infinite_alternate]">
         {/* Dog Belly */}
         <div className="absolute h-52 w-14 left-24 bg-primary-pink rotate-90 rounded-3xl animate-[bellymove_0.25s_infinite_alternate] z-20"></div>
@@ -56,11 +56,11 @@ const DogLoader = ({ duration = 3000 }) => {
         <div className="absolute top-20 left-1 h-4 bg-primary-pink rounded-3xl animate-[tailwag_0.25s_infinite_alternate_ease-in-out] origin-right"></div>
       </div>
 
-      <div className="mt-28">
-        <p className="text-primary-pink">
+      <div className="mt-28 md:mt-28 px-4">
+        <p className="text-primary-pink hidden md:block">
           Veuillez patienter, on a perdu vos chiens... (mais on les cherche !)
         </p>
-        <div className="w-[400px] bg-gray-200 rounded-full h-3">
+        <div className="mt-2 w-48 md:w-full md:max-w-md bg-gray-200 rounded-full h-3">
           <div
             className="bg-primary-pink h-full rounded-full"
             style={{ width: `${progress}%`, transition: "width 0.5s ease-in-out" }}
@@ -149,7 +149,7 @@ const DogLoader = ({ duration = 3000 }) => {
 };
 
 DogLoader.propTypes = {
-  duration: PropTypes.number, // Duration in milliseconds
+  duration: PropTypes.number,
 };
 
 export default DogLoader;
