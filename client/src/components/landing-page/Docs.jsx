@@ -1,124 +1,115 @@
-import { Link } from 'react-router-dom';
-import { Skeleton } from '@mui/material';
-import paws from "../../assets/landing-page/icons/paws-blue.svg";
-import guideProm from '../../assets/landing-page/documents/guide_promeneur.pdf';
-import guideProprio from '../../assets/landing-page/documents/guide_proprio.pdf';
+import { Link } from "react-router-dom";
+import guideProm from "../../assets/landing-page/documents/guide_promeneur.pdf";
+import guideProprio from "../../assets/landing-page/documents/guide_proprio.pdf";
+import affiche from "../../assets/landing-page/documents/chiensencavale_affiche.pdf";
 
-import { useState, useEffect } from 'react';
-
-const Doc = () => {
-  const [documents, setDocuments] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    const fetchDocuments = async () => {
-      setLoading(true);
-
-      try {
-        await new Promise(resolve => setTimeout(resolve, 400));
-
-        const initialDocuments = [
-          { 
-            title: "Guide pour Promeneurs", 
-            file: guideProm, 
-            description: "Guide pour les promeneurs de chiens",
-            date: "Mars 2025",
-          },
-          { 
-            title: "Guide pour Propriétaires", 
-            file: guideProprio, 
-            description: "Guide pour les propriétaires de chiens",
-            date: "Mars 2025",
-          },
-        ];
-        setDocuments(initialDocuments);
-      } catch (err) {
-        setError(err);
-        console.error("Error fetching documents:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchDocuments();
-  }, []);
-
-  if (loading) {
-    return (
-      <section className="bg-secondary-blue min-h-screen w-screen py-20 relative overflow-hidden text-primary-black flex flex-col">
-        <img className="absolute bottom-10 left-40 z-0" src={paws} alt="Paws background pattern" />
-        <div className="relative z-10 flex-grow flex flex-col justify-center">
-          <h1 className="text-primary-blue font-semibold text-4xl pl-20 mb-8">Nos Documents</h1>
-          <div className="flex justify-center gap-8">
-            {[1, 2].map((index) => (
-              <div key={index} className="bg-white p-4 shadow-md w-80 relative">
-                <Skeleton variant="rectangular" width="100%" height={200} />
-                <Skeleton variant="text" height={40} />
-                <Skeleton variant="text" height={60} />
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-    );
-  }
-
-  if (error) {
-    return (
-      <section className="bg-secondary-blue min-h-screen w-screen py-20 relative overflow-hidden text-primary-black flex flex-col justify-center items-center">
-        <p>Error: {error.message}</p>
-      </section>
-    );
-  }
+const Docs = () => {
+  const documentCategories = [
+    {
+      title: "Guides",
+      description:
+        "Des guides utiles pour les promeneurs et les propriétaires.",
+      documents: [
+        {
+          title: "Guide du Promeneur",
+          description:
+            "Tout ce que vous devez savoir pour promener les chiens en toute sécurité.",
+          file: guideProm,
+        },
+        {
+          title: "Guide du Propriétaire",
+          description:
+            "Informations importantes pour les propriétaires de chiens.",
+          file: guideProprio,
+        },
+      ],
+    },
+    {
+      title: "Marketing",
+      description:
+        "Supports de communication pour promouvoir Chiens en Cavale.",
+      documents: [
+        {
+          title: "Affiche Chiens en Cavale",
+          description: "Affiche promotionnelle pour notre association.",
+          file: affiche,
+        },
+      ],
+    },
+  ];
 
   return (
-    <section className="bg-secondary-blue min-h-screen w-screen py-20 relative overflow-hidden text-primary-black flex flex-col">
-      <img
-        className="absolute bottom-10 left-40 z-0"
-        src={paws}
-        alt="Paws background pattern"
-      />
-      <div className="relative z-10 flex-grow flex flex-col justify-center">
-        <h1 className="text-primary-blue font-semibold text-4xl pl-20 mb-8">
-          Nos Documents
-        </h1>
+    <section className="bg-white dark:bg-gray-900">
+      <div className="lg:grid lg:min-h-screen lg:grid-cols-12">
+        {/* Side Image */}
+        <aside className="relative block h-16 lg:order-last lg:col-span-5 lg:h-full xl:col-span-6">
+          <img
+            alt=""
+            src="https://images.unsplash.com/photo-1542227422-f589a2124ffe?q=80&w=3400&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+        </aside>
 
-        <div className="flex justify-center gap-8 flex-wrap">
-          {documents.map((doc, index) => (
-            <div key={index} className="bg-white p-4 shadow-md w-80 relative rounded-lg">
-              <div className="relative w-full h-48 mb-4 overflow-hidden rounded-t-lg">
-                <img
-                  src={doc.image}
-                  alt={`${doc.title} preview`}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <h3 className="text-primary-black font-semibold text-lg mb-2">{doc.title}</h3>
-              <p className="text-primary-black text-sm mb-2">{doc.description}</p>
-              <p className="text-primary-black text-xs mb-4">Ajouté: {doc.date}</p>
-              <a 
-                href={doc.file} 
-                download 
-                className="bg-primary-blue hover:bg-blue-400 text-white py-2 px-4 rounded-lg transition duration-200 text-sm inline-block"
-              >
-                Télécharger
-              </a>
+        {/* Main Content */}
+        <main className="flex items-center justify-center px-8 py-8 sm:px-12 lg:col-span-7 lg:px-16 lg:py-12 xl:col-span-6 mt-8">
+          <div className="max-w-xl lg:max-w-3xl relative">
+            <Link to="/" className="block text-primary-pink mb-6">
+              Retour à l&#39;accueil
+            </Link>
+            <h1 className="mt-6 text-2xl font-bold text-gray-900 sm:text-3xl md:text-4xl dark:text-white">
+              Documentation Chiens en Cavale 🦮
+            </h1>
+
+            <p className="mt-4 leading-relaxed text-gray-500 dark:text-gray-400">
+              Retrouvez ici tous les documents nécessaires pour Chiens en
+              Cavale, organisés par catégorie.
+            </p>
+
+            {/* Document Categories */}
+            <div className="mt-8 space-y-8">
+              {documentCategories.map((category, index) => (
+                <div key={index}>
+                  {/* Category Header */}
+                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+                    {category.title}
+                  </h2>
+                  <p className="text-gray-600 dark:text-gray-400 mb-6">
+                    {category.description}
+                  </p>
+
+                  {/* Document List */}
+                  <div className="space-y-6">
+                    {category.documents.map((doc, docIndex) => (
+                      <div
+                        key={docIndex}
+                        className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300"
+                      >
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                          {doc.title}
+                        </h3>
+                        <p className="mt-2 text-gray-600 dark:text-gray-400">
+                          {doc.description}
+                        </p>
+                        <a
+                          href={doc.file}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-4 inline-block px-6 py-2 bg-primary-pink text-white font-bold rounded-full hover:bg-pink-600 focus:outline-none focus:ring-2 focus:ring-primary-pink focus:ring-opacity-50 transition-colors duration-300"
+                        >
+                          Télécharger le document
+                        </a>
+                      </div>
+                    ))}
+                    <hr className="opacity-20" />
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-
-        <div className="text-center mt-16">
-          <Link 
-            to="/documents" 
-            className="bg-primary-blue hover:bg-blue-400 text-white py-3 px-8 rounded-lg transition duration-200"
-          >
-            Voir tous les documents
-          </Link>
-        </div>
+          </div>
+        </main>
       </div>
     </section>
   );
 };
 
-export default Doc;
+export default Docs;
