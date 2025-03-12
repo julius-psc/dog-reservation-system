@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import Cookies from 'js-cookie';
 import AuthPage from './components/auth/AuthPages';
 import ClientSignup from './components/auth/ClientSignup';
 import VolunteerSignup from './components/auth/VolunteerSignup';
-import ClientDashboard from './components/dashboard/ClientDashboard';
-import VolunteerDashboard from './components/dashboard/VolunteerDashboard';
-import AdminDashboard from './components/dashboard/AdminDashboard';
+const ClientDashboard = React.lazy(() => import('./components/dashboard/ClientDashboard'));
+const VolunteerDashboard = React.lazy(() => import('./components/dashboard/VolunteerDashboard'));
+const AdminDashboard = React.lazy(() => import('./components/dashboard/AdminDashboard'));
 import LandingPage from './components/landing-page/LandingPage';
 import VolunteerPendingApproval from './components/dashboard/redirs/VolunteerPendingApproval';
 import Donate from './components/dashboard/forms/Donate';
@@ -133,6 +133,7 @@ const App = () => {
   return (
     <div>
       <Toaster position="top-center" />
+      <Suspense fallback={<DogLoader />}>
       <Routes>
         <Route path="/login" element={<AuthPage onLoginSuccess={handleLoginSuccess} showLogin={true} />} />
         <Route path="/client-signup" element={<ClientSignup onLoginSuccess={handleLoginSuccess} />} />
@@ -163,6 +164,7 @@ const App = () => {
           }
         />
       </Routes>
+      </Suspense>
     </div>
   );
 };

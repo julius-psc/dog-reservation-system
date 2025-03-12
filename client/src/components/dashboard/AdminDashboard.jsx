@@ -422,7 +422,7 @@ const AdminDashboard = ({ handleLogout }) => {
                                   )}
                                   <div>
                                     <p><span className="font-semibold">Email:</span> {volunteer.email}</p>
-                                    <p><span className="font-semibold">Village:</span> {volunteer.village}</p>
+                                    <p><span className="font-semibold">Commune:</span> {volunteer.village}</p>
                                   </div>
                                 </div>
                                 <p><span className="font-semibold">Statut:</span> {volunteer.volunteer_status}</p>
