@@ -2,8 +2,9 @@ import { useState } from 'react';
 import PropTypes from 'prop-types';
 import Cookies from 'js-cookie';
 import toast from 'react-hot-toast';
+import moment from 'moment';
 
-const AvailabilityForm = ({ onAvailabilitySaved }) => {
+const AvailabilityForm = ({ onAvailabilitySaved, canUpdate, reservations, timeUpdatedAt }) => {
   const [daysAvailability, setDaysAvailability] = useState(
     Array(7).fill(null).map((_, i) => ({
       dayOfWeek: i + 1,
@@ -74,6 +75,17 @@ const AvailabilityForm = ({ onAvailabilitySaved }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!canUpdate) {
+      const daysSinceUpdate = timeUpdatedAt ? moment().diff(moment(timeUpdatedAt), "days") : 0;
+      const daysRemaining = 30 - daysSinceUpdate;
+      toast.error(
+        reservations.some(r => ["pending", "accepted"].includes(r.status))
+          ? "Vous ne pouvez pas modifier vos disponibilités tant que vous avez des réservations en cours."
+          : `Vous ne pouvez modifier vos disponibilités qu'une fois tous les 30 jours. Prochaine mise à jour possible dans ${daysRemaining} jours.`
+      );
+      return;
+    }
 
     const token = Cookies.get('token');
     if (!token) {
@@ -154,7 +166,7 @@ const AvailabilityForm = ({ onAvailabilitySaved }) => {
   return (
     <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-900 rounded-xl shadow-lg p-6 max-w-2xl mx-auto transform transition-all duration-300 hover:shadow-xl">
       <p className="mb-6 text-sm text-red-600 dark:text-red-400 font-medium">
-        Attention : Vous ne pouvez définir vos disponibilités qu’une seule fois de manière permanente. Les heures doivent être rondes (ex. : 07:00, 14:00).
+        Attention : Vous ne pouvez modifier vos disponibilités qu’une fois tous les 30 jours et sans réservations en cours. Les heures doivent être rondes (ex. : 07:00, 14:00).
       </p>
 
       {daysAvailability.map((dayAvailability, dayIndex) => (
@@ -225,6 +237,7 @@ const AvailabilityForm = ({ onAvailabilitySaved }) => {
       <button
         type="submit"
         className="w-full bg-primary-blue hover:bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold transition-all duration-300"
+        disabled={!canUpdate}
       >
         Enregistrer les disponibilités
       </button>
@@ -234,6 +247,9 @@ const AvailabilityForm = ({ onAvailabilitySaved }) => {
 
 AvailabilityForm.propTypes = {
   onAvailabilitySaved: PropTypes.func.isRequired,
+  canUpdate: PropTypes.bool.isRequired,
+  reservations: PropTypes.array.isRequired,
+  timeUpdatedAt: PropTypes.string,
 };
 
 export default AvailabilityForm;
