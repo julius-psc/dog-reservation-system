@@ -12,6 +12,7 @@ import Donate from './components/dashboard/forms/Donate';
 import Benefits from './components/landing-page/Benefits';
 import ResetPasswordComponent from './components/auth/ResetPassword';
 import DogLoader from './components/dashboard/recycled/DogLoader';
+import Doc from './components/landing-page/Docs';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import PropTypes from 'prop-types';
 import { Toaster } from 'react-hot-toast';
@@ -143,6 +144,7 @@ const App = () => {
         <Route path="/admin-dashboard" element={<ProtectedRoute allowedRoles={['admin']} element={<AdminDashboard handleLogout={handleLogout} />} />} />
         <Route path="/donate" element={<Donate />} />
         <Route path="/benefits" element={<Benefits />} />
+        <Route path="/documents" element={<Doc />} /> 
         <Route
           path="/"
           element={

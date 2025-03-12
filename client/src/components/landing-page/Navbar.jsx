@@ -119,7 +119,7 @@ function Navbar() {
   return (
     <nav className="py-4 md:py-5 lg:py-6 w-full fixed top-0 z-[100] flex justify-center items-center">
       <div
-        className={`container max-w-4xl flex items-center justify-between bg-white dark:bg-gray-800 pr-4 md:pr-5 lg:pr-6 pt-4 md:pt-3 pb-5 md:pb-4 lg:pb-5 px-4 md:px-5 lg:px-6 ${
+        className={`container max-w-5xl flex items-center justify-between bg-white dark:bg-gray-800 pr-4 md:pr-5 lg:pr-6 pt-4 md:pt-3 pb-5 md:pb-4 lg:pb-5 px-4 md:px-5 lg:px-6 ${
           isMobileMenuOpen ? 'mx-0 rounded-t-4xl' : 'mx-4 rounded-4xl'
         }`}
       >
@@ -145,7 +145,7 @@ function Navbar() {
         </button>
 
         {/* Navigation Links (Center) */}
-        <div className="hidden lg:flex space-x-2 lg:space-x-4 pt-2 md:pt-3">
+        <div className="hidden lg:flex space-x-3 lg:space-x-4 pt-2 md:pt-3">
           <Link
             to="/"
             className="text-primary-black dark:text-white hover:text-primary-pink dark:hover:text-primary-pink transition duration-200 text-xs md:text-sm lg:text-base"
@@ -170,6 +170,12 @@ function Navbar() {
             className="text-primary-black dark:text-white hover:text-primary-pink dark:hover:text-primary-pink transition duration-200 text-xs md:text-sm lg:text-base"
           >
             Faire un don
+          </Link>
+          <Link
+            to="/documents"
+            className="text-primary-black dark:text-white hover:text-primary-pink dark:hover:text-primary-pink transition duration-200 text-xs md:text-sm lg:text-base"
+          >
+            Documentation
           </Link>
           <a href="mailto:contact.chiensencavale@gmail.com" target='_blank'>
             <img src={emailIcon} alt="Envoyer un email à Chiens en Cavale" className="w-4 md:w-5 lg:w-6" />
