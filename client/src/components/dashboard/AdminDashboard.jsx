@@ -46,7 +46,8 @@ const AdminDashboard = ({ handleLogout }) => {
   const [userFilter, setUserFilter] = useState("");
   const [userRoleFilter, setUserRoleFilter] = useState("all");
 
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
+  const API_BASE_URL =
+    import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
   const isProduction = import.meta.env.MODE === "production";
 
   useEffect(() => {
@@ -122,10 +123,14 @@ const AdminDashboard = ({ handleLogout }) => {
         return;
       }
       try {
-        const response = await fetch(`${API_BASE_URL}/admin/other-village-requests`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!response.ok) throw new Error("Failed to fetch other village requests");
+        const response = await fetch(
+          `${API_BASE_URL}/admin/other-village-requests`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        if (!response.ok)
+          throw new Error("Failed to fetch other village requests");
         const data = await response.json();
         setOtherVillageRequests(data || []);
       } catch (err) {
@@ -153,15 +158,24 @@ const AdminDashboard = ({ handleLogout }) => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-200 dark:from-gray-900 dark:to-gray-800 p-6">
         <div className="max-w-2xl mx-auto bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
-          <FontAwesomeIcon icon={faTimesCircle} className="text-red-500 text-4xl mb-4" />
-          {error && <p className="text-red-600 dark:text-red-400 mb-2">Error: {error}</p>}
+          <FontAwesomeIcon
+            icon={faTimesCircle}
+            className="text-red-500 text-4xl mb-4"
+          />
+          {error && (
+            <p className="text-red-600 dark:text-red-400 mb-2">
+              Error: {error}
+            </p>
+          )}
           {reservationsError && (
             <p className="text-red-600 dark:text-red-400 mb-2">
               Reservations Error: {reservationsError}
             </p>
           )}
           {usersError && (
-            <p className="text-red-600 dark:text-red-400 mb-2">Users Error: {usersError}</p>
+            <p className="text-red-600 dark:text-red-400 mb-2">
+              Users Error: {usersError}
+            </p>
           )}
           {otherVillageError && (
             <p className="text-red-600 dark:text-red-400">
@@ -174,28 +188,37 @@ const AdminDashboard = ({ handleLogout }) => {
   }
 
   const handleVolunteerRowClick = (volunteerId) => {
-    setExpandedVolunteerId(expandedVolunteerId === volunteerId ? null : volunteerId);
+    setExpandedVolunteerId(
+      expandedVolunteerId === volunteerId ? null : volunteerId
+    );
   };
 
   const handleVolunteerStatusChange = async (volunteerId, newStatus) => {
     try {
       const token = Cookies.get("token");
-      const response = await fetch(`${API_BASE_URL}/admin/volunteers/${volunteerId}/status`, {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ status: newStatus }),
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/admin/volunteers/${volunteerId}/status`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ status: newStatus }),
+        }
+      );
       if (!response.ok) throw new Error("Failed to update volunteer status");
       const updatedVolunteer = await response.json();
       setVolunteers((prev) =>
-        prev.map((vol) => (vol.id === volunteerId ? updatedVolunteer.volunteer : vol))
+        prev.map((vol) =>
+          vol.id === volunteerId ? updatedVolunteer.volunteer : vol
+        )
       );
       setAllUsers((prev) =>
         prev.map((user) =>
-          user.id === volunteerId ? { ...user, volunteer_status: newStatus } : user
+          user.id === volunteerId
+            ? { ...user, volunteer_status: newStatus }
+            : user
         )
       );
       toast.success(`Statut du bénévole mis à jour à ${newStatus}`);
@@ -215,6 +238,28 @@ const AdminDashboard = ({ handleLogout }) => {
       }
     } catch (error) {
       toast.error(`Échec de la mise à jour du statut: ${error.message}`);
+    }
+  };
+
+  const handleDeleteUser = async (userId) => {
+    if (!confirm("Êtes-vous sûr de vouloir supprimer cet utilisateur ?"))
+      return;
+
+    try {
+      const token = Cookies.get("token");
+      const response = await fetch(`${API_BASE_URL}/admin/users/${userId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) throw new Error("Failed to delete user");
+
+      setAllUsers((prev) => prev.filter((user) => user.id !== userId));
+      toast.success("Utilisateur supprimé avec succès");
+    } catch (error) {
+      toast.error(`Erreur lors de la suppression: ${error.message}`);
     }
   };
 
@@ -245,11 +290,15 @@ const AdminDashboard = ({ handleLogout }) => {
 
       const updatedVolunteer = await response.json();
       setVolunteers((prev) =>
-        prev.map((vol) => (vol.id === volunteerId ? updatedVolunteer.volunteer : vol))
+        prev.map((vol) =>
+          vol.id === volunteerId ? updatedVolunteer.volunteer : vol
+        )
       );
       setAllUsers((prev) =>
         prev.map((user) =>
-          user.id === volunteerId ? { ...user, personal_id: newPersonalId } : user
+          user.id === volunteerId
+            ? { ...user, personal_id: newPersonalId }
+            : user
         )
       );
       toast.success("ID mis à jour avec succès");
@@ -301,7 +350,10 @@ const AdminDashboard = ({ handleLogout }) => {
       <header className="bg-white dark:bg-gray-800 shadow-lg">
         <div className="max-w-7xl mx-auto px-4 py-6 flex justify-between items-center">
           <h1 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center">
-            <FontAwesomeIcon icon={faUserShield} className="mr-2 text-blue-500" />
+            <FontAwesomeIcon
+              icon={faUserShield}
+              className="mr-2 text-blue-500"
+            />
             Tableau de Bord Administrateur
           </h1>
           <LogoutButton handleLogout={handleLogout} />
@@ -321,7 +373,10 @@ const AdminDashboard = ({ handleLogout }) => {
                 {volunteers.length}
               </p>
             </div>
-            <FontAwesomeIcon icon={faUsers} className="text-blue-500 text-3xl" />
+            <FontAwesomeIcon
+              icon={faUsers}
+              className="text-blue-500 text-3xl"
+            />
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 flex items-center justify-between transform hover:scale-105 transition-transform">
             <div>
@@ -332,7 +387,10 @@ const AdminDashboard = ({ handleLogout }) => {
                 {allReservations.length}
               </p>
             </div>
-            <FontAwesomeIcon icon={faCalendarCheck} className="text-green-500 text-3xl" />
+            <FontAwesomeIcon
+              icon={faCalendarCheck}
+              className="text-green-500 text-3xl"
+            />
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 flex items-center justify-between transform hover:scale-105 transition-transform">
             <div>
@@ -343,7 +401,10 @@ const AdminDashboard = ({ handleLogout }) => {
                 {allUsers.length}
               </p>
             </div>
-            <FontAwesomeIcon icon={faUsers} className="text-yellow-500 text-3xl" />
+            <FontAwesomeIcon
+              icon={faUsers}
+              className="text-yellow-500 text-3xl"
+            />
           </div>
         </div>
 
@@ -352,7 +413,10 @@ const AdminDashboard = ({ handleLogout }) => {
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
             <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
               <h2 className="text-xl font-semibold text-gray-800 dark:text-white flex items-center">
-                <FontAwesomeIcon icon={faUsers} className="mr-2 text-blue-500" />
+                <FontAwesomeIcon
+                  icon={faUsers}
+                  className="mr-2 text-blue-500"
+                />
                 Liste des Bénévoles
               </h2>
               <input
@@ -449,9 +513,11 @@ const AdminDashboard = ({ handleLogout }) => {
                           </td>
                           <td className="px-4 py-3">
                             <ul className="list-disc pl-4 text-gray-800 dark:text-gray-200">
-                              {volunteer.villages_covered?.map((village, idx) => (
-                                <li key={idx}>{village}</li>
-                              ))}
+                              {volunteer.villages_covered?.map(
+                                (village, idx) => (
+                                  <li key={idx}>{village}</li>
+                                )
+                              )}
                             </ul>
                           </td>
                           <td className="px-4 py-3">
@@ -474,7 +540,10 @@ const AdminDashboard = ({ handleLogout }) => {
                                   type="text"
                                   value={newPersonalId}
                                   onChange={(e) => {
-                                    const value = e.target.value.replace(/\D/g, "");
+                                    const value = e.target.value.replace(
+                                      /\D/g,
+                                      ""
+                                    );
                                     if (value.length <= 5) {
                                       setNewPersonalId(value);
                                     }
@@ -526,7 +595,10 @@ const AdminDashboard = ({ handleLogout }) => {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleVolunteerStatusChange(volunteer.id, "approved");
+                                    handleVolunteerStatusChange(
+                                      volunteer.id,
+                                      "approved"
+                                    );
                                   }}
                                   className="px-3 py-1 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
                                 >
@@ -535,7 +607,10 @@ const AdminDashboard = ({ handleLogout }) => {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleVolunteerStatusChange(volunteer.id, "rejected");
+                                    handleVolunteerStatusChange(
+                                      volunteer.id,
+                                      "rejected"
+                                    );
                                   }}
                                   className="px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
                                 >
@@ -567,11 +642,15 @@ const AdminDashboard = ({ handleLogout }) => {
                                   )}
                                   <div>
                                     <p>
-                                      <span className="font-semibold">Email:</span>{" "}
+                                      <span className="font-semibold">
+                                        Email:
+                                      </span>{" "}
                                       {volunteer.email}
                                     </p>
                                     <p>
-                                      <span className="font-semibold">Village:</span>{" "}
+                                      <span className="font-semibold">
+                                        Village:
+                                      </span>{" "}
                                       {volunteer.village}
                                     </p>
                                   </div>
@@ -581,43 +660,62 @@ const AdminDashboard = ({ handleLogout }) => {
                                   {volunteer.volunteer_status}
                                 </p>
                                 <p>
-                                  <span className="font-semibold">Numéro promeneur:</span>{" "}
+                                  <span className="font-semibold">
+                                    Numéro promeneur:
+                                  </span>{" "}
                                   {volunteer.personal_id || "Non défini"}
                                 </p>
                                 <p>
                                   <span className="font-semibold">
-                                    <FontAwesomeIcon icon={faHome} className="mr-1" />
+                                    <FontAwesomeIcon
+                                      icon={faHome}
+                                      className="mr-1"
+                                    />
                                     Adresse:
                                   </span>{" "}
                                   {volunteer.address || "Non spécifiée"}
                                 </p>
                                 <div>
-                                  <span className="font-semibold">Disponibilités:</span>
-                                  {(volunteer.availabilities || []).length === 0 ? (
+                                  <span className="font-semibold">
+                                    Disponibilités:
+                                  </span>
+                                  {(volunteer.availabilities || []).length ===
+                                  0 ? (
                                     <p>Aucune disponibilité définie</p>
                                   ) : (
                                     <ul className="list-disc pl-4">
-                                      {daysOfWeekLabels.map((dayLabel, index) => {
-                                        const dayOfWeek = index + 1;
-                                        const dayAvailabilities =
-                                          groupedAvailabilities[dayOfWeek] || [];
-                                        return dayAvailabilities.length > 0 ? (
-                                          <li key={dayOfWeek}>
-                                            {dayLabel}:{" "}
-                                            {dayAvailabilities.map((av, idx) => (
-                                              <span key={idx}>
-                                                {av.startTime} - {av.endTime}
-                                                {idx < dayAvailabilities.length - 1 && ", "}
-                                              </span>
-                                            ))}
-                                          </li>
-                                        ) : null;
-                                      })}
+                                      {daysOfWeekLabels.map(
+                                        (dayLabel, index) => {
+                                          const dayOfWeek = index + 1;
+                                          const dayAvailabilities =
+                                            groupedAvailabilities[dayOfWeek] ||
+                                            [];
+                                          return dayAvailabilities.length >
+                                            0 ? (
+                                            <li key={dayOfWeek}>
+                                              {dayLabel}:{" "}
+                                              {dayAvailabilities.map(
+                                                (av, idx) => (
+                                                  <span key={idx}>
+                                                    {av.startTime} -{" "}
+                                                    {av.endTime}
+                                                    {idx <
+                                                      dayAvailabilities.length -
+                                                        1 && ", "}
+                                                  </span>
+                                                )
+                                              )}
+                                            </li>
+                                          ) : null;
+                                        }
+                                      )}
                                     </ul>
                                   )}
                                 </div>
                                 <p>
-                                  <span className="font-semibold">Assurance:</span>{" "}
+                                  <span className="font-semibold">
+                                    Assurance:
+                                  </span>{" "}
                                   {volunteer.insurance_file_path ? (
                                     <a
                                       href={
@@ -629,7 +727,10 @@ const AdminDashboard = ({ handleLogout }) => {
                                       rel="noopener noreferrer"
                                       className="text-blue-600 hover:underline dark:text-blue-500 ml-2 flex items-center"
                                     >
-                                      <FontAwesomeIcon icon={faFileDownload} className="mr-1" />
+                                      <FontAwesomeIcon
+                                        icon={faFileDownload}
+                                        className="mr-1"
+                                      />
                                       Voir / Télécharger
                                     </a>
                                   ) : (
@@ -640,7 +741,10 @@ const AdminDashboard = ({ handleLogout }) => {
                                 </p>
                                 <p>
                                   <span className="font-semibold">
-                                    <FontAwesomeIcon icon={faUser} className="mr-1" />
+                                    <FontAwesomeIcon
+                                      icon={faUser}
+                                      className="mr-1"
+                                    />
                                     Majeur(e):
                                   </span>{" "}
                                   {volunteer.is_adult === true
@@ -651,22 +755,31 @@ const AdminDashboard = ({ handleLogout }) => {
                                 </p>
                                 <div>
                                   <span className="font-semibold">
-                                    <FontAwesomeIcon icon={faListCheck} className="mr-1" />
+                                    <FontAwesomeIcon
+                                      icon={faListCheck}
+                                      className="mr-1"
+                                    />
                                     Engagements:
                                   </span>
                                   {volunteer.commitments ? (
                                     <ul className="list-disc pl-4">
                                       <li>
                                         Honorer les promenades:{" "}
-                                        {volunteer.commitments.honorWalks ? "Oui" : "Non"}
+                                        {volunteer.commitments.honorWalks
+                                          ? "Oui"
+                                          : "Non"}
                                       </li>
                                       <li>
                                         Tenir en laisse:{" "}
-                                        {volunteer.commitments.keepLeash ? "Oui" : "Non"}
+                                        {volunteer.commitments.keepLeash
+                                          ? "Oui"
+                                          : "Non"}
                                       </li>
                                       <li>
                                         Signaler les comportements:{" "}
-                                        {volunteer.commitments.reportBehavior ? "Oui" : "Non"}
+                                        {volunteer.commitments.reportBehavior
+                                          ? "Oui"
+                                          : "Non"}
                                       </li>
                                     </ul>
                                   ) : (
@@ -693,7 +806,10 @@ const AdminDashboard = ({ handleLogout }) => {
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
             <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
               <h2 className="text-xl font-semibold text-gray-800 dark:text-white flex items-center">
-                <FontAwesomeIcon icon={faCalendarCheck} className="mr-2 text-green-500" />
+                <FontAwesomeIcon
+                  icon={faCalendarCheck}
+                  className="mr-2 text-green-500"
+                />
                 Liste des Réservations
               </h2>
               <select
@@ -741,7 +857,9 @@ const AdminDashboard = ({ handleLogout }) => {
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                   {filteredReservations.map((reservation) => {
                     const isCompleted = isReservationCompleted(reservation);
-                    const effectiveStatus = isCompleted ? "completed" : reservation.status;
+                    const effectiveStatus = isCompleted
+                      ? "completed"
+                      : reservation.status;
 
                     let statusColor = "";
                     let statusName = "";
@@ -750,23 +868,34 @@ const AdminDashboard = ({ handleLogout }) => {
                     switch (effectiveStatus) {
                       case "accepted":
                         statusColor = "bg-green-200 text-green-800";
-                        statusIcon = <FontAwesomeIcon icon={faCheck} className="mr-1" />;
+                        statusIcon = (
+                          <FontAwesomeIcon icon={faCheck} className="mr-1" />
+                        );
                         statusName = "Accepté";
                         break;
                       case "pending":
                         statusColor = "bg-yellow-200 text-yellow-800";
-                        statusIcon = <FontAwesomeIcon icon={faClock} className="mr-1" />;
+                        statusIcon = (
+                          <FontAwesomeIcon icon={faClock} className="mr-1" />
+                        );
                         statusName = "En attente";
                         break;
                       case "rejected":
                       case "cancelled":
                         statusColor = "bg-red-200 text-red-800";
-                        statusIcon = <FontAwesomeIcon icon={faBan} className="mr-1" />;
+                        statusIcon = (
+                          <FontAwesomeIcon icon={faBan} className="mr-1" />
+                        );
                         statusName = "Rejeté";
                         break;
                       case "completed":
                         statusColor = "bg-blue-200 text-blue-800";
-                        statusIcon = <FontAwesomeIcon icon={faFlagCheckered} className="mr-1" />;
+                        statusIcon = (
+                          <FontAwesomeIcon
+                            icon={faFlagCheckered}
+                            className="mr-1"
+                          />
+                        );
                         statusName = "Complété";
                         break;
                       default:
@@ -793,7 +922,9 @@ const AdminDashboard = ({ handleLogout }) => {
                           {reservation.dog_name}
                         </td>
                         <td className="px-4 py-3 text-gray-800 dark:text-gray-200">
-                          {moment(reservation.reservation_date).format("DD/MM/YYYY")}
+                          {moment(reservation.reservation_date).format(
+                            "DD/MM/YYYY"
+                          )}
                         </td>
                         <td className="px-4 py-3 text-gray-800 dark:text-gray-200">
                           {reservation.start_time}
@@ -823,7 +954,10 @@ const AdminDashboard = ({ handleLogout }) => {
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
             <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
               <h2 className="text-xl font-semibold text-gray-800 dark:text-white flex items-center">
-                <FontAwesomeIcon icon={faUsers} className="mr-2 text-yellow-500" />
+                <FontAwesomeIcon
+                  icon={faUsers}
+                  className="mr-2 text-yellow-500"
+                />
                 Liste des Utilisateurs
               </h2>
               <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
@@ -862,6 +996,18 @@ const AdminDashboard = ({ handleLogout }) => {
                     <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600 dark:text-gray-300">
                       Village
                     </th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600 dark:text-gray-300">
+                      Pas de Risque
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600 dark:text-gray-300">
+                      Incapable de Promener
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600 dark:text-gray-300">
+                      Permission Photo
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600 dark:text-gray-300">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -882,6 +1028,23 @@ const AdminDashboard = ({ handleLogout }) => {
                       <td className="px-4 py-3 text-gray-800 dark:text-gray-200">
                         {user.village}
                       </td>
+                      <td className="px-4 py-3 text-gray-800 dark:text-gray-200">
+                        {user.no_risk_confirmed ? "Oui" : "Non"}
+                      </td>
+                      <td className="px-4 py-3 text-gray-800 dark:text-gray-200">
+                        {user.unable_to_walk_confirmed ? "Oui" : "Non"}
+                      </td>
+                      <td className="px-4 py-3 text-gray-800 dark:text-gray-200">
+                        {user.photo_permission ? "Oui" : "Non"}
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => handleDeleteUser(user.id)}
+                          className="px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                        >
+                          Supprimer
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -894,7 +1057,10 @@ const AdminDashboard = ({ handleLogout }) => {
         <section>
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
             <h2 className="text-xl font-semibold text-gray-800 dark:text-white flex items-center mb-6">
-              <FontAwesomeIcon icon={faMapMarkerAlt} className="mr-2 text-primary-pink" />
+              <FontAwesomeIcon
+                icon={faMapMarkerAlt}
+                className="mr-2 text-primary-pink"
+              />
               Demandes d’Autres Communes
             </h2>
             <div className="overflow-x-auto">
@@ -937,7 +1103,9 @@ const AdminDashboard = ({ handleLogout }) => {
                         {request.desired_village}
                       </td>
                       <td className="px-4 py-3 text-gray-800 dark:text-gray-200">
-                        {moment(request.request_date).format("DD/MM/YYYY HH:mm")}
+                        {moment(request.request_date).format(
+                          "DD/MM/YYYY HH:mm"
+                        )}
                       </td>
                     </tr>
                   ))}

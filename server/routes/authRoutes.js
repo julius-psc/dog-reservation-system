@@ -22,72 +22,140 @@ module.exports = (pool, bcrypt, jwt, sendPasswordResetEmail) => {
 
   // Register endpoint
   router.post("/register", async (req, res) => {
-    const { username, password, email, role, village, address, phoneNumber, isAdult, commitments } = req.body;
-    const insuranceFile = req.files?.insurance; // Using express-fileupload
+    const {
+      username,
+      password,
+      email,
+      role,
+      village,
+      address,
+      phoneNumber,
+      isAdult,
+      commitments,
+      noRiskConfirmed,
+      unableToWalkConfirmed,
+      photoPermission,
+    } = req.body;
+    const insuranceFile = req.files?.insurance;
 
-    if (!username || !password || !email || !role || !village || isAdult === undefined || !commitments || !insuranceFile) {
-      return res.status(400).json({ error: "Tous les champs requis doivent être fournis, y compris l'assurance" });
+    // Base validation for all roles
+    if (!username || !password || !email || !role || !village) {
+      return res.status(400).json({ error: "Tous les champs de base requis doivent être fournis" });
     }
 
     if (phoneNumber && !/^\d{10}$/.test(phoneNumber)) {
-      return res.status(400).json({ error: "Numéro de téléphone invalide" });
-    }
-
-    if (!Object.values(JSON.parse(commitments)).every((val) => val)) {
-      return res.status(400).json({ error: "Tous les engagements doivent être acceptés" });
+      return res.status(400).json({ error: "Numéro de téléphone invalide (10 chiffres requis)" });
     }
 
     try {
       const hashedPassword = await bcrypt.hash(password, 10);
-      const insuranceFilename = `insurance_${username}_${Date.now()}${path.extname(insuranceFile.name)}`;
       let insurancePath;
 
       const baseUrl = isProduction
         ? `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION || "us-east-1"}.amazonaws.com`
         : `http://localhost:${process.env.PORT || 3000}`;
 
-      if (isProduction) {
-        // S3 upload function
-        const uploadToS3 = async (file, key) => {
-          const params = {
-            Bucket: process.env.S3_BUCKET_NAME,
-            Key: `insurance/${key}`,
-            Body: file.data, // express-fileupload provides .data
-            ContentType: file.mimetype,
-          };
-          const command = new PutObjectCommand(params);
-          await s3Client.send(command);
-          return `${baseUrl}/insurance/${key}`;
-        };
+      // Role-specific logic
+      if (role === "volunteer") {
+        // Volunteer-specific validation
+        if (isAdult === undefined || !commitments || !insuranceFile) {
+          return res.status(400).json({
+            error: "Tous les champs requis pour les bénévoles doivent être fournis, y compris l'assurance",
+          });
+        }
 
-        insurancePath = await uploadToS3(insuranceFile, insuranceFilename);
-        console.log("Uploaded insurance to S3:", insurancePath);
-      } else {
-        const insuranceUploadDir = path.join(__dirname, "../forms/insurance");
-        await fs.mkdir(insuranceUploadDir, { recursive: true });
-        insurancePath = `/insurance/${insuranceFilename}`;
-        const insuranceFullPath = path.join(insuranceUploadDir, insuranceFilename);
-        await insuranceFile.mv(insuranceFullPath); // express-fileupload .mv method
-        insurancePath = `${baseUrl}${insurancePath}`;
-        console.log("Saved insurance locally:", insuranceFullPath);
+        if (!Object.values(JSON.parse(commitments)).every((val) => val)) {
+          return res.status(400).json({ error: "Tous les engagements doivent être acceptés" });
+        }
+
+        const insuranceFilename = `insurance_${username}_${Date.now()}${path.extname(insuranceFile.name)}`;
+
+        if (isProduction) {
+          const uploadToS3 = async (file, key) => {
+            const params = {
+              Bucket: process.env.S3_BUCKET_NAME,
+              Key: `insurance/${key}`,
+              Body: file.data,
+              ContentType: file.mimetype,
+            };
+            const command = new PutObjectCommand(params);
+            await s3Client.send(command);
+            return `${baseUrl}/insurance/${key}`;
+          };
+          insurancePath = await uploadToS3(insuranceFile, insuranceFilename);
+        } else {
+          const insuranceUploadDir = path.join(__dirname, "../forms/insurance");
+          await fs.mkdir(insuranceUploadDir, { recursive: true });
+          insurancePath = `/insurance/${insuranceFilename}`;
+          const insuranceFullPath = path.join(insuranceUploadDir, insuranceFilename);
+          await insuranceFile.mv(insuranceFullPath);
+          insurancePath = `${baseUrl}${insurancePath}`;
+        }
+      } else if (role === "client") {
+        // Client-specific validation
+        if (noRiskConfirmed === undefined || unableToWalkConfirmed === undefined) {
+          return res.status(400).json({
+            error: "Les attestations 'noRiskConfirmed' et 'unableToWalkConfirmed' sont requises pour les clients",
+          });
+        }
+        if (!noRiskConfirmed || !unableToWalkConfirmed) {
+          return res.status(400).json({
+            error: "Vous devez cocher les cases 'noRiskConfirmed' et 'unableToWalkConfirmed'",
+          });
+        }
       }
 
-      const newUser = await pool.query(
-        `INSERT INTO users (
-          username, password, email, role, village, address, phone_number, is_adult, commitments, volunteer_status, insurance_file_path
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-        RETURNING id, username, email, role, volunteer_status`,
-        [username, hashedPassword, email, role, village, address, phoneNumber, isAdult, commitments, "pending", insurancePath]
-      );
+      // Insert user based on role
+      const query =
+        role === "volunteer"
+          ? `INSERT INTO users (
+              username, password, email, role, village, address, phone_number, is_adult, commitments, volunteer_status, insurance_file_path
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            RETURNING id, username, email, role, volunteer_status`
+          : `INSERT INTO users (
+              username, password, email, role, village, address, phone_number, no_risk_confirmed, unable_to_walk_confirmed, photo_permission
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            RETURNING id, username, email, role`;
 
+      const values =
+        role === "volunteer"
+          ? [
+              username,
+              hashedPassword,
+              email,
+              role,
+              village,
+              address,
+              phoneNumber,
+              isAdult,
+              commitments,
+              "pending",
+              insurancePath,
+            ]
+          : [
+              username,
+              hashedPassword,
+              email,
+              role,
+              village,
+              address,
+              phoneNumber,
+              noRiskConfirmed,
+              unableToWalkConfirmed,
+              photoPermission || false, // Default to false if not provided
+            ];
+
+      const newUser = await pool.query(query, values);
       const token = jwt.sign({ userId: newUser.rows[0].id, role }, process.env.JWT_SECRET, { expiresIn: "7d" });
 
-      await sendAdminDocumentSubmissionEmail(
-        "admin@example.com", // Replace with your actual admin email
-        username,
-        null, // No charter file in this case
-        insurancePath
-      );
+      if (role === "volunteer") {
+        await sendAdminDocumentSubmissionEmail(
+          "admin@example.com",
+          username,
+          null,
+          insurancePath
+        );
+      }
 
       res.status(201).json({
         message: "Utilisateur enregistré avec succès",

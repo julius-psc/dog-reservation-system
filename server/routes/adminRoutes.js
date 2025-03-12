@@ -227,8 +227,6 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
     }
   );
 
-  // ... (rest of your code remains unchanged)
-
   // GET ALL USERS (ADMIN)
   router.get("/admin/all-users", authenticate, async (req, res) => {
     try {
@@ -239,7 +237,7 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
       if (adminCheck.rows[0].role !== "admin") {
         return res.status(403).json({ error: "Unauthorized" });
       }
-
+  
       const users = await pool.query(`
         SELECT 
           id, 
@@ -253,7 +251,10 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
           villages_covered,
           personal_id,
           is_adult,
-          commitments
+          commitments,
+          no_risk_confirmed,
+          unable_to_walk_confirmed,
+          photo_permission
         FROM users
       `);
       res.json(users.rows);
@@ -318,7 +319,54 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
         });
       }
     }
-  );
+  );  
+
+// DELETE USER (ADMIN)
+router.delete(
+  "/admin/users/:userId",
+  authenticate,
+  authorizeAdmin,
+  async (req, res) => {
+    try {
+      const userId = req.params.userId;
+
+      // Validate UUID format (basic check)
+      if (!userId || typeof userId !== "string" || !userId.match(/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/)) {
+        return res.status(400).json({ error: "Invalid user ID format. Must be a valid UUID." });
+      }
+
+      // Check if the user exists
+      const userCheck = await pool.query(
+        "SELECT id FROM users WHERE id = $1",
+        [userId]
+      );
+      if (userCheck.rows.length === 0) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Delete the user
+      const deletedUser = await pool.query(
+        "DELETE FROM users WHERE id = $1 RETURNING id, username",
+        [userId]
+      );
+
+      if (deletedUser.rows.length > 0) {
+        res.json({
+          message: `User ${deletedUser.rows[0].username} deleted successfully`,
+          userId: deletedUser.rows[0].id,
+        });
+      } else {
+        res.status(500).json({ error: "Failed to delete user" });
+      }
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      res.status(500).json({
+        error: "Failed to delete user",
+        details: error.message,
+      });
+    }
+  }
+);
 
   // FETCH RESERVATIONS (ADMIN)
   router.get("/admin/reservations", authenticate, authorizeAdmin, async (req, res) => {

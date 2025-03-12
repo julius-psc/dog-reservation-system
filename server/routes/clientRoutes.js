@@ -499,43 +499,73 @@ router.post("/reservations", authenticate, async (req, res) => {
 
   router.post("/client/other-village", async (req, res) => {
     try {
-      const { autreCommuneNom, autreCommuneEmail, autreCommuneTelephone, autreCommuneVillageSouhaite } = req.body;
-
-      if (!autreCommuneNom || !autreCommuneEmail || !autreCommuneTelephone || !autreCommuneVillageSouhaite) {
+      const {
+        autreCommuneNom,
+        autreCommuneEmail,
+        autreCommuneTelephone,
+        autreCommuneVillageSouhaite,
+        village,
+        role,
+        noRiskConfirmed,
+        unableToWalkConfirmed,
+        photoPermission,
+      } = req.body;
+  
+      if (
+        !autreCommuneNom ||
+        !autreCommuneEmail ||
+        !autreCommuneTelephone ||
+        !autreCommuneVillageSouhaite ||
+        !village ||
+        !role ||
+        noRiskConfirmed === undefined ||
+        unableToWalkConfirmed === undefined
+      ) {
         return res.status(400).json({
           error: "Missing required information for 'Autres communes' request.",
         });
       }
-
+  
+      if (!noRiskConfirmed || !unableToWalkConfirmed) {
+        return res.status(400).json({
+          error: "Vous devez cocher les cases 'noRiskConfirmed' et 'unableToWalkConfirmed'",
+        });
+      }
+  
       if (typeof autreCommuneNom !== "string" || typeof autreCommuneVillageSouhaite !== "string") {
         return res.status(400).json({
           error: "Incorrect data type in 'Autres communes'",
         });
       }
-
+  
       if (!autreCommuneEmail.includes("@") || typeof autreCommuneEmail !== "string") {
         return res.status(400).json({
           error: "Invalid email format for 'Autres communes'",
         });
       }
-
+  
       if (!/^[0-9]{10}$/.test(autreCommuneTelephone)) {
         return res.status(400).json({
           error: "Phone number must be exactly 10 digits.",
         });
       }
-
-      const query = `
+  
+      // Insert into other_village_requests
+      const requestQuery = `
         INSERT INTO other_village_requests (name, email, phone_number, desired_village, request_date)
         VALUES ($1, $2, $3, $4, NOW())
         RETURNING *;
       `;
-
-      const values = [autreCommuneNom, autreCommuneEmail, autreCommuneTelephone, autreCommuneVillageSouhaite];
-      const newRequest = await pool.query(query, values);
-
+      const requestValues = [
+        autreCommuneNom,
+        autreCommuneEmail,
+        autreCommuneTelephone,
+        autreCommuneVillageSouhaite,
+      ];
+      const newRequest = await pool.query(requestQuery, requestValues);
+  
       console.log("New 'autres communes' request logged:", newRequest.rows[0]);
-
+  
       res.status(201).json({
         message: "Request for other villages recorded successfully. We will contact you soon.",
       });
