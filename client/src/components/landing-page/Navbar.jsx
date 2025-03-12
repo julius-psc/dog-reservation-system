@@ -240,7 +240,7 @@ function Navbar() {
               </Link>
               <Link
                 to="/documents"
-                className="text-primary-black dark:text-white hover:text-primary-pink dark:hover:text-primary-pink transition duration-200 text-xs md:text-sm lg:text-base"
+                className="text-primary-black dark:text-white hover:text-primary-pink dark:hover:text-primary-pink transition duration-200 text-sm"
               >
                 Documentation
               </Link>
