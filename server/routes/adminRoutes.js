@@ -2,8 +2,22 @@ const express = require("express");
 const router = express.Router();
 const { sendApprovalEmail } = require("../email/emailService.js");
 const moment = require("moment");
+const { S3Client, GetObjectCommand } = require("@aws-sdk/client-s3"); 
+const fs = require("fs").promises;
+const path = require("path");
 
 module.exports = (pool, authenticate, authorizeAdmin) => {
+  const isProduction = process.env.NODE_ENV === "production";
+  const s3Client = isProduction
+    ? new S3Client({
+        region: process.env.AWS_REGION || "us-east-1",
+        credentials: {
+          accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+          secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+        },
+      })
+    : null;
+
   // GET ALL VOLUNTEERS (ADMIN)
   router.get("/admins/volunteers", authenticate, authorizeAdmin, async (req, res) => {
     try {
@@ -17,6 +31,8 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
             u.village,
             u.volunteer_status,
             u.insurance_file_path,
+            u.profile_picture_url,
+            u.address,
             u.subscription_paid,
             u.villages_covered,
             u.personal_id,
@@ -58,6 +74,8 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
             u.village,
             u.volunteer_status,
             u.insurance_file_path,
+            u.profile_picture_url,
+            u.address,
             u.subscription_paid,
             u.villages_covered,
             u.personal_id,
@@ -65,8 +83,68 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
             u.commitments
       `;
 
-      const volunteers = await pool.query(query, queryParams);
-      res.json(volunteers.rows || []);
+      const volunteersResult = await pool.query(query, queryParams);
+      const volunteers = volunteersResult.rows || [];
+
+      // Fetch profile pictures for each volunteer
+      const volunteersWithPictures = await Promise.all(
+        volunteers.map(async (volunteer) => {
+          let profilePictureData = null;
+
+          if (volunteer.profile_picture_url) {
+            if (isProduction && s3Client) {
+              // Extract S3 key from the URL
+              const urlParts = volunteer.profile_picture_url.split("/");
+              const s3Key = urlParts.slice(3).join("/"); // e.g., "profile-pictures/profile_123_123456.png"
+
+              const params = {
+                Bucket: process.env.S3_BUCKET_NAME,
+                Key: s3Key,
+              };
+
+              try {
+                const command = new GetObjectCommand(params);
+                const { Body } = await s3Client.send(command);
+
+                // Convert S3 stream to Buffer and then to base64
+                const chunks = [];
+                for await (const chunk of Body) {
+                  chunks.push(chunk);
+                }
+                profilePictureData = Buffer.concat(chunks).toString("base64");
+              } catch (s3Error) {
+                console.error(`Error fetching profile picture from S3 for user ${volunteer.id}:`, s3Error);
+                profilePictureData = null; // Fallback to null if fetch fails
+              }
+            } else {
+              // Local development: Read from filesystem
+              const localPath = path.join(
+                __dirname,
+                "..",
+                "uploads",
+                "profile-pictures",
+                path.basename(volunteer.profile_picture_url)
+              );
+              try {
+                const fileData = await fs.readFile(localPath);
+                profilePictureData = fileData.toString("base64");
+              } catch (fsError) {
+                console.error(`Error reading local profile picture for user ${volunteer.id}:`, fsError);
+                profilePictureData = null; // Fallback to null if file read fails
+              }
+            }
+          }
+
+          return {
+            ...volunteer,
+            profilePictureData: profilePictureData
+              ? `data:image/png;base64,${profilePictureData}`
+              : null, // Return as data URL
+          };
+        })
+      );
+
+      res.json(volunteersWithPictures);
     } catch (error) {
       console.error("Error fetching volunteers (admin):", error);
       res.status(500).json({
@@ -77,66 +155,87 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
   });
 
   // PUT /admin/volunteers/:volunteerId/personal-id - Set volunteer's personal ID
-  router.put("/admin/volunteers/:volunteerId/personal-id", authenticate, authorizeAdmin, async (req, res) => {
-    try {
-      const volunteerId = req.params.volunteerId;
-      const { personal_id } = req.body;
+  router.put(
+    "/admin/volunteers/:volunteerId/personal-id",
+    authenticate,
+    authorizeAdmin,
+    async (req, res) => {
+      try {
+        const volunteerId = req.params.volunteerId;
+        const { personal_id } = req.body;
 
-      if (!volunteerId) {
-        return res.status(400).json({ error: "Invalid volunteer ID" });
-      }
+        if (!volunteerId) {
+          return res.status(400).json({ error: "Invalid volunteer ID" });
+        }
 
-      if (!personal_id || typeof personal_id !== "string" || personal_id.length > 50) {
-        return res.status(400).json({
-          error: "Invalid personal_id. Must be a string with maximum length of 50 characters.",
+        if (
+          !personal_id ||
+          typeof personal_id !== "string" ||
+          personal_id.length > 50
+        ) {
+          return res.status(400).json({
+            error:
+              "Invalid personal_id. Must be a string with maximum length of 50 characters.",
+          });
+        }
+
+        const volunteerCheck = await pool.query(
+          "SELECT personal_id, personal_id_set FROM users WHERE id = $1 AND role = 'volunteer'",
+          [volunteerId]
+        );
+
+        if (volunteerCheck.rows.length === 0) {
+          return res.status(404).json({ error: "Volunteer not found" });
+        }
+
+        const { personal_id: existingId, personal_id_set } =
+          volunteerCheck.rows[0];
+        if (personal_id_set) {
+          return res.status(403).json({
+            error: "Personal ID has already been set and cannot be changed.",
+          });
+        }
+
+        const uniqueCheck = await pool.query(
+          "SELECT id FROM users WHERE personal_id = $1 AND id != $2",
+          [personal_id, volunteerId]
+        );
+        if (uniqueCheck.rows.length > 0) {
+          return res.status(400).json({ error: "Personal ID must be unique." });
+        }
+
+        const updatedVolunteer = await pool.query(
+          "UPDATE users SET personal_id = $1, personal_id_set = TRUE WHERE id = $2 RETURNING *",
+          [personal_id, volunteerId]
+        );
+
+        if (updatedVolunteer.rows.length > 0) {
+          res.json({
+            message: "Personal ID set successfully",
+            volunteer: updatedVolunteer.rows[0],
+          });
+        } else {
+          res.status(500).json({ error: "Failed to set personal ID" });
+        }
+      } catch (error) {
+        console.error("Error setting personal ID:", error);
+        res.status(500).json({
+          error: "Failed to set personal ID",
+          details: error.message,
         });
       }
-
-      const volunteerCheck = await pool.query(
-        "SELECT personal_id, personal_id_set FROM users WHERE id = $1 AND role = 'volunteer'",
-        [volunteerId]
-      );
-
-      if (volunteerCheck.rows.length === 0) {
-        return res.status(404).json({ error: "Volunteer not found" });
-      }
-
-      const { personal_id: existingId, personal_id_set } = volunteerCheck.rows[0];
-      if (personal_id_set) {
-        return res.status(403).json({ error: "Personal ID has already been set and cannot be changed." });
-      }
-
-      const uniqueCheck = await pool.query(
-        "SELECT id FROM users WHERE personal_id = $1 AND id != $2",
-        [personal_id, volunteerId]
-      );
-      if (uniqueCheck.rows.length > 0) {
-        return res.status(400).json({ error: "Personal ID must be unique." });
-      }
-
-      const updatedVolunteer = await pool.query(
-        "UPDATE users SET personal_id = $1, personal_id_set = TRUE WHERE id = $2 RETURNING *",
-        [personal_id, volunteerId]
-      );
-
-      if (updatedVolunteer.rows.length > 0) {
-        res.json({
-          message: "Personal ID set successfully",
-          volunteer: updatedVolunteer.rows[0],
-        });
-      } else {
-        res.status(500).json({ error: "Failed to set personal ID" });
-      }
-    } catch (error) {
-      console.error("Error setting personal ID:", error);
-      res.status(500).json({ error: "Failed to set personal ID", details: error.message });
     }
-  });
+  );
+
+  // ... (rest of your code remains unchanged)
 
   // GET ALL USERS (ADMIN)
   router.get("/admin/all-users", authenticate, async (req, res) => {
     try {
-      const adminCheck = await pool.query("SELECT role FROM users WHERE id = $1", [req.user.userId]);
+      const adminCheck = await pool.query(
+        "SELECT role FROM users WHERE id = $1",
+        [req.user.userId]
+      );
       if (adminCheck.rows[0].role !== "admin") {
         return res.status(403).json({ error: "Unauthorized" });
       }
@@ -165,44 +264,61 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
   });
 
   // UPDATE USER ROLE (ADMIN)
-  router.put("/admin/users/:userId/role", authenticate, authorizeAdmin, async (req, res) => {
-    try {
-      const userId = req.params.userId;
-      const { newRole } = req.body;
+  router.put(
+    "/admin/users/:userId/role",
+    authenticate,
+    authorizeAdmin,
+    async (req, res) => {
+      try {
+        const userId = req.params.userId;
+        const { newRole } = req.body;
 
-      if (!userId || isNaN(userId)) {
-        return res.status(400).json({ error: "Invalid user ID" });
-      }
+        if (!userId || isNaN(userId)) {
+          return res.status(400).json({ error: "Invalid user ID" });
+        }
 
-      if (!newRole || !["client", "volunteer", "admin"].includes(newRole.toLowerCase())) {
-        return res.status(400).json({
-          error: "Invalid user role. Must be 'client', 'volunteer', or 'admin'",
+        if (
+          !newRole ||
+          !["client", "volunteer", "admin"].includes(newRole.toLowerCase())
+        ) {
+          return res.status(400).json({
+            error:
+              "Invalid user role. Must be 'client', 'volunteer', or 'admin'",
+          });
+        }
+
+        const userCheck = await pool.query(
+          "SELECT * FROM users WHERE id = $1",
+          [userId]
+        );
+        if (userCheck.rows.length === 0) {
+          return res.status(404).json({ error: "User not found" });
+        }
+
+        const updatedUser = await pool.query(
+          "UPDATE users SET role = $1 WHERE id = $2 RETURNING *",
+          [newRole, userId]
+        );
+
+        if (updatedUser.rows.length > 0) {
+          res.json({
+            message: `User role updated to ${newRole}`,
+            user: updatedUser.rows[0],
+          });
+        } else {
+          res.status(404).json({
+            error: "User not found or role update failed",
+          });
+        }
+      } catch (error) {
+        console.error("Error updating user role:", error);
+        res.status(500).json({
+          error: "Failed to update user role",
+          details: error.message,
         });
       }
-
-      const userCheck = await pool.query("SELECT * FROM users WHERE id = $1", [userId]);
-      if (userCheck.rows.length === 0) {
-        return res.status(404).json({ error: "User not found" });
-      }
-
-      const updatedUser = await pool.query(
-        "UPDATE users SET role = $1 WHERE id = $2 RETURNING *",
-        [newRole, userId]
-      );
-
-      if (updatedUser.rows.length > 0) {
-        res.json({
-          message: `User role updated to ${newRole}`,
-          user: updatedUser.rows[0],
-        });
-      } else {
-        res.status(404).json({ error: "User not found or role update failed" });
-      }
-    } catch (error) {
-      console.error("Error updating user role:", error);
-      res.status(500).json({ error: "Failed to update user role", details: error.message });
     }
-  });
+  );
 
   // FETCH RESERVATIONS (ADMIN)
   router.get("/admin/reservations", authenticate, authorizeAdmin, async (req, res) => {
@@ -225,7 +341,6 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
         ORDER BY r.reservation_date, r.start_time
       `);
 
-      // Update status to "completed" for past accepted reservations
       const now = moment();
       const updatedReservations = reservations.rows.map((reservation) => {
         const endDateTime = moment(
@@ -241,81 +356,110 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
       res.json(updatedReservations);
     } catch (error) {
       console.error("Error fetching all reservations:", error);
-      res.status(500).json({ error: "Failed to fetch reservations", details: error.message });
-    }
-  });
-
-  // ADMIN APPROVE/REJECT VOLUNTEER APPLICATION
-  router.put("/admin/volunteers/:volunteerId/status", authenticate, authorizeAdmin, async (req, res) => {
-    try {
-      const volunteerId = req.params.volunteerId;
-      const { status } = req.body;
-
-      if (!["approved", "pending", "rejected"].includes(status)) {
-        return res.status(400).json({
-          error: "Invalid status. Must be 'approved', 'pending', or 'rejected'",
-        });
-      }
-
-      const currentStatusCheck = await pool.query(
-        "SELECT volunteer_status FROM users WHERE id = $1 AND role = 'volunteer'",
-        [volunteerId]
-      );
-
-      if (currentStatusCheck.rows.length === 0) {
-        return res.status(404).json({ error: "Volunteer not found or not a volunteer role" });
-      }
-
-      const updatedVolunteer = await pool.query(
-        "UPDATE users SET volunteer_status = $1 WHERE id = $2 AND role = 'volunteer' RETURNING *",
-        [status, volunteerId]
-      );
-
-      if (updatedVolunteer.rows.length > 0) {
-        res.json({
-          message: `Volunteer status updated to ${status}`,
-          volunteer: updatedVolunteer.rows[0],
-        });
-      } else {
-        res.status(404).json({ error: "Volunteer not found or status update failed" });
-      }
-    } catch (error) {
-      console.error("Error updating volunteer status:", error);
-      res.status(500).json({ error: "Failed to update volunteer status", details: error.message });
-    }
-  });
-
-  // SEND VOLUNTEER APPROVAL EMAIL
-  router.post("/send-approval-email", authenticate, authorizeAdmin, async (req, res) => {
-    const { email, username } = req.body;
-
-    try {
-      await sendApprovalEmail(email, username);
-      res.status(200).json({ message: "Approval email sent successfully" });
-    } catch (error) {
-      console.error("Error sending approval email:", error);
-      res.status(500).json({ error: "Failed to send approval email", details: error.message });
-    }
-  });
-
-  // FETCH OTHER VILLAGE REQUESTS
-  router.get("/admin/other-village-requests", authenticate, authorizeAdmin, async (req, res) => {
-    try {
-      const query = `
-        SELECT id, name, email, phone_number, desired_village, request_date 
-        FROM other_village_requests 
-        ORDER BY request_date DESC
-      `;
-      const result = await pool.query(query);
-      res.status(200).json(result.rows);
-    } catch (error) {
-      console.error("Error fetching other village requests:", error);
       res.status(500).json({
-        error: "Failed to fetch other village requests",
+        error: "Failed to fetch reservations",
         details: error.message,
       });
     }
   });
+
+  // ADMIN APPROVE/REJECT VOLUNTEER APPLICATION
+  router.put(
+    "/admin/volunteers/:volunteerId/status",
+    authenticate,
+    authorizeAdmin,
+    async (req, res) => {
+      try {
+        const volunteerId = req.params.volunteerId;
+        const { status } = req.body;
+
+        if (!["approved", "pending", "rejected"].includes(status)) {
+          return res.status(400).json({
+            error:
+              "Invalid status. Must be 'approved', 'pending', or 'rejected'",
+          });
+        }
+
+        const currentStatusCheck = await pool.query(
+          "SELECT volunteer_status FROM users WHERE id = $1 AND role = 'volunteer'",
+          [volunteerId]
+        );
+
+        if (currentStatusCheck.rows.length === 0) {
+          return res.status(404).json({
+            error: "Volunteer not found or not a volunteer role",
+          });
+        }
+
+        const updatedVolunteer = await pool.query(
+          "UPDATE users SET volunteer_status = $1 WHERE id = $2 AND role = 'volunteer' RETURNING *",
+          [status, volunteerId]
+        );
+
+        if (updatedVolunteer.rows.length > 0) {
+          res.json({
+            message: `Volunteer status updated to ${status}`,
+            volunteer: updatedVolunteer.rows[0],
+          });
+        } else {
+          res.status(404).json({
+            error: "Volunteer not found or status update failed",
+          });
+        }
+      } catch (error) {
+        console.error("Error updating volunteer status:", error);
+        res.status(500).json({
+          error: "Failed to update volunteer status",
+          details: error.message,
+        });
+      }
+    }
+  );
+
+  // SEND VOLUNTEER APPROVAL EMAIL
+  router.post(
+    "/send-approval-email",
+    authenticate,
+    authorizeAdmin,
+    async (req, res) => {
+      const { email, username } = req.body;
+
+      try {
+        await sendApprovalEmail(email, username);
+        res.status(200).json({ message: "Approval email sent successfully" });
+      } catch (error) {
+        console.error("Error sending approval email:", error);
+        res.status(500).json({
+          error: "Failed to send approval email",
+          details: error.message,
+        });
+      }
+    }
+  );
+
+  // FETCH OTHER VILLAGE REQUESTS
+  router.get(
+    "/admin/other-village-requests",
+    authenticate,
+    authorizeAdmin,
+    async (req, res) => {
+      try {
+        const query = `
+          SELECT id, name, email, phone_number, desired_village, request_date 
+          FROM other_village_requests 
+          ORDER BY request_date DESC
+        `;
+        const result = await pool.query(query);
+        res.status(200).json(result.rows);
+      } catch (error) {
+        console.error("Error fetching other village requests:", error);
+        res.status(500).json({
+          error: "Failed to fetch other village requests",
+          details: error.message,
+        });
+      }
+    }
+  );
 
   return router;
 };
