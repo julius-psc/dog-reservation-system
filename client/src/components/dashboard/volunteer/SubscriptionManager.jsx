@@ -64,24 +64,27 @@ const SubscriptionManager = ({
     const elements = useElements();
     const [paymentError, setPaymentError] = useState(null);
     const [processing, setProcessing] = useState(false);
-
+  
     const handleSubmit = async (e) => {
       e.preventDefault();
       if (!stripe || !elements) return;
-
+  
       setProcessing(true);
       setPaymentError(null);
-
+  
       const token = Cookies.get("token");
       try {
         const cardElement = elements.getElement(CardElement);
-        const { error, paymentMethod } = await stripe.createPaymentMethod({
-          type: "card",
-          card: cardElement,
-        });
-
-        if (error) throw new Error(error.message);
-
+        const { error: paymentMethodError, paymentMethod } =
+          await stripe.createPaymentMethod({
+            type: "card",
+            card: cardElement,
+          });
+  
+        if (paymentMethodError) throw new Error(paymentMethodError.message);
+  
+        console.log("Payment Method ID:", paymentMethod.id); // Debug log
+  
         const response = await fetch(
           `${import.meta.env.VITE_API_BASE_URL}/volunteer/subscription/pay`,
           {
@@ -92,26 +95,41 @@ const SubscriptionManager = ({
             },
             body: JSON.stringify({
               payment_method_id: paymentMethod.id,
-              amount: 9,
             }),
           }
         );
-
+  
         const data = await response.json();
-        if (!response.ok)
+        console.log("Payment Response:", data); // Debug log
+  
+        if (!response.ok) {
+          if (data.status === "requires_action" && data.clientSecret) {
+            const { error: confirmError, paymentIntent } =
+              await stripe.confirmCardPayment(data.clientSecret);
+            if (confirmError) throw new Error(confirmError.message);
+            if (paymentIntent.status === "succeeded") {
+              onSuccess();
+              return;
+            } else {
+              throw new Error("Payment confirmation failed");
+            }
+          }
           throw new Error(data.error || "Échec du traitement du paiement");
-        if (data.success) onSuccess();
-        else throw new Error(data.error || "Le paiement n’a pas réussi");
+        }
+  
+        if (data.success) {
+          onSuccess();
+        } else {
+          throw new Error(data.error || "Le paiement n’a pas réussi");
+        }
       } catch (err) {
-        setPaymentError(
-          err.message || "Une erreur s’est produite lors du paiement"
-        );
-        toast.error(err.message || "Une erreur s’est produite lors du paiement");
+        setPaymentError(err.message);
+        toast.error(err.message);
       } finally {
         setProcessing(false);
       }
     };
-
+  
     return (
       <div className="p-6 bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-md mx-auto transform transition-all duration-300 scale-100 hover:scale-105">
         <h3 className="text-xl font-bold mb-4 text-primary-blue dark:text-primary-blue">
