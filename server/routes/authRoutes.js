@@ -38,7 +38,6 @@ module.exports = (pool, bcrypt, jwt, sendPasswordResetEmail) => {
     } = req.body;
     const insuranceFile = req.files?.insurance;
 
-    // Base validation for all roles
     if (!username || !password || !email || !role || !village) {
       return res.status(400).json({ error: "Tous les champs de base requis doivent être fournis" });
     }
@@ -55,9 +54,7 @@ module.exports = (pool, bcrypt, jwt, sendPasswordResetEmail) => {
         ? `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION || "us-east-1"}.amazonaws.com`
         : `http://localhost:${process.env.PORT || 3000}`;
 
-      // Role-specific logic
       if (role === "volunteer") {
-        // Volunteer-specific validation
         if (isAdult === undefined || !commitments || !insuranceFile) {
           return res.status(400).json({
             error: "Tous les champs requis pour les bénévoles doivent être fournis, y compris l'assurance",
@@ -92,7 +89,6 @@ module.exports = (pool, bcrypt, jwt, sendPasswordResetEmail) => {
           insurancePath = `${baseUrl}${insurancePath}`;
         }
       } else if (role === "client") {
-        // Client-specific validation
         if (noRiskConfirmed === undefined || unableToWalkConfirmed === undefined) {
           return res.status(400).json({
             error: "Les attestations 'noRiskConfirmed' et 'unableToWalkConfirmed' sont requises pour les clients",
@@ -105,7 +101,6 @@ module.exports = (pool, bcrypt, jwt, sendPasswordResetEmail) => {
         }
       }
 
-      // Insert user based on role
       const query =
         role === "volunteer"
           ? `INSERT INTO users (
@@ -142,20 +137,11 @@ module.exports = (pool, bcrypt, jwt, sendPasswordResetEmail) => {
               phoneNumber,
               noRiskConfirmed,
               unableToWalkConfirmed,
-              photoPermission || false, // Default to false if not provided
+              photoPermission || false,
             ];
 
       const newUser = await pool.query(query, values);
       const token = jwt.sign({ userId: newUser.rows[0].id, role }, process.env.JWT_SECRET, { expiresIn: "7d" });
-
-      if (role === "volunteer") {
-        await sendAdminDocumentSubmissionEmail(
-          "admin@example.com",
-          username,
-          null,
-          insurancePath
-        );
-      }
 
       res.status(201).json({
         message: "Utilisateur enregistré avec succès",
