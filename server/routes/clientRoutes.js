@@ -1,6 +1,8 @@
 const express = require("express");
 const router = express.Router();
-const { sendReservationRequestEmailToVolunteer } = require('../email/emailService'); 
+const {
+  sendReservationRequestEmailToVolunteer,
+} = require("../email/emailService");
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
 const path = require("path");
@@ -14,7 +16,6 @@ module.exports = (
   WebSocket,
   isValidTime
 ) => {
-
   // AWS S3 Configuration
   const isProduction = process.env.NODE_ENV === "production";
   const s3Client = isProduction
@@ -28,48 +29,56 @@ module.exports = (
     : null;
 
   // CREATE A CLIENT RESERVATION
-// CREATE A CLIENT RESERVATION
-router.post("/reservations", authenticate, async (req, res) => {
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
+  router.post("/reservations", authenticate, async (req, res) => {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
 
-    const { volunteerId, reservationDate, startTime, endTime, dogId } = req.body;
+      const { volunteerId, reservationDate, startTime, endTime, dogId } =
+        req.body;
 
-    // Validate required fields
-    if (!reservationDate || !startTime || !endTime || !dogId || !volunteerId) {
-      throw new Error("Missing required fields");
-    }
+      // Validate required fields
+      if (
+        !reservationDate ||
+        !startTime ||
+        !endTime ||
+        !dogId ||
+        !volunteerId
+      ) {
+        throw new Error("Missing required fields");
+      }
 
-    // Validate date and time formats
-    if (!moment(reservationDate, "YYYY-MM-DD", true).isValid()) {
-      throw new Error("Invalid date format");
-    }
-    if (!isValidTime(startTime) || !isValidTime(endTime)) {
-      throw new Error("Invalid time format");
-    }
-    if (moment(endTime, "HH:mm").isSameOrBefore(moment(startTime, "HH:mm"))) {
-      throw new Error("End time must be after start time");
-    }
+      // Validate date and time formats
+      if (!moment(reservationDate, "YYYY-MM-DD", true).isValid()) {
+        throw new Error("Invalid date format");
+      }
+      if (!isValidTime(startTime) || !isValidTime(endTime)) {
+        throw new Error("Invalid time format");
+      }
+      if (moment(endTime, "HH:mm").isSameOrBefore(moment(startTime, "HH:mm"))) {
+        throw new Error("End time must be after start time");
+      }
 
-    // Enforce 3-day advance booking rule
-    const reservationMoment = moment(reservationDate);
-    const threeDaysFromNow = moment().add(3, "days").startOf("day");
-    if (reservationMoment.isBefore(threeDaysFromNow)) {
-      throw new Error("Les réservations doivent se faire au moins 3 jours à l'avance.");
-    }
+      // Enforce 3-day advance booking rule
+      const reservationMoment = moment(reservationDate);
+      const threeDaysFromNow = moment().add(3, "days").startOf("day");
+      if (reservationMoment.isBefore(threeDaysFromNow)) {
+        throw new Error(
+          "Les réservations doivent se faire au moins 3 jours à l'avance."
+        );
+      }
 
-    // Verify dog belongs to the client
-    const dogResult = await client.query(
-      "SELECT id, name FROM dogs WHERE id = $1 AND user_id = $2",
-      [dogId, req.user.userId]
-    );
-    if (dogResult.rows.length === 0) {
-      throw new Error("Invalid dog ID or dog doesn't belong to you");
-    }
+      // Verify dog belongs to the client
+      const dogResult = await client.query(
+        "SELECT id, name FROM dogs WHERE id = $1 AND user_id = $2",
+        [dogId, req.user.userId]
+      );
+      if (dogResult.rows.length === 0) {
+        throw new Error("Invalid dog ID or dog doesn't belong to you");
+      }
 
-    // Check for overlapping reservations with the volunteer
-    const overlapQuery = `
+      // Check for overlapping reservations with the volunteer
+      const overlapQuery = `
       SELECT id
       FROM reservations
       WHERE reservation_date = $1
@@ -80,13 +89,20 @@ router.post("/reservations", authenticate, async (req, res) => {
         OR (start_time < $4 AND end_time >= $4)
         OR (start_time >= $3 AND end_time <= $4)
       )`;
-    const overlapResult = await client.query(overlapQuery, [reservationDate, volunteerId, startTime, endTime]);
-    if (overlapResult.rows.length > 0) {
-      throw new Error("This slot is already reserved. Please choose another time.");
-    }
+      const overlapResult = await client.query(overlapQuery, [
+        reservationDate,
+        volunteerId,
+        startTime,
+        endTime,
+      ]);
+      if (overlapResult.rows.length > 0) {
+        throw new Error(
+          "This slot is already reserved. Please choose another time."
+        );
+      }
 
-    // Check for overlapping reservations by the client
-    const clientOverlapQuery = `
+      // Check for overlapping reservations by the client
+      const clientOverlapQuery = `
       SELECT id
       FROM reservations
       WHERE reservation_date = $1
@@ -97,13 +113,18 @@ router.post("/reservations", authenticate, async (req, res) => {
         OR (start_time < $4 AND end_time >= $4)
         OR (start_time >= $3 AND end_time <= $4)
       )`;
-    const clientOverlapResult = await client.query(clientOverlapQuery, [reservationDate, req.user.userId, startTime, endTime]);
-    if (clientOverlapResult.rows.length > 0) {
-      throw new Error("You already have a reservation for this slot.");
-    }
+      const clientOverlapResult = await client.query(clientOverlapQuery, [
+        reservationDate,
+        req.user.userId,
+        startTime,
+        endTime,
+      ]);
+      if (clientOverlapResult.rows.length > 0) {
+        throw new Error("You already have a reservation for this slot.");
+      }
 
-    // Insert the new reservation
-    const insertQuery = `
+      // Insert the new reservation
+      const insertQuery = `
       INSERT INTO reservations (
         client_id,
         volunteer_id,
@@ -117,12 +138,20 @@ router.post("/reservations", authenticate, async (req, res) => {
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
       RETURNING id`;
-    const values = [req.user.userId, volunteerId, dogId, reservationDate, startTime, endTime, "pending"];
-    const result = await client.query(insertQuery, values);
-    const newReservationId = result.rows[0].id;
+      const values = [
+        req.user.userId,
+        volunteerId,
+        dogId,
+        reservationDate,
+        startTime,
+        endTime,
+        "pending",
+      ];
+      const result = await client.query(insertQuery, values);
+      const newReservationId = result.rows[0].id;
 
-    // Fetch full reservation details for response and notifications
-    const reservationQuery = `
+      // Fetch full reservation details for response and notifications
+      const reservationQuery = `
       SELECT
         r.id as reservation_id,
         r.reservation_date,
@@ -139,89 +168,100 @@ router.post("/reservations", authenticate, async (req, res) => {
       JOIN users u_vol ON r.volunteer_id = u_vol.id
       JOIN users u_cli ON r.client_id = u_cli.id
       WHERE r.id = $1`;
-    const newReservationDetails = await client.query(reservationQuery, [newReservationId]);
-    
-    if (newReservationDetails.rows.length === 0) {
-      throw new Error("Failed to fetch reservation details; reservation not found.");
+      const newReservationDetails = await client.query(reservationQuery, [
+        newReservationId,
+      ]);
+
+      if (newReservationDetails.rows.length === 0) {
+        throw new Error(
+          "Failed to fetch reservation details; reservation not found."
+        );
+      }
+      const reservationData = newReservationDetails.rows[0];
+      console.log("Reservation details fetched:", reservationData);
+
+      await client.query("COMMIT");
+
+      // Send email notification to volunteer (only if volunteer_email exists)
+      if (reservationData.volunteer_email) {
+        try {
+          await sendReservationRequestEmailToVolunteer(
+            reservationData.volunteer_email,
+            reservationData.volunteer_name,
+            reservationData.client_name,
+            reservationData.dog_name,
+            reservationData.reservation_date,
+            reservationData.start_time,
+            reservationData.end_time,
+            reservationData.reservation_id,
+            reservationData.client_village
+          );
+        } catch (emailError) {
+          console.error("Error sending reservation request email:", emailError);
+          // Don’t throw here; email failure shouldn’t block the response
+        }
+      } else {
+        console.warn("No volunteer email found; skipping email notification.");
+      }
+
+      // Fetch volunteer's covered villages for WebSocket broadcast
+      const volunteerQuery = await client.query(
+        "SELECT villages_covered FROM users WHERE id = $1",
+        [volunteerId]
+      );
+      if (volunteerQuery.rows.length === 0) {
+        console.error("Volunteer not found for ID:", volunteerId);
+        throw new Error("Volunteer not found");
+      }
+      const volunteerVillages = volunteerQuery.rows[0].villages_covered || [];
+      console.log("Volunteer villages covered:", volunteerVillages);
+
+      // Broadcast reservation update to all clients in volunteer's covered villages
+      connectedClients.forEach((ws) => {
+        if (
+          ws.readyState === WebSocket.OPEN &&
+          volunteerVillages.includes(ws.village)
+        ) {
+          ws.send(
+            JSON.stringify({
+              type: "reservation_update",
+              reservation: reservationData,
+            })
+          );
+          console.log(
+            `Sent reservation update to client in village: ${ws.village}`
+          );
+        }
+      });
+
+      // Respond to the client
+      res.status(201).json({
+        message: "Reservation created successfully",
+        reservation: reservationData,
+      });
+    } catch (error) {
+      await client.query("ROLLBACK");
+      console.error("Reservation creation error:", error);
+      res.status(400).json({ error: error.message });
+    } finally {
+      client.release();
     }
-    const reservationData = newReservationDetails.rows[0];
-    console.log("Reservation details fetched:", reservationData);
+  });
 
-    await client.query("COMMIT");
-
-    // Send email notification to volunteer (only if volunteer_email exists)
-    if (reservationData.volunteer_email) {
+  // FETCH PERSONAL RESERVATIONS
+  router.get(
+    "/client/personal-reservations",
+    authenticate,
+    async (req, res) => {
       try {
-        await sendReservationRequestEmailToVolunteer(
-          reservationData.volunteer_email,
-          reservationData.volunteer_name,
-          reservationData.client_name,
-          reservationData.dog_name,
-          reservationData.reservation_date,
-          reservationData.start_time,
-          reservationData.end_time,
-          reservationData.reservation_id,
-          reservationData.client_village
-        );
-      } catch (emailError) {
-        console.error("Error sending reservation request email:", emailError);
-        // Don’t throw here; email failure shouldn’t block the response
-      }
-    } else {
-      console.warn("No volunteer email found; skipping email notification.");
-    }
+        let clientId = req.user.userId || req.user.id || req.user._id;
+        if (!clientId) {
+          return res
+            .status(400)
+            .json({ error: "Could not identify user ID from token." });
+        }
 
-    // Fetch volunteer's covered villages for WebSocket broadcast
-    const volunteerQuery = await client.query(
-      "SELECT villages_covered FROM users WHERE id = $1",
-      [volunteerId]
-    );
-    if (volunteerQuery.rows.length === 0) {
-      console.error("Volunteer not found for ID:", volunteerId);
-      throw new Error("Volunteer not found");
-    }
-    const volunteerVillages = volunteerQuery.rows[0].villages_covered || [];
-    console.log("Volunteer villages covered:", volunteerVillages);
-
-    // Broadcast reservation update to all clients in volunteer's covered villages
-    connectedClients.forEach((ws) => {
-      if (
-        ws.readyState === WebSocket.OPEN &&
-        volunteerVillages.includes(ws.village)
-      ) {
-        ws.send(
-          JSON.stringify({
-            type: "reservation_update",
-            reservation: reservationData,
-          })
-        );
-        console.log(`Sent reservation update to client in village: ${ws.village}`);
-      }
-    });
-
-    // Respond to the client
-    res.status(201).json({
-      message: "Reservation created successfully",
-      reservation: reservationData,
-    });
-  } catch (error) {
-    await client.query("ROLLBACK");
-    console.error("Reservation creation error:", error);
-    res.status(400).json({ error: error.message });
-  } finally {
-    client.release();
-  }
-});
-
-// FETCH PERSONAL RESERVATIONS
-  router.get("/client/personal-reservations", authenticate, async (req, res) => {
-    try {
-      let clientId = req.user.userId || req.user.id || req.user._id;
-      if (!clientId) {
-        return res.status(400).json({ error: "Could not identify user ID from token." });
-      }
-  
-      const query = `
+        const query = `
         SELECT
             TO_CHAR(r.reservation_date, 'YYYY-MM-DD') as reservation_date,
             TO_CHAR(r.start_time, 'HH24:MI') as start_time,
@@ -239,28 +279,29 @@ router.post("/reservations", authenticate, async (req, res) => {
         WHERE r.client_id = $1
         ORDER BY r.reservation_date, r.start_time
       `;
-  
-      const reservationsResult = await pool.query(query, [clientId]);
-      const reservations = reservationsResult.rows;
-  
-      const now = moment();
-      const updatedReservations = reservations.map((reservation) => {
-        const endDateTime = moment(
-          `${reservation.reservation_date} ${reservation.end_time}`,
-          "YYYY-MM-DD HH:mm"
-        );
-        if (endDateTime.isBefore(now) && reservation.status === "accepted") {
-          return { ...reservation, status: "completed" };
-        }
-        return reservation;
-      });
-  
-      res.json(updatedReservations || []);
-    } catch (err) {
-      console.error("Error fetching personal client reservations:", err);
-      res.status(500).json({ error: "Internal Server Error" });
+
+        const reservationsResult = await pool.query(query, [clientId]);
+        const reservations = reservationsResult.rows;
+
+        const now = moment();
+        const updatedReservations = reservations.map((reservation) => {
+          const endDateTime = moment(
+            `${reservation.reservation_date} ${reservation.end_time}`,
+            "YYYY-MM-DD HH:mm"
+          );
+          if (endDateTime.isBefore(now) && reservation.status === "accepted") {
+            return { ...reservation, status: "completed" };
+          }
+          return reservation;
+        });
+
+        res.json(updatedReservations || []);
+      } catch (err) {
+        console.error("Error fetching personal client reservations:", err);
+        res.status(500).json({ error: "Internal Server Error" });
+      }
     }
-  });
+  );
 
   // FETCH USER
   router.get("/fetchUser", authenticate, async (req, res) => {
@@ -285,7 +326,7 @@ router.post("/reservations", authenticate, async (req, res) => {
     try {
       const { village } = req.user;
       const { startDate, endDate } = req.query;
-  
+
       let query = `
         SELECT
           TO_CHAR(r.reservation_date, 'YYYY-MM-DD') as reservation_date,
@@ -308,16 +349,18 @@ router.post("/reservations", authenticate, async (req, res) => {
         AND r.status IN ('pending', 'accepted')
       `;
       const queryParams = [village];
-  
+
       if (startDate && endDate) {
         query += " AND r.reservation_date BETWEEN $2 AND $3";
         queryParams.push(startDate, endDate);
       }
-  
+
       query += " ORDER BY r.reservation_date, r.start_time";
-  
+
       const reservations = await pool.query(query, queryParams);
-      console.log(`Fetched ${reservations.rows.length} reservations for village: ${village}`);
+      console.log(
+        `Fetched ${reservations.rows.length} reservations for village: ${village}`
+      );
       res.json(reservations.rows || []);
     } catch (err) {
       console.error("Error fetching client reservations:", err);
@@ -349,7 +392,9 @@ router.post("/reservations", authenticate, async (req, res) => {
           const slotEndMoment = slotStartMoment.clone().add(1, "hour");
 
           const isSlotTaken = reservations.some((reservation) => {
-            const reservationDate = moment(reservation.reservation_date).format("YYYY-MM-DD");
+            const reservationDate = moment(reservation.reservation_date).format(
+              "YYYY-MM-DD"
+            );
             const reservationStart = moment(reservation.start_time, "HH:mm");
             const reservationEnd = moment(reservation.end_time, "HH:mm");
 
@@ -358,7 +403,8 @@ router.post("/reservations", authenticate, async (req, res) => {
               reservation.volunteer_id === volunteer.id &&
               reservationStart.isBefore(slotEndMoment) &&
               reservationEnd.isAfter(slotStartMoment) &&
-              (reservation.status === "accepted" || reservation.status === "pending")
+              (reservation.status === "accepted" ||
+                reservation.status === "pending")
             );
           });
 
@@ -375,8 +421,12 @@ router.post("/reservations", authenticate, async (req, res) => {
           }
 
           if (!isSlotTaken) {
-            mergedSlotsByDay[dayOfWeek][slotTime].volunteerUsernames.push(volunteer.username);
-            mergedSlotsByDay[dayOfWeek][slotTime].volunteerIds.push(volunteer.id);
+            mergedSlotsByDay[dayOfWeek][slotTime].volunteerUsernames.push(
+              volunteer.username
+            );
+            mergedSlotsByDay[dayOfWeek][slotTime].volunteerIds.push(
+              volunteer.id
+            );
           }
 
           currentMoment.add(1, "hour");
@@ -386,9 +436,9 @@ router.post("/reservations", authenticate, async (req, res) => {
 
     const formattedMergedSlots = {};
     Object.keys(mergedSlotsByDay).forEach((dayIndex) => {
-      formattedMergedSlots[dayIndex] = Object.values(mergedSlotsByDay[dayIndex]).filter(
-        (slot) => slot.volunteerIds.length > 0 || slot.isReserved
-      );
+      formattedMergedSlots[dayIndex] = Object.values(
+        mergedSlotsByDay[dayIndex]
+      ).filter((slot) => slot.volunteerIds.length > 0 || slot.isReserved);
     });
 
     return formattedMergedSlots;
@@ -399,16 +449,18 @@ router.post("/reservations", authenticate, async (req, res) => {
     try {
       const clientVillage = req.user.village;
       const date = req.query.date;
-  
+
       if (!date) {
         return res.status(400).json({ error: "Date parameter is required." });
       }
-  
+
       const dayOfWeek = moment(date, "YYYY-MM-DD").isoWeekday();
       if (isNaN(dayOfWeek) || dayOfWeek < 1 || dayOfWeek > 7) {
-        return res.status(400).json({ error: "Invalid date format. Use YYYY-MM-DD." });
+        return res
+          .status(400)
+          .json({ error: "Invalid date format. Use YYYY-MM-DD." });
       }
-  
+
       const volunteersQuery = `
         SELECT
           u.id,
@@ -426,7 +478,7 @@ router.post("/reservations", authenticate, async (req, res) => {
           AND u.villages_covered @> jsonb_build_array(CAST($2 AS TEXT))
         GROUP BY u.id, u.username, u.email, u.villages_covered
       `;
-  
+
       const reservationsQuery = `
       SELECT
         TO_CHAR(r.reservation_date, 'YYYY-MM-DD') as reservation_date,
@@ -444,15 +496,18 @@ router.post("/reservations", authenticate, async (req, res) => {
         )
         AND r.status IN ('pending', 'accepted')
     `;
-  
-  
+
       const [volunteersResult, reservationsResult] = await Promise.all([
         pool.query(volunteersQuery, [dayOfWeek, clientVillage]),
         pool.query(reservationsQuery, [date, clientVillage]),
       ]);
-  
+
       res.json({
-        mergedAvailabilities: mergeAvailabilities(volunteersResult.rows, reservationsResult.rows, date),
+        mergedAvailabilities: mergeAvailabilities(
+          volunteersResult.rows,
+          reservationsResult.rows,
+          date
+        ),
         reservations: reservationsResult.rows,
       });
     } catch (err) {
@@ -465,7 +520,9 @@ router.post("/reservations", authenticate, async (req, res) => {
   router.get("/fetchDog", authenticate, async (req, res) => {
     try {
       const userId = req.user.userId;
-      const dogs = await pool.query("SELECT * FROM dogs WHERE user_id = $1", [userId]);
+      const dogs = await pool.query("SELECT * FROM dogs WHERE user_id = $1", [
+        userId,
+      ]);
       res.json(dogs.rows);
     } catch (error) {
       console.error("Error fetching dog:", error);
@@ -485,9 +542,15 @@ router.post("/reservations", authenticate, async (req, res) => {
         });
       }
 
-      if (typeof name !== "string" || typeof breed !== "string" || typeof age !== "number" || age < 0) {
+      if (
+        typeof name !== "string" ||
+        typeof breed !== "string" ||
+        typeof age !== "number" ||
+        age < 0
+      ) {
         return res.status(400).json({
-          error: "Invalid dog information. Name and breed must be strings, age must be a non-negative number.",
+          error:
+            "Invalid dog information. Name and breed must be strings, age must be a non-negative number.",
         });
       }
 
@@ -516,7 +579,7 @@ router.post("/reservations", authenticate, async (req, res) => {
         unableToWalkConfirmed,
         photoPermission,
       } = req.body;
-  
+
       if (
         !autreCommuneNom ||
         !autreCommuneEmail ||
@@ -531,31 +594,38 @@ router.post("/reservations", authenticate, async (req, res) => {
           error: "Missing required information for 'Autres communes' request.",
         });
       }
-  
+
       if (!noRiskConfirmed || !unableToWalkConfirmed) {
         return res.status(400).json({
-          error: "Vous devez cocher les cases 'noRiskConfirmed' et 'unableToWalkConfirmed'",
+          error:
+            "Vous devez cocher les cases 'noRiskConfirmed' et 'unableToWalkConfirmed'",
         });
       }
-  
-      if (typeof autreCommuneNom !== "string" || typeof autreCommuneVillageSouhaite !== "string") {
+
+      if (
+        typeof autreCommuneNom !== "string" ||
+        typeof autreCommuneVillageSouhaite !== "string"
+      ) {
         return res.status(400).json({
           error: "Incorrect data type in 'Autres communes'",
         });
       }
-  
-      if (!autreCommuneEmail.includes("@") || typeof autreCommuneEmail !== "string") {
+
+      if (
+        !autreCommuneEmail.includes("@") ||
+        typeof autreCommuneEmail !== "string"
+      ) {
         return res.status(400).json({
           error: "Invalid email format for 'Autres communes'",
         });
       }
-  
+
       if (!/^[0-9]{10}$/.test(autreCommuneTelephone)) {
         return res.status(400).json({
           error: "Phone number must be exactly 10 digits.",
         });
       }
-  
+
       // Insert into other_village_requests
       const requestQuery = `
         INSERT INTO other_village_requests (name, email, phone_number, desired_village, request_date)
@@ -569,11 +639,12 @@ router.post("/reservations", authenticate, async (req, res) => {
         autreCommuneVillageSouhaite,
       ];
       const newRequest = await pool.query(requestQuery, requestValues);
-  
+
       console.log("New 'autres communes' request logged:", newRequest.rows[0]);
-  
+
       res.status(201).json({
-        message: "Request for other villages recorded successfully. We will contact you soon.",
+        message:
+          "Request for other villages recorded successfully. We will contact you soon.",
       });
     } catch (error) {
       console.error("Error handling 'autres communes' request:", error);
@@ -588,7 +659,9 @@ router.post("/reservations", authenticate, async (req, res) => {
     try {
       const { amount } = req.body;
       if (!amount || isNaN(amount) || amount < 1) {
-        return res.status(400).json({ error: "Invalid donation amount. Minimum 1 EUR." });
+        return res
+          .status(400)
+          .json({ error: "Invalid donation amount. Minimum 1 EUR." });
       }
       const amountInCents = Math.round(amount * 100);
       const paymentIntent = await stripe.paymentIntents.create({
