@@ -1042,15 +1042,14 @@ module.exports = (
     async (req, res) => {
       try {
         const volunteerId = req.user.userId;
-        const { payment_method_id } = req.body;
-  
-        if (!payment_method_id) {
-          return res.status(400).json({ error: "Payment method ID is required" });
+        const { payment_method_id, amount } = req.body;
+
+        if (!payment_method_id || amount !== 9) {
+          return res.status(400).json({ error: "Invalid payment details" });
         }
-  
-        // Check if user exists and is a volunteer
+
         const userCheck = await pool.query(
-          "SELECT role, email, stripe_customer_id FROM users WHERE id = $1",
+          "SELECT role FROM users WHERE id = $1",
           [volunteerId]
         );
         if (
@@ -1059,80 +1058,40 @@ module.exports = (
         ) {
           return res.status(403).json({ error: "Not a volunteer" });
         }
-  
-        let stripeCustomerId = userCheck.rows[0].stripe_customer_id;
-        const userEmail = userCheck.rows[0].email;
-  
-        // Create a Stripe Customer if it doesn’t exist
-        if (!stripeCustomerId) {
-          const customer = await stripe.customers.create({
-            email: userEmail,
-            metadata: { volunteerId: volunteerId },
-          });
-          stripeCustomerId = customer.id;
-          await pool.query(
-            "UPDATE users SET stripe_customer_id = $1 WHERE id = $2",
-            [stripeCustomerId, volunteerId]
-          );
-        }
-  
-        // Attach the Payment Method to the Customer
-        await stripe.paymentMethods.attach(payment_method_id, {
-          customer: stripeCustomerId,
-        });
-  
-        // Create the Payment Intent with the Customer
+
         const paymentIntent = await stripe.paymentIntents.create({
-          amount: 900, // 9€ in cents
+          amount: 900,
           currency: "eur",
-          customer: stripeCustomerId,
           payment_method: payment_method_id,
           confirm: true,
           payment_method_types: ["card"],
-          return_url: `${process.env.FRONTEND_URL}/volunteer-dashboard`,
         });
-  
-        if (paymentIntent.status === "succeeded") {
-          const expiryDate = moment()
-            .add(1, "year")
-            .format("YYYY-MM-DD HH:mm:ss");
-          await pool.query(
-            "UPDATE users SET subscription_paid = $1, subscription_expiry_date = $2 WHERE id = $3",
-            [true, expiryDate, volunteerId]
-          );
-          return res.json({
-            success: true,
-            message: "Subscription payment successful",
-            paymentIntentId: paymentIntent.id,
-          });
-        } else if (paymentIntent.status === "requires_action") {
-          return res.status(402).json({
-            error: "Payment requires additional authentication",
-            paymentIntentId: paymentIntent.id,
-            clientSecret: paymentIntent.client_secret,
-            status: paymentIntent.status,
-          });
-        } else {
-          let errorMessage = "Payment failed";
-          if (paymentIntent.last_payment_error) {
-            errorMessage = paymentIntent.last_payment_error.message || errorMessage;
-          }
+
+        if (paymentIntent.status !== "succeeded") {
           return res.status(400).json({
-            error: errorMessage,
+            error: "Payment failed",
             status: paymentIntent.status,
           });
         }
+
+        const expiryDate = moment()
+          .add(1, "year")
+          .format("YYYY-MM-DD HH:mm:ss");
+        await pool.query(
+          "UPDATE users SET subscription_paid = $1, subscription_expiry_date = $2 WHERE id = $3",
+          [true, expiryDate, volunteerId]
+        );
+
+        res.json({
+          success: true,
+          message: "Subscription payment successful",
+          paymentIntentId: paymentIntent.id,
+        });
       } catch (error) {
         console.error("Error processing subscription payment:", error);
-        let errorMessage = "Failed to process payment";
-        if (error.type === "StripeCardError") {
-          errorMessage = error.message;
-        } else if (error.message) {
-          errorMessage = error.message;
-        }
         res.status(500).json({
-          error: errorMessage,
-          details: error.type || "Unknown error",
+          error: "Failed to process payment",
+          details: error.message,
         });
       }
     }
