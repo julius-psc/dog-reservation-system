@@ -9,8 +9,8 @@ const ClientSignup = () => {
   const [password, setPassword] = useState("");
   const [email, setEmail] = useState("");
   const [village, setVillage] = useState("");
-  const [showAutresCommunesForm, setShowAutresCommunesForm] = useState(false);
-  const [autreCommuneVillageSouhaite, setAutreCommuneVillageSouhaite] = useState("");
+  const [villageInput, setVillageInput] = useState(""); // For autocomplete input
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [role] = useState("client");
   const [address, setAddress] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -22,16 +22,19 @@ const ClientSignup = () => {
   const [allVillages, setAllVillages] = useState([]);
   const [showPassword, setShowPassword] = useState(false);
 
-  // Function to capitalize each word in a string
   const capitalizeEachWord = (str) => {
     if (!str) return str;
     return str
       .toLowerCase()
-      .split(' ')
-      .map(word => word.split('-').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('-'))
-      .join(' ');
+      .split(" ")
+      .map((word) =>
+        word
+          .split("-")
+          .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+          .join("-")
+      )
+      .join(" ");
   };
-
 
   const staticVillageOptions = useMemo(
     () => [
@@ -50,8 +53,7 @@ const ClientSignup = () => {
       "Hérouville-Saint-Clair",
       "Ouistreham",
       "Vire",
-      "Autres communes",
-    ].map(village => capitalizeEachWord(village)), // Capitalize static villages here
+    ].map((village) => capitalizeEachWord(village)),
     []
   );
 
@@ -62,25 +64,15 @@ const ClientSignup = () => {
         if (!response.ok) throw new Error("Failed to fetch villages");
         const data = await response.json();
         const volunteerVillages = data.villages || [];
-        // Capitalize fetched villages and static villages, then combine
         const combinedVillagesSet = [
-          ...new Set([...staticVillageOptions, ...volunteerVillages.map(v => capitalizeEachWord(v))].map((v) => v.toLowerCase())),
+          ...new Set([...staticVillageOptions, ...volunteerVillages.map((v) => capitalizeEachWord(v))]),
         ];
-        const autresCommunes = capitalizeEachWord("autres communes"); // Ensure "Autres communes" is correctly capitalized
-        const villagesWithoutAutres = combinedVillagesSet
-          .filter((v) => v.toLowerCase() !== autresCommunes.toLowerCase()) // Compare with lowercase for filter
-          .sort((a, b) => a.localeCompare(b))
-          .map((v) => capitalizeEachWord(v)); // Capitalize after sorting for consistent display
-        const finalVillages = [...villagesWithoutAutres, capitalizeEachWord("Autres communes")]; // Ensure "Autres communes" is at the end and capitalized
-        setAllVillages(finalVillages);
+        const sortedVillages = combinedVillagesSet.sort((a, b) => a.localeCompare(b));
+        setAllVillages(sortedVillages);
       } catch (error) {
         console.error("Error fetching villages:", error);
-        const autresCommunes = capitalizeEachWord("Autres communes");
-        const villagesWithoutAutres = staticVillageOptions
-          .filter((v) => v !== autresCommunes)
-          .sort((a, b) => a.localeCompare(b))
-          .map((v) => capitalizeEachWord(v));
-        setAllVillages([...villagesWithoutAutres, autresCommunes]);
+        const sortedVillages = staticVillageOptions.sort((a, b) => a.localeCompare(b));
+        setAllVillages(sortedVillages);
       }
     };
     fetchVillages();
@@ -104,6 +96,23 @@ const ClientSignup = () => {
     password.length >= 6 ? null : "Mot de passe doit avoir au moins 6 caractères";
   const validateCheckbox = (checked) => (checked ? null : "Vous devez cocher cette case");
 
+  const handleVillageInputChange = (e) => {
+    const value = e.target.value;
+    setVillageInput(value);
+    setVillage(value);
+    setShowSuggestions(true);
+  };
+
+  const handleVillageSelect = (selectedVillage) => {
+    setVillage(selectedVillage);
+    setVillageInput(selectedVillage);
+    setShowSuggestions(false);
+  };
+
+  const filteredVillages = allVillages.filter((v) =>
+    v.toLowerCase().includes(villageInput.toLowerCase())
+  );
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSignupError("");
@@ -119,22 +128,24 @@ const ClientSignup = () => {
     errors.noRiskConfirmed = validateCheckbox(noRiskConfirmed);
     errors.unableToWalkConfirmed = validateCheckbox(unableToWalkConfirmed);
 
-    if (showAutresCommunesForm) {
-      errors.autreCommuneVillageSouhaite = validateRequired(autreCommuneVillageSouhaite);
-    }
-
     if (Object.values(errors).some((error) => error)) {
       setValidationErrors(errors);
       toast.error("Veuillez corriger les erreurs dans le formulaire");
       return;
     }
 
+    const normalizedVillage = capitalizeEachWord(village.trim());
+    const villageExists = allVillages.some(
+      (v) => v.toLowerCase() === normalizedVillage.toLowerCase()
+    );
+    const isOtherVillage = !villageExists && village.trim() !== "";
+
     let endpoint = `${import.meta.env.VITE_API_BASE_URL}/register`;
     let registrationData = {
       username,
       password,
       email,
-      village: village.toUpperCase(), // Save village in ALL CAPS
+      village: normalizedVillage.toUpperCase(),
       role,
       address,
       phoneNumber,
@@ -143,14 +154,14 @@ const ClientSignup = () => {
       photoPermission,
     };
 
-    if (showAutresCommunesForm) {
+    if (isOtherVillage) {
       endpoint = `${import.meta.env.VITE_API_BASE_URL}/client/other-village`;
       registrationData = {
         autreCommuneNom: username,
         autreCommuneEmail: email,
         autreCommuneTelephone: phoneNumber,
-        autreCommuneVillageSouhaite: autreCommuneVillageSouhaite.toUpperCase(), // Save autreCommuneVillageSouhaite in ALL CAPS
-        village: "Autres communes".toUpperCase(), // Consistent "Autres communes" in ALL CAPS
+        autreCommuneVillageSouhaite: normalizedVillage.toUpperCase(),
+        village: "AUTRES COMMUNES",
         role: "client",
         noRiskConfirmed,
         unableToWalkConfirmed,
@@ -179,29 +190,26 @@ const ClientSignup = () => {
       setPassword("");
       setEmail("");
       setVillage("");
-      setShowAutresCommunesForm(false);
-      setAutreCommuneVillageSouhaite("");
+      setVillageInput("");
       setAddress("");
       setPhoneNumber("");
       setNoRiskConfirmed(false);
       setUnableToWalkConfirmed(false);
       setPhotoPermission(false);
       setValidationErrors({});
+      setShowSuggestions(false);
 
-      const successMessage = showAutresCommunesForm
-        ? "Demande envoyée avec succès ! Vous serez redirigé vers la page de connexion dans 3 secondes."
+      const successMessage = isOtherVillage
+        ? "Demande envoyée avec succès ! Nous vous contacterons bientôt."
         : "Inscription réussie ! Vous serez redirigé vers la page de connexion dans 3 secondes.";
       toast.success(successMessage);
 
-      setTimeout(() => navigate("/login"), 3000);
+      if (!isOtherVillage) {
+        setTimeout(() => navigate("/login"), 3000);
+      }
     } catch (error) {
       console.error("Signup Error:", error);
     }
-  };
-
-  const handleVillageChange = (e) => {
-    setVillage(e.target.value);
-    setShowAutresCommunesForm(e.target.value === capitalizeEachWord("Autres communes")); // Use capitalized "Autres communes" for comparison
   };
 
   const handleInputChange = (e, setter, validator) => {
@@ -237,7 +245,9 @@ const ClientSignup = () => {
 
         <main className="flex items-center justify-center px-8 py-8 sm:px-12 lg:col-span-7 lg:px-16 lg:py-12 xl:col-span-6">
           <div className="max-w-xl lg:max-w-3xl">
-            <Link to="/" className="block text-primary-pink">Retour à l&#39;accueil</Link>
+            <Link to="/" className="block text-primary-pink">
+              Retour à l&#39;accueil
+            </Link>
             <h1 className="mt-6 text-2xl font-bold text-gray-900 sm:text-3xl md:text-4xl dark:text-white">
               Inscription propriétaire de chien
             </h1>
@@ -389,42 +399,39 @@ const ClientSignup = () => {
                 )}
               </div>
 
-              {/* Village Selection */}
-              <div className="col-span-6 sm:col-span-3">
+              {/* Village Autocomplete */}
+              <div className="col-span-6 sm:col-span-3 relative">
                 <label
                   htmlFor="village"
                   className="block text-sm font-medium text-gray-700 dark:text-gray-200"
                 >
                   Commune de résidence
                 </label>
-                <div className="relative">
-                  <select
-                    id="village"
-                    name="village"
-                    value={village}
-                    onChange={handleVillageChange}
-                    required
-                    className="mt-1 py-2 px-3 w-full rounded-md border-gray-200 bg-white text-sm text-gray-700 shadow-xs dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 appearance-none"
-                  >
-                    <option value="" disabled>
-                      Sélectionnez votre commune
-                    </option>
-                    {allVillages.map((option) => (
-                      <option key={option} value={option}>
+                <input
+                  type="text"
+                  id="village"
+                  name="village"
+                  placeholder="Tapez votre commune"
+                  value={villageInput}
+                  onChange={handleVillageInputChange}
+                  onFocus={() => setShowSuggestions(true)}
+                  onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                  required
+                  className="mt-1 py-2 px-3 w-full rounded-md border-gray-200 bg-white text-sm text-gray-700 shadow-xs dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+                />
+                {showSuggestions && filteredVillages.length > 0 && (
+                  <ul className="absolute z-10 w-full bg-white border border-gray-200 rounded-md mt-1 max-h-60 overflow-auto shadow-lg dark:bg-gray-800 dark:border-gray-700">
+                    {filteredVillages.map((option) => (
+                      <li
+                        key={option}
+                        onClick={() => handleVillageSelect(option)}
+                        className="px-3 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-200"
+                      >
                         {option}
-                      </option>
+                      </li>
                     ))}
-                  </select>
-                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-                    <svg
-                      className="fill-current h-4 w-4"
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 20 20"
-                    >
-                      <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
-                    </svg>
-                  </div>
-                </div>
+                  </ul>
+                )}
                 {validationErrors.village && (
                   <p className="mt-1 text-xs text-red-500 dark:text-red-400">
                     {validationErrors.village}
@@ -456,31 +463,6 @@ const ClientSignup = () => {
                   </p>
                 )}
               </div>
-
-              {/* Autres Communes Form */}
-              {showAutresCommunesForm && (
-                <div className="col-span-6 p-4 bg-gray-50 rounded-md border border-gray-200 dark:border-gray-700 dark:bg-gray-800">
-                  <h3 className="text-lg font-semibold mb-2 text-gray-800 dark:text-gray-200">
-                    Demande pour autres communes
-                  </h3>
-                  <input
-                    type="text"
-                    placeholder="Commune souhaitée"
-                    name="autreCommuneVillageSouhaite"
-                    value={autreCommuneVillageSouhaite}
-                    onChange={(e) =>
-                      handleInputChange(e, setAutreCommuneVillageSouhaite, validateRequired)
-                    }
-                    required
-                    className="col-span-6 mt-1 w-full rounded-md border-gray-200 bg-white text-sm text-gray-700 shadow-xs mb-3 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
-                  />
-                  {validationErrors.autreCommuneVillageSouhaite && (
-                    <p className="mt-1 text-xs text-red-500 dark:text-red-400">
-                      {validationErrors.autreCommuneVillageSouhaite}
-                    </p>
-                  )}
-                </div>
-              )}
 
               {/* Checkboxes */}
               <div className="col-span-6">
@@ -551,9 +533,9 @@ const ClientSignup = () => {
                   type="submit"
                   className="inline-block shrink-0 rounded-md border border-primary-pink bg-primary-pink px-12 py-3 text-sm font-medium text-white transition hover:bg-transparent hover:text-primary-pink focus:ring-3 focus:outline-hidden w-full dark:border-primary-pink dark:bg-primary-pink dark:hover:bg-transparent dark:hover:text-primary-pink"
                 >
-                  {showAutresCommunesForm
-                    ? "Envoyer la demande"
-                    : "S'inscrire en tant que propriétaire de chien"}
+                  {allVillages.some((v) => v.toLowerCase() === village.toLowerCase())
+                    ? "S'inscrire en tant que propriétaire de chien"
+                    : "Envoyer la demande"}
                 </button>
               </div>
 
