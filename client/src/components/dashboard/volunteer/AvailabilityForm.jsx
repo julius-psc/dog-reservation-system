@@ -75,7 +75,7 @@ const AvailabilityForm = ({ onAvailabilitySaved, canUpdate, reservations, timeUp
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
+  
     if (!canUpdate) {
       const daysSinceUpdate = timeUpdatedAt ? moment().diff(moment(timeUpdatedAt), "days") : 0;
       const daysRemaining = 30 - daysSinceUpdate;
@@ -86,13 +86,13 @@ const AvailabilityForm = ({ onAvailabilitySaved, canUpdate, reservations, timeUp
       );
       return;
     }
-
+  
     const token = Cookies.get('token');
     if (!token) {
       toast.error('Aucun jeton trouvé. Veuillez vous connecter.');
       return;
     }
-
+  
     let allAvailabilitiesToSubmit = [];
     for (const dayAvailability of daysAvailability) {
       if (dayAvailability.enabled) {
@@ -118,12 +118,12 @@ const AvailabilityForm = ({ onAvailabilitySaved, canUpdate, reservations, timeUp
         }
       }
     }
-
+  
     if (allAvailabilitiesToSubmit.length === 0) {
       toast.error('Veuillez désactiver les jours ou supprimer les plages horaires si vous n\'êtes pas disponible.');
       return;
     }
-
+  
     try {
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/availabilities`, {
         method: 'POST',
@@ -133,19 +133,19 @@ const AvailabilityForm = ({ onAvailabilitySaved, canUpdate, reservations, timeUp
         },
         body: JSON.stringify(allAvailabilitiesToSubmit),
       });
-
+  
+      const data = await response.json();
       if (!response.ok) {
         if (response.status === 403) {
           Cookies.remove('token');
           Cookies.remove('userId');
-          toast.error('Session expirée. Veuillez vous reconnecter.');
-          return;
+          toast.error(data.error || 'Session expirée. Veuillez vous reconnecter.');
+        } else {
+          toast.error(data.error || 'Échec de l\'enregistrement des disponibilités');
         }
-        const errorData = await response.json();
-        toast.error(errorData.error || 'Échec de l\'enregistrement des disponibilités');
         return;
       }
-
+  
       toast.success('Disponibilités enregistrées avec succès !');
       if (onAvailabilitySaved) {
         onAvailabilitySaved();
