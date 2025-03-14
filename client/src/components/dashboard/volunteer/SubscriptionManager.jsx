@@ -1,9 +1,8 @@
-// components/dashboard/volunteer/SubscriptionManager.jsx
-import { useState } from "react"; // Added for useState
+import { useState } from "react";
 import PropTypes from "prop-types";
 import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
-import Cookies from "js-cookie"; // Added for token access
+import Cookies from "js-cookie";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEuroSign } from "@fortawesome/free-solid-svg-icons";
 import moment from "moment";
@@ -64,14 +63,14 @@ const SubscriptionManager = ({
     const elements = useElements();
     const [paymentError, setPaymentError] = useState(null);
     const [processing, setProcessing] = useState(false);
-  
+
     const handleSubmit = async (e) => {
       e.preventDefault();
       if (!stripe || !elements) return;
-  
+
       setProcessing(true);
       setPaymentError(null);
-  
+
       const token = Cookies.get("token");
       try {
         const cardElement = elements.getElement(CardElement);
@@ -80,11 +79,14 @@ const SubscriptionManager = ({
             type: "card",
             card: cardElement,
           });
-  
-        if (paymentMethodError) throw new Error(paymentMethodError.message);
-  
+
+        if (paymentMethodError) {
+          throw new Error(paymentMethodError.message);
+        }
+
         console.log("Payment Method ID:", paymentMethod.id); // Debug log
-  
+
+        // Send the payment method to the backend
         const response = await fetch(
           `${import.meta.env.VITE_API_BASE_URL}/volunteer/subscription/pay`,
           {
@@ -98,29 +100,37 @@ const SubscriptionManager = ({
             }),
           }
         );
-  
+
         const data = await response.json();
-        console.log("Payment Response:", data); // Debug log
-  
-        if (!response.ok) {
-          if (data.status === "requires_action" && data.clientSecret) {
-            const { error: confirmError, paymentIntent } =
-              await stripe.confirmCardPayment(data.clientSecret);
-            if (confirmError) throw new Error(confirmError.message);
-            if (paymentIntent.status === "succeeded") {
-              onSuccess();
-              return;
-            } else {
-              throw new Error("Payment confirmation failed");
-            }
-          }
-          throw new Error(data.error || "Échec du traitement du paiement");
-        }
-  
-        if (data.success) {
+        console.log("Backend Response:", data); // Debug log
+
+        if (response.ok && data.success) {
+          // Payment succeeded immediately (no 3D Secure required)
           onSuccess();
+          toast.success("PAIEMENT EFFECTUÉ AVEC SUCCÈS!");
+        } else if (response.status === 402 && data.status === "requires_action") {
+          // Handle 3D Secure authentication
+          const { error: confirmError, paymentIntent } =
+            await stripe.confirmCardPayment(data.clientSecret, {
+              payment_method: paymentMethod.id,
+            });
+
+          if (confirmError) {
+            throw new Error(confirmError.message);
+          }
+
+          if (paymentIntent.status === "succeeded") {
+            // Payment succeeded after 3D Secure confirmation
+            onSuccess();
+            toast.success("PAIEMENT EFFECTUÉ AVEC SUCCÈS!");
+          } else {
+            throw new Error(
+              `Échec de la confirmation du paiement: statut ${paymentIntent.status}`
+            );
+          }
         } else {
-          throw new Error(data.error || "Le paiement n’a pas réussi");
+          // Handle other errors (e.g., declined card)
+          throw new Error(data.error || "Échec du traitement du paiement");
         }
       } catch (err) {
         setPaymentError(err.message);
@@ -129,7 +139,7 @@ const SubscriptionManager = ({
         setProcessing(false);
       }
     };
-  
+
     return (
       <div className="p-6 bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-md mx-auto transform transition-all duration-300 scale-100 hover:scale-105">
         <h3 className="text-xl font-bold mb-4 text-primary-blue dark:text-primary-blue">
@@ -216,7 +226,6 @@ const SubscriptionManager = ({
               onSuccess={() => {
                 setShowPaymentForm(false);
                 fetchSubscriptionStatus();
-                toast.success("PAIEMENT EFFECTUÉ AVEC SUCCÈS!");
               }}
               onCancel={() => setShowPaymentForm(false)}
             />
