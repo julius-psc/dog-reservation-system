@@ -18,142 +18,142 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
       })
     : null;
 
-  // GET ALL VOLUNTEERS (ADMIN)
-  router.get("/admins/volunteers", authenticate, authorizeAdmin, async (req, res) => {
-    try {
-      const { village, role } = req.query;
-
-      let query = `
-        SELECT
-            u.id,
-            u.username,
-            u.email,
-            u.phone
-            u.village,
-            u.volunteer_status,
-            u.insurance_file_path,
-            u.profile_picture_url,
-            u.address,
-            u.subscription_paid,
-            u.villages_covered,
-            u.personal_id,
-            u.is_adult,
-            u.commitments,
-            COALESCE(json_agg(
-                json_build_object(
-                    'day_of_week', a.day_of_week,
-                    'start_time', a.start_time,
-                    'end_time', a.end_time
-                )
-            ) FILTER (WHERE a.id IS NOT NULL), '[]') AS availabilities
-        FROM users u
-        LEFT JOIN availabilities a ON u.id = a.user_id
-        WHERE u.role = 'volunteer'
-      `;
-
-      const whereClause = [];
-      const queryParams = [];
-
-      if (village) {
-        whereClause.push(`u.village = $${queryParams.length + 1}`);
-        queryParams.push(village);
-      }
-      if (role) {
-        whereClause.push(`u.role = $${queryParams.length + 1}`);
-        queryParams.push(role);
-      }
-
-      if (whereClause.length > 0) {
-        query += " AND " + whereClause.join(" AND ");
-      }
-
-      query += `
-        GROUP BY
-            u.id,
-            u.username,
-            u.email,
-            u.village,
-            u.volunteer_status,
-            u.insurance_file_path,
-            u.profile_picture_url,
-            u.address,
-            u.subscription_paid,
-            u.villages_covered,
-            u.personal_id,
-            u.is_adult,
-            u.commitments
-      `;
-
-      const volunteersResult = await pool.query(query, queryParams);
-      const volunteers = volunteersResult.rows || [];
-
-      // Fetch profile pictures for each volunteer
-      const volunteersWithPictures = await Promise.all(
-        volunteers.map(async (volunteer) => {
-          let profilePictureData = null;
-
-          if (volunteer.profile_picture_url) {
-            if (isProduction && s3Client) {
-              // Extract S3 key from the URL
-              const urlParts = volunteer.profile_picture_url.split("/");
-              const s3Key = urlParts.slice(3).join("/"); // e.g., "profile-pictures/profile_123_123456.png"
-
-              const params = {
-                Bucket: process.env.S3_BUCKET_NAME,
-                Key: s3Key,
-              };
-
-              try {
-                const command = new GetObjectCommand(params);
-                const { Body } = await s3Client.send(command);
-
-                // Convert S3 stream to Buffer and then to base64
-                const chunks = [];
-                for await (const chunk of Body) {
-                  chunks.push(chunk);
+    router.get("/admins/volunteers", authenticate, authorizeAdmin, async (req, res) => {
+      try {
+        const { village, role } = req.query;
+    
+        let query = `
+          SELECT
+              u.id,
+              u.username,
+              u.email,
+              u.phone_number,  -- Add phone_number here
+              u.village,
+              u.volunteer_status,
+              u.insurance_file_path,
+              u.profile_picture_url,
+              u.address,
+              u.subscription_paid,
+              u.villages_covered,
+              u.personal_id,
+              u.is_adult,
+              u.commitments,
+              COALESCE(json_agg(
+                  json_build_object(
+                      'day_of_week', a.day_of_week,
+                      'start_time', a.start_time,
+                      'end_time', a.end_time
+                  )
+              ) FILTER (WHERE a.id IS NOT NULL), '[]') AS availabilities
+          FROM users u
+          LEFT JOIN availabilities a ON u.id = a.user_id
+          WHERE u.role = 'volunteer'
+        `;
+    
+        const whereClause = [];
+        const queryParams = [];
+    
+        if (village) {
+          whereClause.push(`u.village = $${queryParams.length + 1}`);
+          queryParams.push(village);
+        }
+        if (role) {
+          whereClause.push(`u.role = $${queryParams.length + 1}`);
+          queryParams.push(role);
+        }
+    
+        if (whereClause.length > 0) {
+          query += " AND " + whereClause.join(" AND ");
+        }
+    
+        query += `
+          GROUP BY
+              u.id,
+              u.username,
+              u.email,
+              u.phone_number,  -- Add phone_number to GROUP BY
+              u.village,
+              u.volunteer_status,
+              u.insurance_file_path,
+              u.profile_picture_url,
+              u.address,
+              u.subscription_paid,
+              u.villages_covered,
+              u.personal_id,
+              u.is_adult,
+              u.commitments
+        `;
+    
+        const volunteersResult = await pool.query(query, queryParams);
+        const volunteers = volunteersResult.rows || [];
+    
+        // Fetch profile pictures for each volunteer
+        const volunteersWithPictures = await Promise.all(
+          volunteers.map(async (volunteer) => {
+            let profilePictureData = null;
+    
+            if (volunteer.profile_picture_url) {
+              if (isProduction && s3Client) {
+                // Extract S3 key from the URL
+                const urlParts = volunteer.profile_picture_url.split("/");
+                const s3Key = urlParts.slice(3).join("/"); // e.g., "profile-pictures/profile_123_123456.png"
+    
+                const params = {
+                  Bucket: process.env.S3_BUCKET_NAME,
+                  Key: s3Key,
+                };
+    
+                try {
+                  const command = new GetObjectCommand(params);
+                  const { Body } = await s3Client.send(command);
+    
+                  // Convert S3 stream to Buffer and then to base64
+                  const chunks = [];
+                  for await (const chunk of Body) {
+                    chunks.push(chunk);
+                  }
+                  profilePictureData = Buffer.concat(chunks).toString("base64");
+                } catch (s3Error) {
+                  console.error(`Error fetching profile picture from S3 for user ${volunteer.id}:`, s3Error);
+                  profilePictureData = null; // Fallback to null if fetch fails
                 }
-                profilePictureData = Buffer.concat(chunks).toString("base64");
-              } catch (s3Error) {
-                console.error(`Error fetching profile picture from S3 for user ${volunteer.id}:`, s3Error);
-                profilePictureData = null; // Fallback to null if fetch fails
-              }
-            } else {
-              // Local development: Read from filesystem
-              const localPath = path.join(
-                __dirname,
-                "..",
-                "uploads",
-                "profile-pictures",
-                path.basename(volunteer.profile_picture_url)
-              );
-              try {
-                const fileData = await fs.readFile(localPath);
-                profilePictureData = fileData.toString("base64");
-              } catch (fsError) {
-                console.error(`Error reading local profile picture for user ${volunteer.id}:`, fsError);
-                profilePictureData = null; // Fallback to null if file read fails
+              } else {
+                // Local development: Read from filesystem
+                const localPath = path.join(
+                  __dirname,
+                  "..",
+                  "uploads",
+                  "profile-pictures",
+                  path.basename(volunteer.profile_picture_url)
+                );
+                try {
+                  const fileData = await fs.readFile(localPath);
+                  profilePictureData = fileData.toString("base64");
+                } catch (fsError) {
+                  console.error(`Error reading local profile picture for user ${volunteer.id}:`, fsError);
+                  profilePictureData = null; // Fallback to null if file read fails
+                }
               }
             }
-          }
-
-          return {
-            ...volunteer,
-            profilePictureData: profilePictureData
-              ? `data:image/png;base64,${profilePictureData}`
-              : null, // Return as data URL
-          };
-        })
-      );
-
-      res.json(volunteersWithPictures);
-    } catch (error) {
-      console.error("Error fetching volunteers (admin):", error);
-      res.status(500).json({
-        error: "Failed to fetch volunteers",
-        details: error.message,
-      });
-    }
-  });
+    
+            return {
+              ...volunteer,
+              profilePictureData: profilePictureData
+                ? `data:image/png;base64,${profilePictureData}`
+                : null, // Return as data URL
+            };
+          })
+        );
+    
+        res.json(volunteersWithPictures);
+      } catch (error) {
+        console.error("Error fetching volunteers (admin):", error);
+        res.status(500).json({
+          error: "Failed to fetch volunteers",
+          details: error.message,
+        });
+      }
+    });
 
   // PUT /admin/volunteers/:volunteerId/personal-id - Set volunteer's personal ID
   router.put(

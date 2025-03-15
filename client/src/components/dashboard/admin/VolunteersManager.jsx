@@ -285,6 +285,7 @@ const VolunteersManager = ({ volunteers, setVolunteers, setAllUsers }) => {
                               )}
                               <div>
                                 <p><span className="font-semibold">Email:</span> {volunteer.email}</p>
+                                <p><span className="font-semibold">Téléphone:</span> {volunteer.phone_number || "Non spécifié"}</p> {/* Add phone_number here */}
                                 <p><span className="font-semibold">Commune:</span> {volunteer.village}</p>
                               </div>
                             </div>
@@ -378,6 +379,7 @@ VolunteersManager.propTypes = {
       id: PropTypes.string.isRequired,
       username: PropTypes.string.isRequired,
       email: PropTypes.string.isRequired,
+      phone_number: PropTypes.string, // Add phone_number to PropTypes
       subscription_paid: PropTypes.bool.isRequired,
       volunteer_status: PropTypes.string.isRequired,
       personal_id: PropTypes.string,
