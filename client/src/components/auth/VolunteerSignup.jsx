@@ -526,7 +526,7 @@ const VolunteerSignup = ({ onLoginSuccess }) => {
                   htmlFor="insurance"
                   className="block text-sm font-medium text-gray-700 dark:text-gray-200"
                 >
-                  Attestation d’assurance (JPG, PNG, PDF)
+                  Attestation de responsabilité civile (JPG, PNG, PDF)
                 </label>
                 <div className="mt-1 flex items-center space-x-4">
                   <input

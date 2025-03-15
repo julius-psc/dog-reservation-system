@@ -8,7 +8,7 @@ import VolunteerDashboard from './components/dashboard/volunteer/VolunteerDashbo
 import AdminDashboard from './components/dashboard/admin/AdminDashboard';
 import LandingPage from './components/landing-page/LandingPage';
 import VolunteerPendingApproval from './components/dashboard/redirs/VolunteerPendingApproval';
-import Donate from './components/dashboard/forms/Donate';
+import Donate from './components/landing-page/Donate';
 import Benefits from './components/landing-page/Benefits';
 import ResetPasswordComponent from './components/auth/ResetPassword';
 import DogLoader from './components/dashboard/recycled/DogLoader';

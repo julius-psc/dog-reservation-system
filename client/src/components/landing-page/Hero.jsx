@@ -28,7 +28,7 @@ const Hero = () => {
         </p>
         <div className="">
           <button className="bg-primary-pink hover:bg-pink-400 text-white font-semibold py-3 px-6 mt-4 rounded-xl transition duration-200 mr-2">
-            <a href="/client-signup">Réserver une promenade</a>
+            <a href="/client-signup">Inscription propriétaire de chien</a>
           </button>
           <button className="bg-primary-pink hover:bg-pink-400 text-white font-semibold py-3 px-6 mt-4 rounded-xl transition duration-200">
             <a href="volunteer-signup">Devenir promeneur</a>

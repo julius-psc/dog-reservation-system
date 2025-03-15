@@ -76,7 +76,7 @@ const Docs = () => {
               Retour à l&#39;accueil
             </Link>
             <h1 className="mt-6 text-2xl font-bold text-gray-900 sm:text-3xl md:text-4xl dark:text-white">
-              Documentation Chiens en Cavale 🦮
+              Publications - Chiens en Cavale 🦮
             </h1>
 
             <p className="mt-4 leading-relaxed text-gray-500 dark:text-gray-400">
@@ -103,7 +103,7 @@ const Docs = () => {
                         key={docIndex}
                         className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300"
                       >
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                        <h3 className="text-lg font-semibold text-primary-pink dark:text-white">
                           {doc.title}
                         </h3>
                         <p className="mt-2 text-gray-600 dark:text-gray-400">
