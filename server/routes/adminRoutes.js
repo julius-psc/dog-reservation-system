@@ -28,6 +28,7 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
             u.id,
             u.username,
             u.email,
+            u.phone
             u.village,
             u.volunteer_status,
             u.insurance_file_path,

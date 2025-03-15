@@ -227,7 +227,7 @@ async function sendAdminDocumentSubmissionEmail(adminEmail, volunteerName, chart
 
     await transporter.sendMail({
       from: `"Chiens en Cavale" <${process.env.EMAIL_USER}>`,
-      to: adminEmail,
+      to: ["peschardjulius03@gmail.com", "lilou.ann.mossmann@gmail.com"], // Send to both admins
       subject: "New Volunteer Document Submission",
       html: htmlContent,
     });
