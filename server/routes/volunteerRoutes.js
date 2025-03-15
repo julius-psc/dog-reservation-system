@@ -1079,7 +1079,7 @@ module.exports = (
         // Create a subscription (removed payment_behavior)
         const subscription = await stripe.subscriptions.create({
           customer: customer.id,
-          items: [{ price: "price_1R2rzpGBanlKTQUghFyQNIsU" }],
+          items: [{ price: "price_1R2rlyGBanlKTQUgFSi07o7J" }],
           billing_cycle_anchor: Math.floor(Date.now() / 1000), // Start now
           proration_behavior: "none",
         });
