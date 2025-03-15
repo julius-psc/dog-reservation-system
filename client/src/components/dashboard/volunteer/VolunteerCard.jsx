@@ -6,7 +6,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faDownload, faUpload, faPaw } from "@fortawesome/free-solid-svg-icons";
 import cecLogo from "../../../assets/landing-page/identity/chiensencavale-logo.png";
 import { QRCodeSVG } from "qrcode.react";
-import heic2any from 'heic2any';
+import heic2any from "heic2any";
 
 const VolunteerCard = () => {
   const [username, setUsername] = useState("");
@@ -14,15 +14,16 @@ const VolunteerCard = () => {
   const [subscriptionPaid, setSubscriptionPaid] = useState(false);
   const [subscriptionExpiryDate, setSubscriptionExpiryDate] = useState(null);
   const [profilePictureUrl, setProfilePictureUrl] = useState(null);
+  const [personalIdSet, setPersonalIdSet] = useState(false); // New state for personal_id_set
   const [selectedFile, setSelectedFile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const cardRef = useRef(null);
 
   const baseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
-const fullProfilePictureUrl = profilePictureUrl?.startsWith("http")
-  ? profilePictureUrl
-  : `${baseUrl}${profilePictureUrl}`.replace("http://", "https://"); 
+  const fullProfilePictureUrl = profilePictureUrl?.startsWith("http")
+    ? profilePictureUrl
+    : `${baseUrl}${profilePictureUrl}`.replace("http://", "https://");
 
   useEffect(() => {
     const fetchVolunteerData = async () => {
@@ -49,6 +50,7 @@ const fullProfilePictureUrl = profilePictureUrl?.startsWith("http")
         setSubscriptionPaid(data.subscriptionPaid);
         setSubscriptionExpiryDate(data.subscriptionExpiryDate);
         setProfilePictureUrl(data.profilePictureUrl);
+        setPersonalIdSet(data.personalIdSet); // Set personalIdSet from API
         console.log("Profile Picture URL from API:", data.profilePictureUrl);
       } catch (err) {
         setError(err.message);
@@ -62,13 +64,17 @@ const fullProfilePictureUrl = profilePictureUrl?.startsWith("http")
 
   const handleFileChange = async (event) => {
     const file = event.target.files[0];
-    if (file && file.type === 'image/heic') {
+    if (file && file.type === "image/heic") {
       try {
         const convertedBlob = await heic2any({ blob: file });
-        const convertedFile = new File([convertedBlob], file.name.replace('.heic', '.jpg'), { type: 'image/jpeg' });
+        const convertedFile = new File(
+          [convertedBlob],
+          file.name.replace(".heic", ".jpg"),
+          { type: "image/jpeg" }
+        );
         setSelectedFile(convertedFile);
       } catch (error) {
-        console.error('Error converting HEIC file:', error);
+        console.error("Error converting HEIC file:", error);
       }
     } else {
       setSelectedFile(file);
@@ -200,10 +206,15 @@ const fullProfilePictureUrl = profilePictureUrl?.startsWith("http")
   return (
     <div className="my-8">
       <div className="w-full max-w-md">
-        {/* Profile Picture Upload Section - Always visible */}
+        {/* Profile Picture Upload Section */}
         <div className="flex gap-2 mb-4">
-          {/* Custom File Input */}
-          <label className="flex-1 p-2 bg-[#F7749D] hover:bg-[#db7595] text-white text-center rounded cursor-pointer transition-colors">
+          <label
+            className={`flex-1 p-2 text-white text-center rounded cursor-pointer transition-colors ${
+              personalIdSet
+                ? "bg-[#F7749D] hover:bg-[#db7595]"
+                : "bg-gray-400 cursor-not-allowed"
+            }`}
+          >
             <span className="text-sm font-semibold">
               {selectedFile ? selectedFile.name : "Choisir ma photo de profil"}
             </span>
@@ -212,13 +223,16 @@ const fullProfilePictureUrl = profilePictureUrl?.startsWith("http")
               accept="image/*"
               onChange={handleFileChange}
               className="hidden"
+              disabled={!personalIdSet} // Disable file input
             />
           </label>
           <button
             onClick={handleProfilePictureUpload}
-            disabled={!selectedFile}
+            disabled={!selectedFile || !personalIdSet} // Disable if no file or personalIdSet is false
             className={`${
-              selectedFile ? "bg-[#F7749D] hover:bg-[#db7595]" : "bg-gray-300 cursor-not-allowed"
+              selectedFile && personalIdSet
+                ? "bg-[#F7749D] hover:bg-[#db7595]"
+                : "bg-gray-300 cursor-not-allowed"
             } text-white px-3 py-2 rounded font-semibold text-sm flex items-center justify-center transition-colors`}
           >
             <FontAwesomeIcon icon={faUpload} className="mr-2" />
@@ -228,7 +242,9 @@ const fullProfilePictureUrl = profilePictureUrl?.startsWith("http")
 
         <div
           ref={cardRef}
-          className="relative rounded-lg shadow-md overflow-hidden transition-all duration-300 flex flex-row h-[230px] bg-transparent"
+          className={`relative rounded-lg shadow-md overflow-hidden transition-all duration-300 flex flex-row h-[230px] bg-transparent ${
+            !personalIdSet ? "opacity-50 pointer-events-none bg-gray-200" : ""
+          }`}
         >
           <div className="bg-[#F7749D] w-[30%] flex items-center justify-center">
             <div className="w-24 h-auto">
@@ -248,7 +264,7 @@ const fullProfilePictureUrl = profilePictureUrl?.startsWith("http")
                 <p className="text-base font-semibold text-gray-700 mt-1.5">
                   {username}
                 </p>
-                <p className="text-sm text-gray-600 mt-1">NP {personalId}</p>
+                <p className="text-sm text-gray-600 mt-1">NP {personalId || "Non défini"}</p>
                 <div className="flex justify-start mt-2">
                   <QRCodeSVG value={qrCodeValue} size={64} />
                 </div>
@@ -288,7 +304,12 @@ const fullProfilePictureUrl = profilePictureUrl?.startsWith("http")
         </div>
         <button
           onClick={handleDownload}
-          className="mt-4 w-full bg-[#F7749D] hover:bg-[#db7595] text-white py-2 px-3 rounded-lg font-semibold text-sm flex items-center justify-center transition-colors"
+          disabled={!personalIdSet} // Disable download button
+          className={`mt-4 w-full text-white py-2 px-3 rounded-lg font-semibold text-sm flex items-center justify-center transition-colors ${
+            personalIdSet
+              ? "bg-[#F7749D] hover:bg-[#db7595]"
+              : "bg-gray-300 cursor-not-allowed"
+          }`}
         >
           <FontAwesomeIcon icon={faDownload} className="mr-2" />
           Télécharger

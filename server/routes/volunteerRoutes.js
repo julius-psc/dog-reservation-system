@@ -31,18 +31,19 @@ module.exports = (
       try {
         const userId = req.user.userId;
         const user = await pool.query(
-          "SELECT username, personal_id, subscription_paid, subscription_expiry_date, profile_picture_url, time_updated_at FROM users WHERE id = $1",
+          "SELECT username, personal_id, personal_id_set, subscription_paid, subscription_expiry_date, profile_picture_url, time_updated_at FROM users WHERE id = $1",
           [userId]
         );
         if (user.rows.length > 0) {
+          const personalIdSet = user.rows[0].personal_id !== null; // Derive personal_id_set
           res.json({
             username: user.rows[0].username,
             personalId: user.rows[0].personal_id,
             subscriptionPaid: user.rows[0].subscription_paid || false,
-            subscriptionExpiryDate:
-              user.rows[0].subscription_expiry_date || null,
+            subscriptionExpiryDate: user.rows[0].subscription_expiry_date || null,
             profilePictureUrl: user.rows[0].profile_picture_url || null,
             time_updated_at: user.rows[0].time_updated_at || null,
+            personalIdSet: user.rows[0].personal_id_set, // Add this to the response
           });
         } else {
           res.status(404).json({ error: "User not found" });
