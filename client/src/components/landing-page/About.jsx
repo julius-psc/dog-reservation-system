@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import paws from "../../assets/landing-page/icons/paws-blue.svg";
+import status from '../../assets/landing-page/documents/chiensencavale_statut.pdf';
 
 const About = () => {
   const [stats, setStats] = useState({
@@ -56,6 +57,7 @@ const About = () => {
               en réunissant passionnés d’animaux et personnes en difficulté
             </span>.
           </p>
+          <p>[Consulter les statuts de l&#39;association <a className="text-primary-blue font-semibold" href={status}>ici</a>]</p>
         </div>
 
         {/* Stats Section */}

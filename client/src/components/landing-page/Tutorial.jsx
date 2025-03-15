@@ -33,8 +33,8 @@ const Tutorial = () => {
           </h3>
         </div>
 
-        {/* Propriétaires - Ma première réservation */}
-        <div className="flex md:hidden opacity-50 rounded-lg p-4">
+        {/* Ma première réservation */}
+        <div className="md:row-start-2 md:col-start-1 flex opacity-50 rounded-lg p-4">
           Ma première réservation
         </div>
         <div className="md:row-start-2 md:col-start-2 rounded-lg p-4">
@@ -71,8 +71,8 @@ const Tutorial = () => {
           </ul>
         </div>
 
-        {/* Propriétaires - J'ai déjà réservé */}
-        <div className="flex md:hidden opacity-50 rounded-lg p-4">
+        {/* J'ai déjà réservé une promenade */}
+        <div className="md:row-start-2 md:col-start-3 opacity-50 rounded-lg p-4">
           J&#39;ai déjà réservé une promenade
         </div>
         <div className="md:row-start-3 md:col-start-2 rounded-lg p-4">
@@ -105,8 +105,8 @@ const Tutorial = () => {
           </h3>
         </div>
 
-        {/* Promeneurs - Je souhaite devenir promeneur */}
-        <div className="flex md:hidden opacity-50 rounded-lg p-4">
+        {/* je souaite devenir promeneur */}
+        <div className="md:row-start-3 md:col-start-1 flex opacity-50 rounded-lg p-4">
           Je souhaite devenir promeneur
         </div>
         <div className="md:row-start-2 md:col-start-4 rounded-lg p-4">
@@ -146,8 +146,8 @@ const Tutorial = () => {
           </ul>
         </div>
 
-        {/* Promeneurs - Je suis déjà promeneur */}
-        <div className="flex md:hidden opacity-50 rounded-lg p-4">
+        {/* je suis déja promeneur */}
+        <div className="md:row-start-3 md:col-start-3 flex opacity-50 rounded-lg p-4">
           Je suis déjà promeneur
         </div>
         <div className="md:row-start-3 md:col-start-4 rounded-lg p-4">

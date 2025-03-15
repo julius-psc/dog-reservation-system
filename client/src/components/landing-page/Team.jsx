@@ -190,12 +190,7 @@ const Team = () => {
         </div>
 
         <div className="flex justify-center items-center mt-8 md:mt-20">
-          <iframe
-            src="https://www.google.com/maps/d/u/0/embed?mid=14msch42jhWHs_xkxjKK-WVUtPpTPrSc&ehbc=2E312F"
-            width="100%"
-            height="480"
-            className="max-w-[640px] w-full"
-          ></iframe>
+          <iframe src="https://www.google.com/maps/d/embed?mid=14msch42jhWHs_xkxjKK-WVUtPpTPrSc&ehbc=2E312F" width="640" height="480"></iframe>
         </div>
       </div>
     </section>
