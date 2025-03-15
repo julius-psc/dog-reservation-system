@@ -254,6 +254,16 @@ const ClientSignup = () => {
             <p className="mt-4 leading-relaxed text-gray-500 dark:text-gray-400">
               Rejoignez Chiens en Cavale pour des promenades gratuites en France!
             </p>
+            <p className="mt-4 text-sm text-primary-blue dark:text-gray-400 sm:mt-0">
+                  Vous avez déjà un compte ?
+                  <button
+                    type="button"
+                    onClick={() => navigate("/login")}
+                    className="text-gray-700 underline dark:text-gray-200 mx-2"
+                  >
+                    Se connecter
+                  </button>
+                </p>
 
             <form onSubmit={handleSubmit} className="mt-8 grid grid-cols-6 gap-6">
               {/* Username */}
@@ -541,16 +551,6 @@ const ClientSignup = () => {
 
               {/* Login Link */}
               <div className="col-span-6 sm:col-span-6 sm:flex-none sm:items-center sm:gap-4 text-center">
-                <p className="mt-4 text-sm text-gray-500 dark:text-gray-400 sm:mt-0">
-                  Vous avez déjà un compte ?
-                  <button
-                    type="button"
-                    onClick={() => navigate("/login")}
-                    className="text-gray-700 underline dark:text-gray-200 mx-2"
-                  >
-                    Se connecter
-                  </button>
-                </p>
               </div>
             </form>
           </div>

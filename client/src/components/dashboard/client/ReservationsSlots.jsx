@@ -239,7 +239,7 @@ const ReservationSlots = ({
               <span className="font-semibold">{confirmationDetails.date}</span> ?
             </p>
             <p className="bg-yellow-100 border-l-4 border-yellow-500 text-sm text-yellow-700 p-4 rounded-md">
-              Pensez à apporter un sac à déjection ou une toutounette pour votre bénévole à votre prochaine rencontre !
+              Pensez à fournir un sac à déjection ou une toutounette pour votre bénévole à votre prochaine rencontre !
             </p>
             <div className="flex justify-end space-x-4">
               <button
