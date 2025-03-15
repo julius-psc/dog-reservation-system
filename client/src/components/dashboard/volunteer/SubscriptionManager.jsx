@@ -23,7 +23,7 @@ const getSubscriptionMessage = (subscriptionStatus) => {
     };
   }
   const daysUntilExpiry = subscriptionStatus.expiryDate.diff(moment(), "days");
-  const gracePeriodEnd = subscriptionStatus.expiryDate.clone().add(21, "days");
+  const gracePeriodEnd = subscriptionStatus.expiryDate.clone().add(14, "days"); // 2-week grace period
   const isGracePeriod =
     moment().isAfter(subscriptionStatus.expiryDate) &&
     moment().isBefore(gracePeriodEnd);
@@ -57,7 +57,6 @@ const SubscriptionManager = ({
 }) => {
   const subscriptionMessage = getSubscriptionMessage(subscriptionStatus);
 
-  // Nested PaymentForm component
   const PaymentForm = ({ onSuccess, onCancel }) => {
     const stripe = useStripe();
     const elements = useElements();
@@ -84,9 +83,8 @@ const SubscriptionManager = ({
           throw new Error(paymentMethodError.message);
         }
 
-        console.log("Payment Method ID:", paymentMethod.id); // Debug log
+        console.log("Payment Method ID:", paymentMethod.id);
 
-        // Send the payment method to the backend
         const response = await fetch(
           `${import.meta.env.VITE_API_BASE_URL}/volunteer/subscription/pay`,
           {
@@ -97,40 +95,35 @@ const SubscriptionManager = ({
             },
             body: JSON.stringify({
               payment_method_id: paymentMethod.id,
+              amount: 9, // Keep this for compatibility, though backend uses Price ID
             }),
           }
         );
 
         const data = await response.json();
-        console.log("Backend Response:", data); // Debug log
+        console.log("Backend Response:", data);
 
         if (response.ok && data.success) {
-          // Payment succeeded immediately (no 3D Secure required)
           onSuccess();
-          toast.success("PAIEMENT EFFECTUÉ AVEC SUCCÈS!");
+          toast.success("ABONNEMENT ACTIVÉ AVEC SUCCÈS!");
         } else if (response.status === 402 && data.status === "requires_action") {
-          // Handle 3D Secure authentication
           const { error: confirmError, paymentIntent } =
-            await stripe.confirmCardPayment(data.clientSecret, {
-              payment_method: paymentMethod.id,
-            });
+            await stripe.confirmCardPayment(data.clientSecret);
 
           if (confirmError) {
             throw new Error(confirmError.message);
           }
 
           if (paymentIntent.status === "succeeded") {
-            // Payment succeeded after 3D Secure confirmation
             onSuccess();
-            toast.success("PAIEMENT EFFECTUÉ AVEC SUCCÈS!");
+            toast.success("ABONNEMENT ACTIVÉ AVEC SUCCÈS!");
           } else {
             throw new Error(
-              `Échec de la confirmation du paiement: statut ${paymentIntent.status}`
+              `Échec de la confirmation: statut ${paymentIntent.status}`
             );
           }
         } else {
-          // Handle other errors (e.g., declined card)
-          throw new Error(data.error || "Échec du traitement du paiement");
+          throw new Error(data.error || "Échec du traitement de l'abonnement");
         }
       } catch (err) {
         setPaymentError(err.message);
@@ -146,8 +139,7 @@ const SubscriptionManager = ({
           Adhésion annuelle (9€)
         </h3>
         <p className="text-sm text-gray-600 dark:text-gray-300 mb-6">
-          Rejoignez-nous en tant que bénévole promeneur en réglant votre adhésion
-          annuelle dès maintenant !
+          Rejoignez-nous en tant que bénévole promeneur avec un abonnement annuel !
         </p>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700">

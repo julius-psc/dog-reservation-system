@@ -1043,14 +1043,14 @@ module.exports = (
     async (req, res) => {
       try {
         const volunteerId = req.user.userId;
-        const { payment_method_id, amount } = req.body;
-
-        if (!payment_method_id || amount !== 9) {
-          return res.status(400).json({ error: "Invalid payment details" });
+        const { payment_method_id } = req.body;
+  
+        if (!payment_method_id) {
+          return res.status(400).json({ error: "Payment method ID is required" });
         }
-
+  
         const userCheck = await pool.query(
-          "SELECT role FROM users WHERE id = $1",
+          "SELECT role, email, username FROM users WHERE id = $1",
           [volunteerId]
         );
         if (
@@ -1059,39 +1059,67 @@ module.exports = (
         ) {
           return res.status(403).json({ error: "Not a volunteer" });
         }
-
-        const paymentIntent = await stripe.paymentIntents.create({
-          amount: 900,
-          currency: "eur",
-          payment_method: payment_method_id,
-          confirm: true,
-          payment_method_types: ["card"],
-        });
-
-        if (paymentIntent.status !== "succeeded") {
-          return res.status(400).json({
-            error: "Payment failed",
-            status: paymentIntent.status,
+  
+        const { email, username } = userCheck.rows[0];
+  
+        // Check if customer exists in Stripe, or create one
+        let customer;
+        const existingCustomers = await stripe.customers.list({ email });
+        if (existingCustomers.data.length > 0) {
+          customer = existingCustomers.data[0];
+        } else {
+          customer = await stripe.customers.create({
+            email,
+            name: username,
+            payment_method: payment_method_id,
+            invoice_settings: { default_payment_method: payment_method_id },
           });
         }
-
+  
+        // Create a subscription
+        const subscription = await stripe.subscriptions.create({
+          customer: customer.id,
+          items: [{ price: "price_1R2rlyGBanlKTQUgFSi07o7J" }],
+          billing_cycle_anchor: Math.floor(Date.now() / 1000), // Start now
+          proration_behavior: "none",
+          payment_behavior: "pending_if_incomplete", // Correct value for handling 3DS
+        });
+  
+        // Check subscription status
+        if (subscription.status === "incomplete") {
+          const invoice = await stripe.invoices.retrieve(
+            subscription.latest_invoice
+          );
+          if (
+            invoice.payment_intent &&
+            invoice.payment_intent.status === "requires_action"
+          ) {
+            return res.status(402).json({
+              status: "requires_action",
+              clientSecret: invoice.payment_intent.client_secret,
+              subscriptionId: subscription.id,
+            });
+          }
+        }
+  
+        // Subscription is active
         const expiryDate = moment()
           .add(1, "year")
           .format("YYYY-MM-DD HH:mm:ss");
         await pool.query(
-          "UPDATE users SET subscription_paid = $1, subscription_expiry_date = $2 WHERE id = $3",
-          [true, expiryDate, volunteerId]
+          "UPDATE users SET subscription_paid = $1, subscription_expiry_date = $2, stripe_subscription_id = $3 WHERE id = $4",
+          [true, expiryDate, subscription.id, volunteerId]
         );
-
+  
         res.json({
           success: true,
-          message: "Subscription payment successful",
-          paymentIntentId: paymentIntent.id,
+          message: "Subscription created successfully",
+          subscriptionId: subscription.id,
         });
       } catch (error) {
         console.error("Error processing subscription payment:", error);
         res.status(500).json({
-          error: "Failed to process payment",
+          error: "Failed to process subscription",
           details: error.message,
         });
       }
