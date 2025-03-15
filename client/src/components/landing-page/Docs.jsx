@@ -2,11 +2,13 @@ import { Link } from "react-router-dom";
 import guideProm from "../../assets/landing-page/documents/guide_promeneur.pdf";
 import guideProprio from "../../assets/landing-page/documents/guide_proprio.pdf";
 import affiche from "../../assets/landing-page/documents/chiensencavale_affiche.pdf";
+import bio1 from '../../assets/landing-page/documents/tome1_bio.png';
+import bio2 from '../../assets/landing-page/documents/tome2_bio.png';
 
 const Docs = () => {
   const documentCategories = [
     {
-      title: "Guides",
+      title: "Guides 🐾",
       description:
         "Des guides utiles pour les promeneurs et les propriétaires.",
       documents: [
@@ -25,7 +27,7 @@ const Docs = () => {
       ],
     },
     {
-      title: "Marketing",
+      title: "Marketing 📣",
       description:
         "Supports de communication pour promouvoir Chiens en Cavale.",
       documents: [
@@ -33,6 +35,23 @@ const Docs = () => {
           title: "Affiche Chiens en Cavale",
           description: "Affiche promotionnelle pour notre association.",
           file: affiche,
+        },
+      ],
+    },
+    {
+      title: "Biodiversité 🌿",
+      description:
+        "Notre engagement en faveur de la biodiversité.",
+      documents: [
+        {
+          title: "Tome 1",
+          description: "Promenades sur les sentiers.",
+          file: bio1,
+        },
+        {
+          title: "Tome 2",
+          description: "Les espaces protégés.",
+          file: bio2,
         },
       ],
     },
@@ -70,7 +89,7 @@ const Docs = () => {
               {documentCategories.map((category, index) => (
                 <div key={index}>
                   {/* Category Header */}
-                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+                  <h2 className="text-xl font-semibold text-primary-blue dark:text-white mb-4">
                     {category.title}
                   </h2>
                   <p className="text-gray-600 dark:text-gray-400 mb-6">
