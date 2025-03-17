@@ -7,17 +7,18 @@ import {
   faUsers,
   faCheckCircle,
   faTimesCircle,
-  faUser,
   faHome,
   faFileDownload,
   faListCheck,
 } from "@fortawesome/free-solid-svg-icons";
 
-const VolunteersManager = ({ volunteers, setVolunteers, setAllUsers }) => {
+const VolunteersManager = ({ volunteers, setVolunteers, setAllUsers, fetchVolunteerDetails }) => {
   const [expandedVolunteerId, setExpandedVolunteerId] = useState(null);
   const [volunteerFilter, setVolunteerFilter] = useState("");
   const [editingPersonalId, setEditingPersonalId] = useState(null);
   const [newPersonalId, setNewPersonalId] = useState("");
+  const [volunteerDetails, setVolunteerDetails] = useState({});
+  const [detailsLoading, setDetailsLoading] = useState(false);
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
   const isProduction = import.meta.env.MODE === "production";
@@ -32,8 +33,24 @@ const VolunteersManager = ({ volunteers, setVolunteers, setAllUsers }) => {
     "Dimanche",
   ];
 
-  const handleVolunteerRowClick = (volunteerId) => {
-    setExpandedVolunteerId(expandedVolunteerId === volunteerId ? null : volunteerId);
+  const handleVolunteerRowClick = async (volunteerId) => {
+    if (expandedVolunteerId === volunteerId) {
+      setExpandedVolunteerId(null);
+      return;
+    }
+
+    setExpandedVolunteerId(volunteerId);
+    if (!volunteerDetails[volunteerId]) {
+      setDetailsLoading(true);
+      try {
+        const details = await fetchVolunteerDetails(volunteerId);
+        setVolunteerDetails((prev) => ({ ...prev, [volunteerId]: details }));
+      } catch (error) {
+        toast.error(`Échec du chargement des détails: ${error.message}`);
+      } finally {
+        setDetailsLoading(false);
+      }
+    }
   };
 
   const handleVolunteerStatusChange = async (volunteerId, newStatus) => {
@@ -57,6 +74,10 @@ const VolunteersManager = ({ volunteers, setVolunteers, setAllUsers }) => {
           user.id === volunteerId ? { ...user, volunteer_status: newStatus } : user
         )
       );
+      setVolunteerDetails((prev) => ({
+        ...prev,
+        [volunteerId]: { ...prev[volunteerId], volunteer_status: newStatus },
+      }));
       toast.success(`Statut du bénévole mis à jour à ${newStatus}`);
       if (newStatus === "approved") {
         const volunteer = volunteers.find((vol) => vol.id === volunteerId);
@@ -67,7 +88,7 @@ const VolunteersManager = ({ volunteers, setVolunteers, setAllUsers }) => {
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            email: volunteer.email,
+            email: updatedVolunteer.volunteer.email, // Use updated data
             username: volunteer.username,
           }),
         });
@@ -105,6 +126,10 @@ const VolunteersManager = ({ volunteers, setVolunteers, setAllUsers }) => {
           user.id === volunteerId ? { ...user, personal_id: newPersonalId } : user
         )
       );
+      setVolunteerDetails((prev) => ({
+        ...prev,
+        [volunteerId]: { ...prev[volunteerId], personal_id: newPersonalId },
+      }));
       toast.success("Numéro promeneur mis à jour avec succès");
       setEditingPersonalId(null);
       setNewPersonalId("");
@@ -137,8 +162,11 @@ const VolunteersManager = ({ volunteers, setVolunteers, setAllUsers }) => {
           <table className="w-full border-collapse">
             <thead className="bg-gray-100 dark:bg-gray-700">
               <tr className="border-b border-gray-200 dark:border-gray-600">
-                {["Photo", "Nom", "Email", "Abonnement", "Statut", "Numéro Promeneur", "Actions"].map((header) => (
-                  <th key={header} className="px-4 py-3 text-left text-sm font-semibold text-gray-600 dark:text-gray-300">
+                {["Nom", "Statut", "Numéro Promeneur", "Actions"].map((header) => (
+                  <th
+                    key={header}
+                    className="px-4 py-3 text-left text-sm font-semibold text-gray-600 dark:text-gray-300"
+                  >
                     {header}
                   </th>
                 ))}
@@ -146,12 +174,19 @@ const VolunteersManager = ({ volunteers, setVolunteers, setAllUsers }) => {
             </thead>
             <tbody>
               {filteredVolunteers.map((volunteer) => {
-                const groupedAvailabilities = (volunteer.availabilities || []).reduce((acc, availability) => {
-                  const dayOfWeek = availability.day_of_week;
-                  if (!acc[dayOfWeek]) acc[dayOfWeek] = [];
-                  acc[dayOfWeek].push({ startTime: availability.start_time, endTime: availability.end_time });
-                  return acc;
-                }, {});
+                const details = volunteerDetails[volunteer.id] || {};
+                const groupedAvailabilities = (details.availabilities || []).reduce(
+                  (acc, availability) => {
+                    const dayOfWeek = availability.day_of_week;
+                    if (!acc[dayOfWeek]) acc[dayOfWeek] = [];
+                    acc[dayOfWeek].push({
+                      startTime: availability.start_time,
+                      endTime: availability.end_time,
+                    });
+                    return acc;
+                  },
+                  {}
+                );
 
                 return (
                   <React.Fragment key={volunteer.id}>
@@ -161,25 +196,7 @@ const VolunteersManager = ({ volunteers, setVolunteers, setAllUsers }) => {
                       }`}
                       onClick={() => handleVolunteerRowClick(volunteer.id)}
                     >
-                      <td className="px-4 py-4">
-                        {volunteer.profilePictureData ? (
-                          <img
-                            src={volunteer.profilePictureData}
-                            alt={`${volunteer.username}'s profile`}
-                            className="w-10 h-10 rounded-full object-cover"
-                          />
-                        ) : (
-                          <FontAwesomeIcon icon={faUser} className="w-10 h-10 text-gray-400 dark:text-gray-500" />
-                        )}
-                      </td>
                       <td className="px-4 py-4 text-gray-800 dark:text-gray-200">{volunteer.username}</td>
-                      <td className="px-4 py-4 text-gray-800 dark:text-gray-200">{volunteer.email}</td>
-                      <td className="px-4 py-4">
-                        <FontAwesomeIcon
-                          icon={volunteer.subscription_paid ? faCheckCircle : faTimesCircle}
-                          className={volunteer.subscription_paid ? "text-green-500" : "text-red-500"}
-                        />
-                      </td>
                       <td className="px-4 py-4">
                         <span
                           className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -271,94 +288,99 @@ const VolunteersManager = ({ volunteers, setVolunteers, setAllUsers }) => {
                     </tr>
                     {expandedVolunteerId === volunteer.id && (
                       <tr className="border-b border-gray-200 dark:border-gray-600">
-                        <td colSpan="7" className="px-4 py-4 bg-gray-50 dark:bg-gray-700">
-                          <div className="text-gray-800 dark:text-gray-200 space-y-2">
-                            <div className="flex items-center">
-                              {volunteer.profilePictureData ? (
-                                <img
-                                  src={volunteer.profilePictureData}
-                                  alt={`${volunteer.username}'s profile`}
-                                  className="w-16 h-16 rounded-full object-cover mr-4"
+                        <td colSpan="4" className="px-4 py-4 bg-gray-50 dark:bg-gray-700">
+                          {detailsLoading ? (
+                            <p className="text-gray-800 dark:text-gray-200">Chargement des détails...</p>
+                          ) : !volunteerDetails[volunteer.id] ? (
+                            <p className="text-gray-800 dark:text-gray-200">Échec du chargement des détails.</p>
+                          ) : (
+                            <div className="text-gray-800 dark:text-gray-200 space-y-2">
+                              <p><span className="font-semibold">Email:</span> {details.email}</p>
+                              <p>
+                                <span className="font-semibold">Abonnement:</span>{" "}
+                                <FontAwesomeIcon
+                                  icon={details.subscription_paid ? faCheckCircle : faTimesCircle}
+                                  className={details.subscription_paid ? "text-green-500" : "text-red-500"}
                                 />
-                              ) : (
-                                <FontAwesomeIcon icon={faUser} className="w-16 h-16 text-gray-400 dark:text-gray-500 mr-4" />
-                              )}
+                              </p>
+                              <p><span className="font-semibold">Téléphone:</span> {details.phone_number || "Non spécifié"}</p>
+                              <p><span className="font-semibold">Commune:</span> {details.village}</p>
+                              <p>
+                                <FontAwesomeIcon icon={faHome} className="mr-1" />{" "}
+                                <span className="font-semibold">Adresse:</span> {details.address || "Non spécifiée"}
+                              </p>
                               <div>
-                                <p><span className="font-semibold">Email:</span> {volunteer.email}</p>
-                                <p><span className="font-semibold">Téléphone:</span> {volunteer.phone_number || "Non spécifié"}</p> {/* Add phone_number here */}
-                                <p><span className="font-semibold">Commune:</span> {volunteer.village}</p>
+                                <span className="font-semibold">Communes de promenade:</span>
+                                <ul className="list-disc pl-4">
+                                  {details.villages_covered?.map((village, idx) => (
+                                    <li key={idx}>{village}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                              <div>
+                                <span className="font-semibold">Disponibilités:</span>
+                                {(details.availabilities || []).length === 0 ? (
+                                  <p>Aucune disponibilité définie</p>
+                                ) : (
+                                  <ul className="list-disc pl-4">
+                                    {daysOfWeekLabels.map((dayLabel, index) => {
+                                      const dayOfWeek = index + 1;
+                                      const dayAvailabilities = groupedAvailabilities[dayOfWeek] || [];
+                                      return dayAvailabilities.length > 0 ? (
+                                        <li key={dayOfWeek}>
+                                          {dayLabel}:{" "}
+                                          {dayAvailabilities.map((av, idx) => (
+                                            <span key={idx}>
+                                              {av.startTime} - {av.endTime}
+                                              {idx < dayAvailabilities.length - 1 && ", "}
+                                            </span>
+                                          ))}
+                                        </li>
+                                      ) : null;
+                                    })}
+                                  </ul>
+                                )}
+                              </div>
+                              <p>
+                                <span className="font-semibold">Responsabilité Civile:</span>{" "}
+                                {details.insurance_file_path ? (
+                                  <a
+                                    href={
+                                      isProduction
+                                        ? details.insurance_file_path
+                                        : `${API_BASE_URL}${details.insurance_file_path}`
+                                    }
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-blue-600 hover:underline dark:text-blue-500 ml-2 flex items-center"
+                                  >
+                                    <FontAwesomeIcon icon={faFileDownload} className="mr-1" />
+                                    Voir / Télécharger
+                                  </a>
+                                ) : (
+                                  <span className="ml-2 text-gray-500">Aucune assurance téléversée</span>
+                                )}
+                              </p>
+                              <p>
+                                <FontAwesomeIcon icon={faListCheck} className="mr-1" />
+                                <span className="font-semibold">Majeur(e):</span>{" "}
+                                {details.is_adult === true ? "Oui" : details.is_adult === false ? "Non" : "Non spécifié"}
+                              </p>
+                              <div>
+                                <FontAwesomeIcon icon={faListCheck} className="mr-1" />
+                                <span className="font-semibold">Engagements:</span>
+                                {details.commitments ? (
+                                  <ul className="list-disc pl-4">
+                                    <li>Honorer les promenades: {details.commitments.honorWalks ? "Oui" : "Non"}</li>
+                                    <li>Tenir en laisse: {details.commitments.keepLeash ? "Oui" : "Non"}</li>
+                                    <li>Signaler les comportements: {details.commitments.reportBehavior ? "Oui" : "Non"}</li>
+                                  </ul>
+                                ) : (
+                                  <span className="ml-2 text-gray-500">Aucun engagement spécifié</span>
+                                )}
                               </div>
                             </div>
-                            <p><span className="font-semibold">Statut:</span> {volunteer.volunteer_status}</p>
-                            <p><span className="font-semibold">Numéro promeneur:</span> {volunteer.personal_id || "Non défini"}</p>
-                            <p><FontAwesomeIcon icon={faHome} className="mr-1" /> <span className="font-semibold">Adresse:</span> {volunteer.address || "Non spécifiée"}</p>
-                            <div>
-                              <span className="font-semibold">Communes de promenade:</span>
-                              <ul className="list-disc pl-4">
-                                {volunteer.villages_covered?.map((village, idx) => (
-                                  <li key={idx}>{village}</li>
-                                ))}
-                              </ul>
-                            </div>
-                            <div>
-                              <span className="font-semibold">Disponibilités:</span>
-                              {(volunteer.availabilities || []).length === 0 ? (
-                                <p>Aucune disponibilité définie</p>
-                              ) : (
-                                <ul className="list-disc pl-4">
-                                  {daysOfWeekLabels.map((dayLabel, index) => {
-                                    const dayOfWeek = index + 1;
-                                    const dayAvailabilities = groupedAvailabilities[dayOfWeek] || [];
-                                    return dayAvailabilities.length > 0 ? (
-                                      <li key={dayOfWeek}>
-                                        {dayLabel}:{" "}
-                                        {dayAvailabilities.map((av, idx) => (
-                                          <span key={idx}>
-                                            {av.startTime} - {av.endTime}
-                                            {idx < dayAvailabilities.length - 1 && ", "}
-                                          </span>
-                                        ))}
-                                      </li>
-                                    ) : null;
-                                  })}
-                                </ul>
-                              )}
-                            </div>
-                            <p>
-                              <span className="font-semibold">Responsabilité Civile:</span>{" "}
-                              {volunteer.insurance_file_path ? (
-                                <a
-                                  href={isProduction ? volunteer.insurance_file_path : `${API_BASE_URL}${volunteer.insurance_file_path}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-blue-600 hover:underline dark:text-blue-500 ml-2 flex items-center"
-                                >
-                                  <FontAwesomeIcon icon={faFileDownload} className="mr-1" />
-                                  Voir / Télécharger
-                                </a>
-                              ) : (
-                                <span className="ml-2 text-gray-500">Aucune assurance téléversée</span>
-                              )}
-                            </p>
-                            <p>
-                              <FontAwesomeIcon icon={faUser} className="mr-1" />
-                              <span className="font-semibold">Majeur(e):</span>{" "}
-                              {volunteer.is_adult === true ? "Oui" : volunteer.is_adult === false ? "Non" : "Non spécifié"}
-                            </p>
-                            <div>
-                              <FontAwesomeIcon icon={faListCheck} className="mr-1" />
-                              <span className="font-semibold">Engagements:</span>
-                              {volunteer.commitments ? (
-                                <ul className="list-disc pl-4">
-                                  <li>Honorer les promenades: {volunteer.commitments.honorWalks ? "Oui" : "Non"}</li>
-                                  <li>Tenir en laisse: {volunteer.commitments.keepLeash ? "Oui" : "Non"}</li>
-                                  <li>Signaler les comportements: {volunteer.commitments.reportBehavior ? "Oui" : "Non"}</li>
-                                </ul>
-                              ) : (
-                                <span className="ml-2 text-gray-500">Aucun engagement spécifié</span>
-                              )}
-                            </div>
-                          </div>
+                          )}
                         </td>
                       </tr>
                     )}
@@ -378,33 +400,13 @@ VolunteersManager.propTypes = {
     PropTypes.shape({
       id: PropTypes.string.isRequired,
       username: PropTypes.string.isRequired,
-      email: PropTypes.string.isRequired,
-      phone_number: PropTypes.string, // Add phone_number to PropTypes
-      subscription_paid: PropTypes.bool.isRequired,
       volunteer_status: PropTypes.string.isRequired,
       personal_id: PropTypes.string,
-      profilePictureData: PropTypes.string,
-      village: PropTypes.string,
-      address: PropTypes.string,
-      villages_covered: PropTypes.arrayOf(PropTypes.string),
-      availabilities: PropTypes.arrayOf(
-        PropTypes.shape({
-          day_of_week: PropTypes.number.isRequired,
-          start_time: PropTypes.string.isRequired,
-          end_time: PropTypes.string.isRequired,
-        })
-      ),
-      insurance_file_path: PropTypes.string,
-      is_adult: PropTypes.bool,
-      commitments: PropTypes.shape({
-        honorWalks: PropTypes.bool,
-        keepLeash: PropTypes.bool,
-        reportBehavior: PropTypes.bool,
-      }),
     })
   ).isRequired,
   setVolunteers: PropTypes.func.isRequired,
   setAllUsers: PropTypes.func.isRequired,
+  fetchVolunteerDetails: PropTypes.func.isRequired,
 };
 
 export default VolunteersManager;

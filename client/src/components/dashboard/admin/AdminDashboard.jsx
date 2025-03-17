@@ -1,4 +1,3 @@
-// components/dashboard/admin/AdminDashboard.jsx
 import PropTypes from "prop-types";
 import { Toaster } from "react-hot-toast";
 import { ClipLoader } from "react-spinners";
@@ -32,6 +31,7 @@ const AdminDashboard = ({ handleLogout }) => {
     otherVillageRequests,
     otherVillageLoading,
     otherVillageError,
+    fetchVolunteerDetails, // Added this from useAdminData
   } = useAdminData();
 
   if (loading || reservationsLoading || usersLoading || otherVillageLoading) {
@@ -89,7 +89,12 @@ const AdminDashboard = ({ handleLogout }) => {
           ))}
         </div>
 
-        <VolunteersManager volunteers={volunteers} setVolunteers={setVolunteers} setAllUsers={setAllUsers} />
+        <VolunteersManager
+          volunteers={volunteers}
+          setVolunteers={setVolunteers}
+          setAllUsers={setAllUsers}
+          fetchVolunteerDetails={fetchVolunteerDetails} // Pass the fetchVolunteerDetails function
+        />
         <ReservationsManager allReservations={allReservations} />
         <UsersManager allUsers={allUsers} setAllUsers={setAllUsers} />
         <OtherVillageRequestsManager otherVillageRequests={otherVillageRequests} />

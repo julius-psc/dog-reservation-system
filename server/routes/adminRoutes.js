@@ -18,6 +18,46 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
       })
     : null;
 
+    const fetchProfilePicture = async (profilePictureUrl, userId) => {
+      let profilePictureData = null;
+      if (profilePictureUrl) {
+        if (isProduction && s3Client) {
+          const urlParts = profilePictureUrl.split("/");
+          const s3Key = urlParts.slice(3).join("/");
+          const params = {
+            Bucket: process.env.S3_BUCKET_NAME,
+            Key: s3Key,
+          };
+          try {
+            const command = new GetObjectCommand(params);
+            const { Body } = await s3Client.send(command);
+            const chunks = [];
+            for await (const chunk of Body) {
+              chunks.push(chunk);
+            }
+            profilePictureData = Buffer.concat(chunks).toString("base64");
+          } catch (s3Error) {
+            console.error(`Error fetching profile picture from S3 for user ${userId}:`, s3Error);
+          }
+        } else {
+          const localPath = path.join(
+            __dirname,
+            "..",
+            "uploads",
+            "profile-pictures",
+            path.basename(profilePictureUrl)
+          );
+          try {
+            const fileData = await fs.readFile(localPath);
+            profilePictureData = fileData.toString("base64");
+          } catch (fsError) {
+            console.error(`Error reading local profile picture for user ${userId}:`, fsError);
+          }
+        }
+      }
+      return profilePictureData ? `data:image/png;base64,${profilePictureData}` : null;
+    };
+
     router.get("/admins/volunteers", authenticate, authorizeAdmin, async (req, res) => {
       try {
         const { village, role } = req.query;
@@ -509,6 +549,183 @@ router.delete(
       }
     }
   );
+
+  router.get("/admins/volunteers/minimal", authenticate, authorizeAdmin, async (req, res) => {
+    try {
+      const { village } = req.query;
+
+      let query = `
+        SELECT
+          u.id,
+          u.username,
+          u.email,
+          u.volunteer_status,
+          u.personal_id,
+          u.subscription_paid,
+          u.profile_picture_url
+        FROM users u
+        WHERE u.role = 'volunteer'
+      `;
+
+      const whereClause = [];
+      const queryParams = [];
+
+      if (village) {
+        whereClause.push(`u.village = $${queryParams.length + 1}`);
+        queryParams.push(village);
+      }
+
+      if (whereClause.length > 0) {
+        query += " AND " + whereClause.join(" AND ");
+      }
+
+      const volunteersResult = await pool.query(query, queryParams);
+      const volunteers = volunteersResult.rows || [];
+
+      // Fetch profile pictures for each volunteer
+      const volunteersWithPictures = await Promise.all(
+        volunteers.map(async (volunteer) => {
+          const profilePictureData = await fetchProfilePicture(volunteer.profile_picture_url, volunteer.id);
+          return {
+            ...volunteer,
+            profilePictureData,
+          };
+        })
+      );
+
+      res.json(volunteersWithPictures);
+    } catch (error) {
+      console.error("Error fetching minimal volunteers (admin):", error);
+      res.status(500).json({
+        error: "Failed to fetch minimal volunteers",
+        details: error.message,
+      });
+    }
+  });
+
+  router.get("/admins/volunteers/minimal", authenticate, authorizeAdmin, async (req, res) => {
+    try {
+      const { village } = req.query;
+
+      let query = `
+        SELECT
+          u.id,
+          u.username,
+          u.email,
+          u.volunteer_status,
+          u.personal_id,
+          u.subscription_paid,
+          u.profile_picture_url
+        FROM users u
+        WHERE u.role = 'volunteer'
+      `;
+
+      const whereClause = [];
+      const queryParams = [];
+
+      if (village) {
+        whereClause.push(`u.village = $${queryParams.length + 1}`);
+        queryParams.push(village);
+      }
+
+      if (whereClause.length > 0) {
+        query += " AND " + whereClause.join(" AND ");
+      }
+
+      const volunteersResult = await pool.query(query, queryParams);
+      const volunteers = volunteersResult.rows || [];
+
+      // Fetch profile pictures for each volunteer
+      const volunteersWithPictures = await Promise.all(
+        volunteers.map(async (volunteer) => {
+          const profilePictureData = await fetchProfilePicture(volunteer.profile_picture_url, volunteer.id);
+          return {
+            ...volunteer,
+            profilePictureData,
+          };
+        })
+      );
+
+      res.json(volunteersWithPictures);
+    } catch (error) {
+      console.error("Error fetching minimal volunteers (admin):", error);
+      res.status(500).json({
+        error: "Failed to fetch minimal volunteers",
+        details: error.message,
+      });
+    }
+  });
+
+  router.get("/admin/volunteers/:id", authenticate, authorizeAdmin, async (req, res) => {
+    try {
+      const volunteerId = req.params.id;
+
+      const query = `
+        SELECT
+          u.id,
+          u.username,
+          u.email,
+          u.phone_number,
+          u.village,
+          u.volunteer_status,
+          u.insurance_file_path,
+          u.profile_picture_url,
+          u.address,
+          u.subscription_paid,
+          u.villages_covered,
+          u.personal_id,
+          u.is_adult,
+          u.commitments,
+          COALESCE(json_agg(
+            json_build_object(
+              'day_of_week', a.day_of_week,
+              'start_time', a.start_time,
+              'end_time', a.end_time
+            )
+          ) FILTER (WHERE a.id IS NOT NULL), '[]') AS availabilities
+        FROM users u
+        LEFT JOIN availabilities a ON u.id = a.user_id
+        WHERE u.id = $1 AND u.role = 'volunteer'
+        GROUP BY
+          u.id,
+          u.username,
+          u.email,
+          u.phone_number,
+          u.village,
+          u.volunteer_status,
+          u.insurance_file_path,
+          u.profile_picture_url,
+          u.address,
+          u.subscription_paid,
+          u.villages_covered,
+          u.personal_id,
+          u.is_adult,
+          u.commitments
+      `;
+
+      const volunteerResult = await pool.query(query, [volunteerId]);
+
+      if (volunteerResult.rows.length === 0) {
+        return res.status(404).json({ error: "Volunteer not found" });
+      }
+
+      const volunteer = volunteerResult.rows[0];
+      const profilePictureData = await fetchProfilePicture(volunteer.profile_picture_url, volunteer.id);
+
+      const volunteerWithPicture = {
+        ...volunteer,
+        profilePictureData,
+      };
+
+      res.json(volunteerWithPicture);
+    } catch (error) {
+      console.error("Error fetching volunteer details (admin):", error);
+      res.status(500).json({
+        error: "Failed to fetch volunteer details",
+        details: error.message,
+      });
+    }
+  });
 
   return router;
 };

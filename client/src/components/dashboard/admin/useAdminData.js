@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import Cookies from "js-cookie";
 
 const useAdminData = () => {
-  const [volunteers, setVolunteers] = useState([]);
+  const [volunteers, setVolunteers] = useState([]); // Minimal data initially
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [allReservations, setAllReservations] = useState([]);
@@ -39,11 +39,27 @@ const useAdminData = () => {
       }
     };
 
-    fetchData(`${API_BASE_URL}/admins/volunteers`, setVolunteers, setLoading, setError);
+    // Fetch minimal volunteer data initially
+    fetchData(`${API_BASE_URL}/admins/volunteers/minimal`, setVolunteers, setLoading, setError);
     fetchData(`${API_BASE_URL}/admin/reservations`, setAllReservations, setReservationsLoading, setReservationsError);
     fetchData(`${API_BASE_URL}/admin/all-users`, setAllUsers, setUsersLoading, setUsersError);
     fetchData(`${API_BASE_URL}/admin/other-village-requests`, setOtherVillageRequests, setOtherVillageLoading, setOtherVillageError);
   }, [API_BASE_URL]);
+
+  // Function to fetch detailed volunteer data on demand
+  const fetchVolunteerDetails = async (volunteerId) => {
+    const token = Cookies.get("token");
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/volunteers/${volunteerId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error("Échec de la récupération des détails du bénévole");
+      const data = await response.json();
+      return data;
+    } catch (err) {
+      throw new Error(err.message);
+    }
+  };
 
   return {
     volunteers,
@@ -62,6 +78,7 @@ const useAdminData = () => {
     setOtherVillageRequests,
     otherVillageLoading,
     otherVillageError,
+    fetchVolunteerDetails, // Expose this function
   };
 };
 
