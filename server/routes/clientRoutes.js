@@ -79,16 +79,16 @@ module.exports = (
 
       // Check for overlapping reservations with the volunteer
       const overlapQuery = `
-      SELECT id
-      FROM reservations
-      WHERE reservation_date = $1
-      AND volunteer_id = $2
-      AND status != 'rejected'
-      AND (
-        (start_time <= $3 AND end_time > $3)
-        OR (start_time < $4 AND end_time >= $4)
-        OR (start_time >= $3 AND end_time <= $4)
-      )`;
+        SELECT id
+        FROM reservations
+        WHERE reservation_date = $1
+        AND volunteer_id = $2
+        AND status IN ('pending', 'accepted')
+        AND (
+          (start_time <= $3 AND end_time > $3)
+          OR (start_time < $4 AND end_time >= $4)
+          OR (start_time >= $3 AND end_time <= $4)
+        )`;
       const overlapResult = await client.query(overlapQuery, [
         reservationDate,
         volunteerId,
@@ -103,16 +103,16 @@ module.exports = (
 
       // Check for overlapping reservations by the client
       const clientOverlapQuery = `
-      SELECT id
-      FROM reservations
-      WHERE reservation_date = $1
-      AND client_id = $2
-      AND status != 'rejected'
-      AND (
-        (start_time <= $3 AND end_time > $3)
-        OR (start_time < $4 AND end_time >= $4)
-        OR (start_time >= $3 AND end_time <= $4)
-      )`;
+        SELECT id
+        FROM reservations
+        WHERE reservation_date = $1
+        AND client_id = $2
+        AND status IN ('pending', 'accepted')
+        AND (
+          (start_time <= $3 AND end_time > $3)
+          OR (start_time < $4 AND end_time >= $4)
+          OR (start_time >= $3 AND end_time <= $4)
+        )`;
       const clientOverlapResult = await client.query(clientOverlapQuery, [
         reservationDate,
         req.user.userId,
@@ -125,19 +125,19 @@ module.exports = (
 
       // Insert the new reservation
       const insertQuery = `
-      INSERT INTO reservations (
-        client_id,
-        volunteer_id,
-        dog_id,
-        reservation_date,
-        start_time,
-        end_time,
-        status,
-        created_at,
-        updated_at
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
-      RETURNING id`;
+        INSERT INTO reservations (
+          client_id,
+          volunteer_id,
+          dog_id,
+          reservation_date,
+          start_time,
+          end_time,
+          status,
+          created_at,
+          updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+        RETURNING *`;
       const values = [
         req.user.userId,
         volunteerId,
@@ -148,28 +148,44 @@ module.exports = (
         "pending",
       ];
       const result = await client.query(insertQuery, values);
-      const newReservationId = result.rows[0].id;
+      const newReservation = result.rows[0];
+
+      // Check if the reservation should immediately be marked as completed or cancelled
+      const endDateTime = moment(
+        `${reservationDate} ${endTime}`,
+        "YYYY-MM-DD HH:mm"
+      );
+      const now = moment();
+      if (endDateTime.isBefore(now)) {
+        // This should not happen due to the 3-day rule, but included for completeness
+        const updatedStatus = "cancelled"; // Since it’s past and still pending
+        await client.query(
+          "UPDATE reservations SET status = $1 WHERE id = $2",
+          [updatedStatus, newReservation.id]
+        );
+        newReservation.status = updatedStatus;
+      }
 
       // Fetch full reservation details for response and notifications
       const reservationQuery = `
-      SELECT
-        r.id as reservation_id,
-        r.reservation_date,
-        r.start_time,
-        r.end_time,
-        r.status,
-        d.name as dog_name,
-        u_vol.username as volunteer_name,
-        u_vol.email as volunteer_email,
-        u_cli.village as client_village,
-        u_cli.username as client_name
-      FROM reservations r
-      JOIN dogs d ON r.dog_id = d.id
-      JOIN users u_vol ON r.volunteer_id = u_vol.id
-      JOIN users u_cli ON r.client_id = u_cli.id
-      WHERE r.id = $1`;
+        SELECT
+          r.id as reservation_id,
+          r.reservation_date,
+          TO_CHAR(r.start_time, 'HH24:MI') as start_time,
+          TO_CHAR(r.end_time, 'HH24:MI') as end_time,
+          r.status,
+          d.name as dog_name,
+          u_vol.username as volunteer_name,
+          u_vol.email as volunteer_email,
+          u_cli.village as client_village,
+          u_cli.username as client_name
+        FROM reservations r
+        JOIN dogs d ON r.dog_id = d.id
+        JOIN users u_vol ON r.volunteer_id = u_vol.id
+        JOIN users u_cli ON r.client_id = u_cli.id
+        WHERE r.id = $1`;
       const newReservationDetails = await client.query(reservationQuery, [
-        newReservationId,
+        newReservation.id,
       ]);
 
       if (newReservationDetails.rows.length === 0) {

@@ -298,8 +298,25 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
   );
 
   router.get("/admin/reservations", authenticate, authorizeAdmin, async (req, res) => {
+    const client = await pool.connect();
     try {
-      const reservations = await pool.query(`
+      await client.query("BEGIN");
+
+      // Update past reservations in the database
+      await client.query(
+        `
+        UPDATE reservations
+        SET status = CASE
+          WHEN status = 'accepted' AND (reservation_date + end_time::time) < NOW() THEN 'completed'
+          WHEN status = 'pending' AND (reservation_date + end_time::time) < NOW() THEN 'cancelled'
+          ELSE status
+        END
+        WHERE status IN ('accepted', 'pending')
+        AND (reservation_date + end_time::time) < NOW()
+      `
+      );
+
+      const reservations = await client.query(`
         SELECT
           r.id,
           u.username AS client_name,
@@ -317,25 +334,17 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
         ORDER BY r.reservation_date, r.start_time
       `);
 
-      const now = moment();
-      const updatedReservations = reservations.rows.map((reservation) => {
-        const endDateTime = moment(
-          `${reservation.reservation_date} ${reservation.end_time}`,
-          "YYYY-MM-DD HH:mm"
-        );
-        if (endDateTime.isBefore(now) && reservation.status === "accepted") {
-          return { ...reservation, status: "completed" };
-        }
-        return reservation;
-      });
-
-      res.json(updatedReservations);
+      await client.query("COMMIT");
+      res.json(reservations.rows);
     } catch (error) {
+      await client.query("ROLLBACK");
       console.error("Error fetching all reservations:", error);
       res.status(500).json({
         error: "Failed to fetch reservations",
         details: error.message,
       });
+    } finally {
+      client.release();
     }
   });
 

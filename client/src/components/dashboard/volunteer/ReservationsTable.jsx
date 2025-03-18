@@ -20,6 +20,53 @@ const ReservationsTable = ({ reservations, handleReservationAction }) => {
     completed: "Terminé",
   };
 
+  const getStatusDetails = (reservation) => {
+    const now = moment();
+    const endDateTime = moment(
+      `${reservation.reservation_date} ${reservation.end_time}`,
+      "YYYY-MM-DD HH:mm"
+    );
+    let status = reservation.status;
+
+    // Auto-update status based on current time
+    if (endDateTime.isBefore(now)) {
+      if (status === "accepted") {
+        status = "completed";
+      } else if (status === "pending") {
+        status = "cancelled"; // Pending reservations past end time are cancelled
+      }
+    }
+
+    let statusColor = "";
+    let statusIcon = null;
+    const statusText = frenchStatusMap[status] || status;
+
+    switch (status) {
+      case "accepted":
+        statusColor = "bg-green-100 text-green-800";
+        statusIcon = <FontAwesomeIcon icon={faCheck} className="mr-1" />;
+        break;
+      case "pending":
+        statusColor = "bg-yellow-100 text-yellow-800";
+        statusIcon = <FontAwesomeIcon icon={faClock} className="mr-1" />;
+        break;
+      case "rejected":
+      case "cancelled":
+        statusColor = "bg-red-100 text-red-800";
+        statusIcon = <FontAwesomeIcon icon={faBan} className="mr-1" />;
+        break;
+      case "completed":
+        statusColor = "bg-primary-blue text-white";
+        statusIcon = <FontAwesomeIcon icon={faFlagCheckered} className="mr-1" />;
+        break;
+      default:
+        statusColor = "";
+        statusIcon = null;
+    }
+
+    return { status, statusColor, statusIcon, statusText };
+  };
+
   return (
     <section className="bg-white dark:bg-gray-900 rounded-xl shadow-lg p-8 transform transition-all duration-300 hover:shadow-xl">
       <h3 className="text-2xl font-bold text-primary-blue dark:text-primary-blue mb-6 flex items-center">
@@ -48,35 +95,8 @@ const ReservationsTable = ({ reservations, handleReservationAction }) => {
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {reservations.map((reservation) => {
-                let statusColor = "";
-                let statusIcon = null;
-                const statusText =
-                  frenchStatusMap[reservation.status] || reservation.status;
-
-                switch (reservation.status) {
-                  case "accepted":
-                    statusColor = "bg-green-100 text-green-800";
-                    statusIcon = <FontAwesomeIcon icon={faCheck} className="mr-1" />;
-                    break;
-                  case "pending":
-                    statusColor = "bg-yellow-100 text-yellow-800";
-                    statusIcon = <FontAwesomeIcon icon={faClock} className="mr-1" />;
-                    break;
-                  case "rejected":
-                  case "cancelled":
-                    statusColor = "bg-red-100 text-red-800";
-                    statusIcon = <FontAwesomeIcon icon={faBan} className="mr-1" />;
-                    break;
-                  case "completed":
-                    statusColor = "bg-primary-blue text-white";
-                    statusIcon = (
-                      <FontAwesomeIcon icon={faFlagCheckered} className="mr-1" />
-                    );
-                    break;
-                  default:
-                    statusColor = "";
-                    statusIcon = null;
-                }
+                const { status, statusColor, statusIcon, statusText } =
+                  getStatusDetails(reservation);
 
                 return (
                   <tr
@@ -107,7 +127,7 @@ const ReservationsTable = ({ reservations, handleReservationAction }) => {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-center">
-                      {reservation.status === "pending" ? (
+                      {status === "pending" ? (
                         <div className="flex space-x-4 justify-center">
                           <button
                             className="bg-green-500 hover:bg-green-600 text-white py-1 px-4 rounded-lg text-sm font-semibold transition-all duration-300"

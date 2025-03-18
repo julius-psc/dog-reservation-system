@@ -18,6 +18,58 @@ const PersonalReservationsTable = ({
   personalReservationsLoading,
   personalReservationsError,
 }) => {
+  const getStatusDetails = (reservation) => {
+    const now = moment();
+    const endDateTime = moment(
+      `${reservation.reservation_date} ${reservation.end_time}`,
+      "YYYY-MM-DD HH:mm"
+    );
+    let status = reservation.status;
+
+    // Auto-update status based on current time
+    if (endDateTime.isBefore(now)) {
+      if (status === "accepted") {
+        status = "completed";
+      } else if (status === "pending") {
+        status = "cancelled"; // Pending reservations past end time are cancelled
+      }
+    }
+
+    let statusColor = "";
+    let statusIcon = null;
+    let statusName = "";
+
+    switch (status) {
+      case "accepted":
+        statusColor = "bg-green-200 text-green-800";
+        statusIcon = <FontAwesomeIcon icon={faCheck} className="mr-1" />;
+        statusName = "Accepté";
+        break;
+      case "pending":
+        statusColor = "bg-yellow-200 text-yellow-800";
+        statusIcon = <FontAwesomeIcon icon={faClock} className="mr-1" />;
+        statusName = "En attente";
+        break;
+      case "rejected":
+      case "cancelled":
+        statusColor = "bg-red-200 text-red-800";
+        statusIcon = <FontAwesomeIcon icon={faBan} className="mr-1" />;
+        statusName = status === "rejected" ? "Rejeté" : "Annulé";
+        break;
+      case "completed":
+        statusColor = "bg-blue-200 text-blue-800";
+        statusIcon = <FontAwesomeIcon icon={faFlagCheckered} className="mr-1" />;
+        statusName = "Terminé";
+        break;
+      default:
+        statusColor = "";
+        statusIcon = null;
+        statusName = status;
+    }
+
+    return { status, statusColor, statusIcon, statusName };
+  };
+
   return (
     <section className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
       <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
@@ -60,38 +112,8 @@ const PersonalReservationsTable = ({
             </thead>
             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
               {personalReservations.map((reservation) => {
-                let statusColor = "";
-                let statusName = "";
-                let statusIcon = null;
-                switch (reservation.status) {
-                  case "accepted":
-                    statusColor = "bg-green-200 text-green-800";
-                    statusIcon = <FontAwesomeIcon icon={faCheck} className="mr-1" />;
-                    statusName = "Accepté";
-                    break;
-                  case "pending":
-                    statusColor = "bg-yellow-200 text-yellow-800";
-                    statusIcon = <FontAwesomeIcon icon={faClock} className="mr-1" />;
-                    statusName = "En attente";
-                    break;
-                  case "rejected":
-                  case "cancelled":
-                    statusColor = "bg-red-200 text-red-800";
-                    statusIcon = <FontAwesomeIcon icon={faBan} className="mr-1" />;
-                    statusName = "Rejeté";
-                    break;
-                  case "completed":
-                    statusColor = "bg-blue-200 text-blue-800";
-                    statusIcon = (
-                      <FontAwesomeIcon icon={faFlagCheckered} className="mr-1" />
-                    );
-                    statusName = "Complété";
-                    break;
-                  default:
-                    statusColor = "";
-                    statusIcon = null;
-                    statusName = reservation.status;
-                }
+                const {  statusColor, statusIcon, statusName } =
+                  getStatusDetails(reservation);
 
                 return (
                   <tr
