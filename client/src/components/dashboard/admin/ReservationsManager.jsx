@@ -17,12 +17,23 @@ const ReservationsManager = ({ allReservations }) => {
   const [reservationStatusFilter, setReservationStatusFilter] = useState("all");
 
   const getStatusDetails = (reservation) => {
+    // Handle invalid reservation input
+    if (!reservation || !reservation.reservation_date || !reservation.end_time) {
+      console.warn('Invalid reservation data:', reservation);
+      return {
+        status: "unknown",
+        color: "bg-gray-200 text-gray-800",
+        icon: null,
+        name: "Inconnu",
+      };
+    }
+
     const now = moment();
     const endDateTime = moment(
       `${reservation.reservation_date} ${reservation.end_time}`,
       "YYYY-MM-DD HH:mm"
     );
-    let status = reservation.status;
+    let status = reservation.status || "pending"; // Default to "pending" if undefined
 
     // Auto-update status based on current time
     if (endDateTime.isBefore(now)) {
@@ -44,7 +55,11 @@ const ReservationsManager = ({ allReservations }) => {
         icon: faClock,
         name: "En attente",
       },
-      rejected: { color: "bg-red-200 text-red-800", icon: faBan, name: "Rejeté" },
+      rejected: {
+        color: "bg-red-200 text-red-800",
+        icon: faBan,
+        name: "Rejeté",
+      },
       cancelled: {
         color: "bg-red-200 text-red-800",
         icon: faBan,
@@ -59,6 +74,7 @@ const ReservationsManager = ({ allReservations }) => {
 
     return (
       statusConfig[status] || {
+        status: "unknown",
         color: "bg-gray-200 text-gray-800",
         icon: null,
         name: status,
@@ -70,7 +86,7 @@ const ReservationsManager = ({ allReservations }) => {
     const { status } = getStatusDetails(r);
     return (
       reservationStatusFilter === "all" ||
-      status.toLowerCase() === reservationStatusFilter.toLowerCase()
+      (status && status.toLowerCase() === reservationStatusFilter.toLowerCase())
     );
   });
 
@@ -136,27 +152,27 @@ const ReservationsManager = ({ allReservations }) => {
                       className="border-b border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                     >
                       <td className="px-4 py-4 text-gray-800 dark:text-gray-200">
-                        {reservation.client_village}
+                        {reservation.client_village || "N/A"}
                       </td>
                       <td className="px-4 py-4 text-gray-800 dark:text-gray-200">
-                        {reservation.volunteer_name}
+                        {reservation.volunteer_name || "N/A"}
                       </td>
                       <td className="px-4 py-4 text-gray-800 dark:text-gray-200">
-                        {reservation.client_name}
+                        {reservation.client_name || "N/A"}
                       </td>
                       <td className="px-4 py-4 text-gray-800 dark:text-gray-200">
-                        {reservation.dog_name}
+                        {reservation.dog_name || "N/A"}
                       </td>
                       <td className="px-4 py-4 text-gray-800 dark:text-gray-200">
-                        {moment(reservation.reservation_date).format(
-                          "DD/MM/YYYY"
-                        )}
+                        {reservation.reservation_date
+                          ? moment(reservation.reservation_date).format("DD/MM/YYYY")
+                          : "N/A"}
                       </td>
                       <td className="px-4 py-4 text-gray-800 dark:text-gray-200">
-                        {reservation.start_time}
+                        {reservation.start_time || "N/A"}
                       </td>
                       <td className="px-4 py-4 text-gray-800 dark:text-gray-200">
-                        {reservation.end_time}
+                        {reservation.end_time || "N/A"}
                       </td>
                       <td className="px-4 py-4">
                         <span
@@ -184,16 +200,26 @@ ReservationsManager.propTypes = {
   allReservations: PropTypes.arrayOf(
     PropTypes.shape({
       id: PropTypes.string.isRequired,
-      client_village: PropTypes.string.isRequired,
-      volunteer_name: PropTypes.string.isRequired,
-      client_name: PropTypes.string.isRequired,
-      dog_name: PropTypes.string.isRequired,
-      reservation_date: PropTypes.string.isRequired,
-      start_time: PropTypes.string.isRequired,
-      end_time: PropTypes.string.isRequired,
-      status: PropTypes.string.isRequired,
+      client_village: PropTypes.string,
+      volunteer_name: PropTypes.string,
+      client_name: PropTypes.string,
+      dog_name: PropTypes.string,
+      reservation_date: PropTypes.string,
+      start_time: PropTypes.string,
+      end_time: PropTypes.string,
+      status: PropTypes.oneOf([
+        "accepted",
+        "pending",
+        "rejected",
+        "cancelled",
+        "completed",
+      ]),
     })
   ).isRequired,
+};
+
+ReservationsManager.defaultProps = {
+  allReservations: [],
 };
 
 export default ReservationsManager;
