@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { sendApprovalEmail } = require("../email/emailService.js");
 const moment = require("moment");
-const { S3Client, GetObjectCommand } = require("@aws-sdk/client-s3"); 
+const { S3Client, GetObjectCommand } = require("@aws-sdk/client-s3");
 const fs = require("fs").promises;
 const path = require("path");
 
@@ -18,184 +18,81 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
       })
     : null;
 
-    const fetchProfilePicture = async (profilePictureUrl, userId) => {
-      let profilePictureData = null;
-      if (profilePictureUrl) {
-        if (isProduction && s3Client) {
-          const urlParts = profilePictureUrl.split("/");
-          const s3Key = urlParts.slice(3).join("/");
-          const params = {
-            Bucket: process.env.S3_BUCKET_NAME,
-            Key: s3Key,
-          };
-          try {
-            const command = new GetObjectCommand(params);
-            const { Body } = await s3Client.send(command);
-            const chunks = [];
-            for await (const chunk of Body) {
-              chunks.push(chunk);
-            }
-            profilePictureData = Buffer.concat(chunks).toString("base64");
-          } catch (s3Error) {
-            console.error(`Error fetching profile picture from S3 for user ${userId}:`, s3Error);
-          }
-        } else {
-          const localPath = path.join(
-            __dirname,
-            "..",
-            "uploads",
-            "profile-pictures",
-            path.basename(profilePictureUrl)
-          );
-          try {
-            const fileData = await fs.readFile(localPath);
-            profilePictureData = fileData.toString("base64");
-          } catch (fsError) {
-            console.error(`Error reading local profile picture for user ${userId}:`, fsError);
-          }
-        }
+  router.get("/admins/volunteers", authenticate, authorizeAdmin, async (req, res) => {
+    try {
+      const { village, role } = req.query;
+  
+      let query = `
+        SELECT
+          u.id,
+          u.username,
+          u.email,
+          u.phone_number,
+          u.village,
+          u.volunteer_status,
+          u.insurance_file_path,
+          u.address,
+          u.subscription_paid,
+          u.villages_covered,
+          u.personal_id,
+          u.is_adult,
+          u.commitments,
+          COALESCE(json_agg(
+            json_build_object(
+              'day_of_week', a.day_of_week,
+              'start_time', a.start_time,
+              'end_time', a.end_time
+            )
+          ) FILTER (WHERE a.id IS NOT NULL), '[]') AS availabilities
+        FROM users u
+        LEFT JOIN availabilities a ON u.id = a.user_id
+        WHERE u.role = 'volunteer'
+      `;
+  
+      const whereClause = [];
+      const queryParams = [];
+  
+      if (village) {
+        whereClause.push(`u.village = $${queryParams.length + 1}`);
+        queryParams.push(village);
       }
-      return profilePictureData ? `data:image/png;base64,${profilePictureData}` : null;
-    };
-
-    router.get("/admins/volunteers", authenticate, authorizeAdmin, async (req, res) => {
-      try {
-        const { village, role } = req.query;
-    
-        let query = `
-          SELECT
-              u.id,
-              u.username,
-              u.email,
-              u.phone_number,  -- Add phone_number here
-              u.village,
-              u.volunteer_status,
-              u.insurance_file_path,
-              u.profile_picture_url,
-              u.address,
-              u.subscription_paid,
-              u.villages_covered,
-              u.personal_id,
-              u.is_adult,
-              u.commitments,
-              COALESCE(json_agg(
-                  json_build_object(
-                      'day_of_week', a.day_of_week,
-                      'start_time', a.start_time,
-                      'end_time', a.end_time
-                  )
-              ) FILTER (WHERE a.id IS NOT NULL), '[]') AS availabilities
-          FROM users u
-          LEFT JOIN availabilities a ON u.id = a.user_id
-          WHERE u.role = 'volunteer'
-        `;
-    
-        const whereClause = [];
-        const queryParams = [];
-    
-        if (village) {
-          whereClause.push(`u.village = $${queryParams.length + 1}`);
-          queryParams.push(village);
-        }
-        if (role) {
-          whereClause.push(`u.role = $${queryParams.length + 1}`);
-          queryParams.push(role);
-        }
-    
-        if (whereClause.length > 0) {
-          query += " AND " + whereClause.join(" AND ");
-        }
-    
-        query += `
-          GROUP BY
-              u.id,
-              u.username,
-              u.email,
-              u.phone_number,  -- Add phone_number to GROUP BY
-              u.village,
-              u.volunteer_status,
-              u.insurance_file_path,
-              u.profile_picture_url,
-              u.address,
-              u.subscription_paid,
-              u.villages_covered,
-              u.personal_id,
-              u.is_adult,
-              u.commitments
-        `;
-    
-        const volunteersResult = await pool.query(query, queryParams);
-        const volunteers = volunteersResult.rows || [];
-    
-        // Fetch profile pictures for each volunteer
-        const volunteersWithPictures = await Promise.all(
-          volunteers.map(async (volunteer) => {
-            let profilePictureData = null;
-    
-            if (volunteer.profile_picture_url) {
-              if (isProduction && s3Client) {
-                // Extract S3 key from the URL
-                const urlParts = volunteer.profile_picture_url.split("/");
-                const s3Key = urlParts.slice(3).join("/"); // e.g., "profile-pictures/profile_123_123456.png"
-    
-                const params = {
-                  Bucket: process.env.S3_BUCKET_NAME,
-                  Key: s3Key,
-                };
-    
-                try {
-                  const command = new GetObjectCommand(params);
-                  const { Body } = await s3Client.send(command);
-    
-                  // Convert S3 stream to Buffer and then to base64
-                  const chunks = [];
-                  for await (const chunk of Body) {
-                    chunks.push(chunk);
-                  }
-                  profilePictureData = Buffer.concat(chunks).toString("base64");
-                } catch (s3Error) {
-                  console.error(`Error fetching profile picture from S3 for user ${volunteer.id}:`, s3Error);
-                  profilePictureData = null; // Fallback to null if fetch fails
-                }
-              } else {
-                // Local development: Read from filesystem
-                const localPath = path.join(
-                  __dirname,
-                  "..",
-                  "uploads",
-                  "profile-pictures",
-                  path.basename(volunteer.profile_picture_url)
-                );
-                try {
-                  const fileData = await fs.readFile(localPath);
-                  profilePictureData = fileData.toString("base64");
-                } catch (fsError) {
-                  console.error(`Error reading local profile picture for user ${volunteer.id}:`, fsError);
-                  profilePictureData = null; // Fallback to null if file read fails
-                }
-              }
-            }
-    
-            return {
-              ...volunteer,
-              profilePictureData: profilePictureData
-                ? `data:image/png;base64,${profilePictureData}`
-                : null, // Return as data URL
-            };
-          })
-        );
-    
-        res.json(volunteersWithPictures);
-      } catch (error) {
-        console.error("Error fetching volunteers (admin):", error);
-        res.status(500).json({
-          error: "Failed to fetch volunteers",
-          details: error.message,
-        });
+      if (role) {
+        whereClause.push(`u.role = $${queryParams.length + 1}`);
+        queryParams.push(role);
       }
-    });
+  
+      if (whereClause.length > 0) {
+        query += " AND " + whereClause.join(" AND ");
+      }
+  
+      query += `
+        GROUP BY
+          u.id,
+          u.username,
+          u.email,
+          u.phone_number,
+          u.village,
+          u.volunteer_status,
+          u.insurance_file_path,
+          u.address,
+          u.subscription_paid,
+          u.villages_covered,
+          u.personal_id,
+          u.is_adult,
+          u.commitments
+      `;
+  
+      const volunteersResult = await pool.query(query, queryParams);
+      res.json(volunteersResult.rows || []);
+    } catch (error) {
+      console.error("Error fetching volunteers (admin):", error);
+      res.status(500).json({
+        error: "Failed to fetch volunteers",
+        details: error.message,
+      });
+    }
+  });
 
-  // PUT /admin/volunteers/:volunteerId/personal-id - Set volunteer's personal ID
   router.put(
     "/admin/volunteers/:volunteerId/personal-id",
     authenticate,
@@ -215,8 +112,7 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
           personal_id.length > 50
         ) {
           return res.status(400).json({
-            error:
-              "Invalid personal_id. Must be a string with maximum length of 50 characters.",
+            error: "Invalid personal_id. Must be a string with maximum length of 50 characters.",
           });
         }
 
@@ -229,8 +125,7 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
           return res.status(404).json({ error: "Volunteer not found" });
         }
 
-        const { personal_id: existingId, personal_id_set } =
-          volunteerCheck.rows[0];
+        const { personal_id: existingId, personal_id_set } = volunteerCheck.rows[0];
         if (personal_id_set) {
           return res.status(403).json({
             error: "Personal ID has already been set and cannot be changed.",
@@ -268,7 +163,6 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
     }
   );
 
-  // GET ALL USERS (ADMIN)
   router.get("/admin/all-users", authenticate, async (req, res) => {
     try {
       const adminCheck = await pool.query(
@@ -281,12 +175,12 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
   
       const users = await pool.query(`
         SELECT 
-          id, 
-          username, 
-          email, 
-          role, 
-          village, 
-          volunteer_status, 
+          id,
+          username,
+          email,
+          role,
+          village,
+          volunteer_status,
           insurance_file_path,
           subscription_paid,
           villages_covered,
@@ -305,7 +199,6 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
     }
   });
 
-  // UPDATE USER ROLE (ADMIN)
   router.put(
     "/admin/users/:userId/role",
     authenticate,
@@ -324,8 +217,7 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
           !["client", "volunteer", "admin"].includes(newRole.toLowerCase())
         ) {
           return res.status(400).json({
-            error:
-              "Invalid user role. Must be 'client', 'volunteer', or 'admin'",
+            error: "Invalid user role. Must be 'client', 'volunteer', or 'admin'",
           });
         }
 
@@ -362,67 +254,62 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
     }
   );  
 
-// DELETE USER (ADMIN)
-router.delete(
-  "/admin/users/:userId",
-  authenticate,
-  authorizeAdmin,
-  async (req, res) => {
-    try {
-      const userId = req.params.userId;
+  router.delete(
+    "/admin/users/:userId",
+    authenticate,
+    authorizeAdmin,
+    async (req, res) => {
+      try {
+        const userId = req.params.userId;
 
-      // Validate UUID format (basic check)
-      if (!userId || typeof userId !== "string" || !userId.match(/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/)) {
-        return res.status(400).json({ error: "Invalid user ID format. Must be a valid UUID." });
-      }
+        if (!userId || typeof userId !== "string" || !userId.match(/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/)) {
+          return res.status(400).json({ error: "Invalid user ID format. Must be a valid UUID." });
+        }
 
-      // Check if the user exists
-      const userCheck = await pool.query(
-        "SELECT id FROM users WHERE id = $1",
-        [userId]
-      );
-      if (userCheck.rows.length === 0) {
-        return res.status(404).json({ error: "User not found" });
-      }
+        const userCheck = await pool.query(
+          "SELECT id FROM users WHERE id = $1",
+          [userId]
+        );
+        if (userCheck.rows.length === 0) {
+          return res.status(404).json({ error: "User not found" });
+        }
 
-      // Delete the user
-      const deletedUser = await pool.query(
-        "DELETE FROM users WHERE id = $1 RETURNING id, username",
-        [userId]
-      );
+        const deletedUser = await pool.query(
+          "DELETE FROM users WHERE id = $1 RETURNING id, username",
+          [userId]
+        );
 
-      if (deletedUser.rows.length > 0) {
-        res.json({
-          message: `User ${deletedUser.rows[0].username} deleted successfully`,
-          userId: deletedUser.rows[0].id,
+        if (deletedUser.rows.length > 0) {
+          res.json({
+            message: `User ${deletedUser.rows[0].username} deleted successfully`,
+            userId: deletedUser.rows[0].id,
+          });
+        } else {
+          res.status(500).json({ error: "Failed to delete user" });
+        }
+      } catch (error) {
+        console.error("Error deleting user:", error);
+        res.status(500).json({
+          error: "Failed to delete user",
+          details: error.message,
         });
-      } else {
-        res.status(500).json({ error: "Failed to delete user" });
       }
-    } catch (error) {
-      console.error("Error deleting user:", error);
-      res.status(500).json({
-        error: "Failed to delete user",
-        details: error.message,
-      });
     }
-  }
-);
+  );
 
-  // FETCH RESERVATIONS (ADMIN)
   router.get("/admin/reservations", authenticate, authorizeAdmin, async (req, res) => {
     try {
       const reservations = await pool.query(`
         SELECT
-            r.id,
-            u.username AS client_name,
-            v.username AS volunteer_name,
-            d.name AS dog_name,
-            r.reservation_date,
-            TO_CHAR(r.start_time, 'HH24:MI') AS start_time,
-            TO_CHAR(r.end_time, 'HH24:MI') AS end_time,
-            r.status,
-            u.village AS client_village
+          r.id,
+          u.username AS client_name,
+          v.username AS volunteer_name,
+          d.name AS dog_name,
+          r.reservation_date,
+          TO_CHAR(r.start_time, 'HH24:MI') AS start_time,
+          TO_CHAR(r.end_time, 'HH24:MI') AS end_time,
+          r.status,
+          u.village AS client_village
         FROM reservations r
         JOIN users u ON r.client_id = u.id
         JOIN users v ON r.volunteer_id = v.id
@@ -452,7 +339,6 @@ router.delete(
     }
   });
 
-  // ADMIN APPROVE/REJECT VOLUNTEER APPLICATION
   router.put(
     "/admin/volunteers/:volunteerId/status",
     authenticate,
@@ -464,8 +350,7 @@ router.delete(
 
         if (!["approved", "pending", "rejected"].includes(status)) {
           return res.status(400).json({
-            error:
-              "Invalid status. Must be 'approved', 'pending', or 'rejected'",
+            error: "Invalid status. Must be 'approved', 'pending', or 'rejected'",
           });
         }
 
@@ -505,7 +390,6 @@ router.delete(
     }
   );
 
-  // SEND VOLUNTEER APPROVAL EMAIL
   router.post(
     "/send-approval-email",
     authenticate,
@@ -526,7 +410,6 @@ router.delete(
     }
   );
 
-  // FETCH OTHER VILLAGE REQUESTS
   router.get(
     "/admin/other-village-requests",
     authenticate,
@@ -552,107 +435,50 @@ router.delete(
 
   router.get("/admins/volunteers/minimal", authenticate, authorizeAdmin, async (req, res) => {
     try {
-      const { village } = req.query;
-
+      const { village, search, status, limit = 10, offset = 0 } = req.query;
+  
       let query = `
         SELECT
           u.id,
           u.username,
-          u.email,
           u.volunteer_status,
-          u.personal_id,
-          u.subscription_paid,
-          u.profile_picture_url
+          u.personal_id
         FROM users u
         WHERE u.role = 'volunteer'
       `;
-
+  
       const whereClause = [];
       const queryParams = [];
-
+  
       if (village) {
         whereClause.push(`u.village = $${queryParams.length + 1}`);
         queryParams.push(village);
       }
-
+      if (search) {
+        whereClause.push(`u.username ILIKE $${queryParams.length + 1}`);
+        queryParams.push(`%${search}%`);
+      }
+      if (status) {
+        whereClause.push(`u.volunteer_status = $${queryParams.length + 1}`);
+        queryParams.push(status);
+      }
+  
       if (whereClause.length > 0) {
         query += " AND " + whereClause.join(" AND ");
       }
-
-      const volunteersResult = await pool.query(query, queryParams);
-      const volunteers = volunteersResult.rows || [];
-
-      // Fetch profile pictures for each volunteer
-      const volunteersWithPictures = await Promise.all(
-        volunteers.map(async (volunteer) => {
-          const profilePictureData = await fetchProfilePicture(volunteer.profile_picture_url, volunteer.id);
-          return {
-            ...volunteer,
-            profilePictureData,
-          };
-        })
-      );
-
-      res.json(volunteersWithPictures);
-    } catch (error) {
-      console.error("Error fetching minimal volunteers (admin):", error);
-      res.status(500).json({
-        error: "Failed to fetch minimal volunteers",
-        details: error.message,
-      });
-    }
-  });
-
-  router.get("/admins/volunteers/minimal", authenticate, authorizeAdmin, async (req, res) => {
-    try {
-      const { village } = req.query;
-
-      let query = `
-        SELECT
-          u.id,
-          u.username,
-          u.email,
-          u.volunteer_status,
-          u.personal_id,
-          u.subscription_paid,
-          u.profile_picture_url
-        FROM users u
-        WHERE u.role = 'volunteer'
+  
+      query += `
+        ORDER BY u.username
+        LIMIT $${queryParams.length + 1}
+        OFFSET $${queryParams.length + 2}
       `;
-
-      const whereClause = [];
-      const queryParams = [];
-
-      if (village) {
-        whereClause.push(`u.village = $${queryParams.length + 1}`);
-        queryParams.push(village);
-      }
-
-      if (whereClause.length > 0) {
-        query += " AND " + whereClause.join(" AND ");
-      }
-
+      queryParams.push(limit, offset);
+  
       const volunteersResult = await pool.query(query, queryParams);
-      const volunteers = volunteersResult.rows || [];
-
-      // Fetch profile pictures for each volunteer
-      const volunteersWithPictures = await Promise.all(
-        volunteers.map(async (volunteer) => {
-          const profilePictureData = await fetchProfilePicture(volunteer.profile_picture_url, volunteer.id);
-          return {
-            ...volunteer,
-            profilePictureData,
-          };
-        })
-      );
-
-      res.json(volunteersWithPictures);
+      res.json(volunteersResult.rows || []);
     } catch (error) {
-      console.error("Error fetching minimal volunteers (admin):", error);
-      res.status(500).json({
-        error: "Failed to fetch minimal volunteers",
-        details: error.message,
-      });
+      console.error("Error fetching minimal volunteers:", error);
+      res.status(500).json({ error: "Failed to fetch volunteers", details: error.message });
     }
   });
 
@@ -669,7 +495,6 @@ router.delete(
           u.village,
           u.volunteer_status,
           u.insurance_file_path,
-          u.profile_picture_url,
           u.address,
           u.subscription_paid,
           u.villages_covered,
@@ -694,7 +519,6 @@ router.delete(
           u.village,
           u.volunteer_status,
           u.insurance_file_path,
-          u.profile_picture_url,
           u.address,
           u.subscription_paid,
           u.villages_covered,
@@ -709,15 +533,7 @@ router.delete(
         return res.status(404).json({ error: "Volunteer not found" });
       }
 
-      const volunteer = volunteerResult.rows[0];
-      const profilePictureData = await fetchProfilePicture(volunteer.profile_picture_url, volunteer.id);
-
-      const volunteerWithPicture = {
-        ...volunteer,
-        profilePictureData,
-      };
-
-      res.json(volunteerWithPicture);
+      res.json(volunteerResult.rows[0]);
     } catch (error) {
       console.error("Error fetching volunteer details (admin):", error);
       res.status(500).json({

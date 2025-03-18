@@ -18,7 +18,6 @@ import useAdminData from "./useAdminData";
 const AdminDashboard = ({ handleLogout }) => {
   const {
     volunteers,
-    setVolunteers,
     loading,
     error,
     allReservations,
@@ -89,12 +88,7 @@ const AdminDashboard = ({ handleLogout }) => {
           ))}
         </div>
 
-        <VolunteersManager
-          volunteers={volunteers}
-          setVolunteers={setVolunteers}
-          setAllUsers={setAllUsers}
-          fetchVolunteerDetails={fetchVolunteerDetails} // Pass the fetchVolunteerDetails function
-        />
+        <VolunteersManager setAllUsers={setAllUsers} fetchVolunteerDetails={fetchVolunteerDetails} />
         <ReservationsManager allReservations={allReservations} />
         <UsersManager allUsers={allUsers} setAllUsers={setAllUsers} />
         <OtherVillageRequestsManager otherVillageRequests={otherVillageRequests} />
