@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nouvelle Demande de Réservation</title>
+    <title>Confirmation de Réservation</title>
     <style>
         body { font-family: 'Arial', sans-serif; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }
         .email-container { max-width: 800px; margin: 20px auto; background-color: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
@@ -31,23 +31,18 @@
         <tr>
             <td class="content-section">
                 <h2>Bonjour ${volunteerName},</h2>
-                <p>Une nouvelle demande de réservation a été soumise et attend votre approbation !</p>
+                <p>Une nouvelle réservation a été confirmée ! Voici les détails :</p>
                 <p><strong>Détails de la réservation :</strong></p>
                 <ul>
                     <li>Propriétaire : ${clientName}</li>
                     <li>Nom du chien : ${dogName}</li>
-                    <li>Village : ${village}</li> <!-- Added village here -->
+                    <li>Village : ${village}</li>
+                    <li>Adresse : ${clientAddress}</li>
                     <li>Date : ${reservationDate}</li>
                     <li>Heure de début : ${startTime}</li>
                     <li>Heure de fin : ${endTime}</li>
-                    <li>ID de la réservation : ${reservationId}</li>
                 </ul>
-                <p><strong>Actions :</strong></p>
-                <ul>
-                    <li><a href="${approvalLink}">Approuver la réservation</a></li>
-                    <li><a href="${rejectionLink}">Rejeter la réservation</a></li>
-                </ul>
-                <p>Veuillez examiner cette demande et prendre une décision dès que possible.</p>
+                <p>Merci pour votre engagement auprès de Chiens en Cavale !</p>
             </td>
         </tr>
         <tr>
