@@ -1,16 +1,17 @@
+// Donate.jsx
 import { Link } from "react-router-dom";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
 import { useState } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import PropTypes from "prop-types";
+import toast from "react-hot-toast";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
-// Load Stripe with VITE_STRIPE_PUBLISHABLE_KEY from .env
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
-const CheckoutForm = ({ amount, onSuccess, onError, onClose }) => {
+const CheckoutForm = ({ amount, onSuccess, onClose }) => {
   const stripe = useStripe();
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
@@ -22,6 +23,8 @@ const CheckoutForm = ({ amount, onSuccess, onError, onClose }) => {
 
     setIsProcessing(true);
     setErrorMessage(null);
+
+    const loadingToast = toast.loading("Traitement de votre don...");
 
     try {
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/donate`, {
@@ -45,13 +48,14 @@ const CheckoutForm = ({ amount, onSuccess, onError, onClose }) => {
 
       if (result.error) {
         setErrorMessage(result.error.message);
-        onError(result.error.message);
+        toast.error(result.error.message, { id: loadingToast });
       } else if (result.paymentIntent.status === "succeeded") {
+        toast.success("Merci pour votre don ! Votre soutien est précieux.", { id: loadingToast });
         onSuccess();
       }
     } catch (error) {
       setErrorMessage(error.message);
-      onError(error.message);
+      toast.error(`Échec du don : ${error.message}`, { id: loadingToast });
     } finally {
       setIsProcessing(false);
     }
@@ -98,11 +102,9 @@ const CheckoutForm = ({ amount, onSuccess, onError, onClose }) => {
   );
 };
 
-// PropTypes for CheckoutForm
 CheckoutForm.propTypes = {
   amount: PropTypes.number.isRequired,
   onSuccess: PropTypes.func.isRequired,
-  onError: PropTypes.func.isRequired,
   onClose: PropTypes.func.isRequired,
 };
 
@@ -110,20 +112,18 @@ const Donate = () => {
   const [selectedAmount, setSelectedAmount] = useState(null);
   const [customAmount, setCustomAmount] = useState("");
   const [showCustomInput, setShowCustomInput] = useState(false);
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
 
   const handleDonateSuccess = () => {
-    alert("Merci pour votre don !");
     setSelectedAmount(null);
     setCustomAmount("");
     setShowCustomInput(false);
-  };
-
-  const handleDonateError = (message) => {
-    alert(`Échec du don : ${message}`);
+    setShowSuccessPopup(true);
   };
 
   const handleClosePopup = () => {
     setSelectedAmount(null);
+    setShowSuccessPopup(false);
   };
 
   const donationAmounts = [5, 10, 15, 20, 50, 100];
@@ -156,13 +156,9 @@ const Donate = () => {
             <div className="mt-8">
               <p className="leading-relaxed text-gray-500 dark:text-gray-400 mb-4">
                 Pour assurer la pérennité de nos actions et continuer à offrir
-                des promenades gratuites, nous avons besoin de votre soutien. Un
-                aperçu de nos dépenses annuelles est ci-dessous. Chaque don,
-                qu&#39;il soit modeste ou généreux, est précieux. Il nous permet
-                de couvrir les frais essentiels au bon fonctionnement de
-                l’association : hébergement du site internet, assurance
-                multirisques pour nos bénévoles, frais bancaires, impressions de
-                supports de communication, et bien plus encore.
+                des promenades gratuites, nous avons besoin de votre soutien. Chaque don
+                nous permet de couvrir les frais essentiels : hébergement du site,
+                assurance pour nos bénévoles, frais bancaires, et plus encore.
               </p>
             </div>
 
@@ -212,18 +208,37 @@ const Donate = () => {
         </main>
       </div>
 
-      {/* Popup for Card Details */}
-      {selectedAmount && (
+      {/* Donation Form Popup */}
+      {selectedAmount && !showSuccessPopup && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
           <div className="relative">
             <Elements stripe={stripePromise}>
               <CheckoutForm
                 amount={selectedAmount}
                 onSuccess={handleDonateSuccess}
-                onError={handleDonateError}
                 onClose={handleClosePopup}
               />
             </Elements>
+          </div>
+        </div>
+      )}
+
+      {/* Success Popup */}
+      {showSuccessPopup && (
+        <div className="fixed inset-0 bg-gray-900 bg-opacity-90 flex items-center justify-center z-50">
+          <div className="text-center p-8">
+            <h1 className="text-4xl font-bold text-white mb-6">
+              Merci pour votre contribution ! 🐾
+            </h1>
+            <p className="text-gray-300 text-lg mb-8">
+              Votre don nous aide à continuer notre mission. Nous vous sommes très reconnaissants !
+            </p>
+            <button
+              onClick={handleClosePopup}
+              className="rounded-full bg-primary-pink hover:bg-pink-600 text-white font-bold py-3 px-8 focus:outline-none focus:ring-2 focus:ring-primary-pink focus:ring-opacity-50 transition-colors duration-300"
+            >
+              Fermer
+            </button>
           </div>
         </div>
       )}
@@ -231,9 +246,6 @@ const Donate = () => {
   );
 };
 
-// PropTypes for Donate (currently no props, but added for future-proofing)
-Donate.propTypes = {
-  // Add any future props here if needed
-};
+Donate.propTypes = {};
 
 export default Donate;

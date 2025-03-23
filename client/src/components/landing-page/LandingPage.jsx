@@ -5,6 +5,7 @@ import Tutorial from './Tutorial';
 import Team from './Team';
 import Footer from './Footer';
 import ConfettiEaster from '../misc/ConfettiEasterEgg';
+import Partners from './Partners';
 
 const LandingPage = () => {
   return (
@@ -16,6 +17,7 @@ const LandingPage = () => {
       </div>
       <Tutorial />
       <Team />
+      <Partners />
       <Footer />
       <ConfettiEaster />
     </div>
