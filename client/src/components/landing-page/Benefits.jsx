@@ -94,7 +94,6 @@ const Benefits = () => {
                   <p className="text-gray-600 dark:text-gray-400 leading-relaxed">
                     Les chiens, comme les humains, ont besoin d&#39;exercice régulier pour rester en bonne santé. Les promenades ne sont pas seulement une occasion de faire de l&#39;exercice physique, mais aussi un moment privilégié pour renforcer le lien avec votre animal. Des études montrent que les chiens qui sortent régulièrement sont moins sujets au stress et à l&#39;anxiété.
                   </p>
-                  <a target='_blank' className="text-primary-pink" href="https://www.chien.com/activites/promener-son-chien-621.php">https://www.chien.com/activites/promener-son-chien-621.php</a>
                 </>
               )}
             </article>
@@ -172,6 +171,7 @@ const Benefits = () => {
                       </p>
                     </li>
                   </ul>
+                  <p className="dark:text-gray-400 mt-8">Vous pouvez retrouver des raisons supplémentaires de <a className="text-primary-pink" href="https://www.chien.com/activites/promener-son-chien-621.php">promener son chien</a> ainsi que des conseils chez notre partenaire Chien.com!</p>
                 </div>
               )}
             </div>

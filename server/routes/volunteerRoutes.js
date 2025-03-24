@@ -105,7 +105,9 @@ module.exports = (
             };
             const command = new PutObjectCommand(params);
             await s3Client.send(command);
-            return `${baseUrl}/profile-pictures/${key}`;
+            return `https://${process.env.S3_BUCKET_NAME}.s3.${
+              process.env.AWS_REGION || "eu-north-1"
+            }.amazonaws.com/profile-pictures/${key}`;
           };
 
           profilePictureUrl = await uploadToS3(

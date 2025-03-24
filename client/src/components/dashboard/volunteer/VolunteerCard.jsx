@@ -20,10 +20,7 @@ const VolunteerCard = () => {
   const [error, setError] = useState(null);
   const cardRef = useRef(null);
 
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
-  const fullProfilePictureUrl = profilePictureUrl?.startsWith("http")
-    ? profilePictureUrl
-    : `${baseUrl}${profilePictureUrl}`.replace("http://", "https://");
+  const fullProfilePictureUrl = profilePictureUrl;
 
   useEffect(() => {
     const fetchVolunteerData = async () => {
@@ -280,17 +277,15 @@ const VolunteerCard = () => {
             <div className="flex items-center">
               {profilePictureUrl ? (
                 <img
-                  src={fullProfilePictureUrl}
-                  alt="Profile"
-                  className="w-20 h-20 object-cover rounded-full border-2 border-[#F7749D]"
-                  onError={(e) =>
-                    console.error(
-                      "Image failed to load:",
-                      fullProfilePictureUrl,
-                      e
-                    )
-                  }
-                />
+                src={fullProfilePictureUrl}
+                alt="Profile"
+                className="w-20 h-20 object-cover rounded-full border-2 border-[#F7749D]"
+                crossOrigin="anonymous"
+                onError={(e) => {
+                  console.error("Image failed to load:", fullProfilePictureUrl, e);
+                  e.target.src = '/default-profile.png'; // fallback image
+                }}
+              />
               ) : (
                 <div className="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center">
                   <FontAwesomeIcon

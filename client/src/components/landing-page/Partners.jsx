@@ -7,7 +7,7 @@ const Partner = () => {
           <p className="font-sans font-medium text-primary-pink mb-6">
             Avec le soutien de nos partenaires
           </p>
-          <a href="https://chien.com" target="_blank">
+          <a href="https://www.chien.com" target="_blank">
               <img
                 src={chienPartner}
                 alt="Chien.com Partner"
