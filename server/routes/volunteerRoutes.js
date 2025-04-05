@@ -533,86 +533,49 @@ module.exports = (
       const client = await pool.connect();
       try {
         await client.query("BEGIN");
-
+  
         const reservationId = req.params.id;
         const { status } = req.body;
-
-        // Validate status input
-        if (
-          !status ||
-          !["pending", "accepted", "rejected", "cancelled"].includes(status)
-        ) {
+  
+        if (!status || !["pending", "accepted", "rejected", "cancelled"].includes(status)) {
           throw new Error("Invalid reservation status.");
         }
-
-        // Fetch reservation details
+  
         const reservationCheck = await client.query(
-          `
-          SELECT 
-            volunteer_id, 
-            client_id, 
-            dog_id, 
-            reservation_date, 
-            start_time, 
-            end_time, 
-            status 
-          FROM reservations 
-          WHERE id = $1
-          `,
+          "SELECT volunteer_id, client_id, dog_id, reservation_date, start_time, end_time, status FROM reservations WHERE id = $1",
           [reservationId]
         );
-
-        if (
-          reservationCheck.rows.length === 0 ||
-          reservationCheck.rows[0].volunteer_id !== req.user.userId
-        ) {
+  
+        if (reservationCheck.rows.length === 0 || reservationCheck.rows[0].volunteer_id !== req.user.userId) {
           throw new Error("Unauthorized to update this reservation.");
         }
-
+  
         const currentReservation = reservationCheck.rows[0];
-        const endDateTime = moment(
-          `${currentReservation.reservation_date} ${currentReservation.end_time}`,
-          "YYYY-MM-DD HH:mm"
-        );
+        const endDateTime = moment(`${currentReservation.reservation_date} ${currentReservation.end_time}`, "YYYY-MM-DD HH:mm");
         const now = moment();
-
-        // Prevent modification of past reservations
+  
         if (endDateTime.isBefore(now)) {
           if (currentReservation.status === "accepted") {
-            await client.query(
-              "UPDATE reservations SET status = 'completed' WHERE id = $1",
-              [reservationId]
-            );
+            await client.query("UPDATE reservations SET status = 'completed' WHERE id = $1", [reservationId]);
             throw new Error("Cannot modify a completed reservation.");
           } else if (currentReservation.status === "pending") {
-            await client.query(
-              "UPDATE reservations SET status = 'cancelled' WHERE id = $1",
-              [reservationId]
-            );
+            await client.query("UPDATE reservations SET status = 'cancelled' WHERE id = $1", [reservationId]);
             throw new Error("Cannot modify a cancelled reservation.");
           }
         }
-
-        // Update reservation status
+  
         const updatedReservationResult = await client.query(
           "UPDATE reservations SET status = $1 WHERE id = $2 RETURNING *",
           [status, reservationId]
         );
         const updatedReservation = updatedReservationResult.rows[0];
-
-        // Handle rejection and reassignment
+  
         if (status === "rejected") {
-          const { reservation_date, start_time, end_time, client_id, dog_id } =
-            currentReservation;
-
-          // Fetch client village
-          const clientVillageResult = await client.query(
-            "SELECT village FROM users WHERE id = $1",
-            [client_id]
-          );
+          const { reservation_date, start_time, end_time, client_id, dog_id } = currentReservation;
+  
+          const clientVillageResult = await client.query("SELECT village FROM users WHERE id = $1", [client_id]);
           const clientVillage = clientVillageResult.rows[0].village;
-
-          // Find another available volunteer
+  
           const dayOfWeek = moment(reservation_date).isoWeekday();
           const availableVolunteersQuery = `
             SELECT u.id, u.username, u.email
@@ -638,53 +601,45 @@ module.exports = (
               )
             LIMIT 1
           `;
-          const availableVolunteers = await client.query(
-            availableVolunteersQuery,
-            [
-              dayOfWeek,
-              req.user.userId, // Exclude the current volunteer
-              clientVillage,
-              start_time,
-              end_time,
-              reservation_date,
-            ]
-          );
-
+          const availableVolunteers = await client.query(availableVolunteersQuery, [
+            dayOfWeek,
+            req.user.userId,
+            clientVillage,
+            start_time,
+            end_time,
+            reservation_date,
+          ]);
+  
           if (availableVolunteers.rows.length > 0) {
             const newVolunteer = availableVolunteers.rows[0];
-
-            // Reassign the reservation to the new volunteer
             const reassignedReservationResult = await client.query(
               "UPDATE reservations SET volunteer_id = $1, status = 'pending' WHERE id = $2 RETURNING *",
               [newVolunteer.id, reservationId]
             );
             const reassignedReservation = reassignedReservationResult.rows[0];
-
-            // Fetch additional details for email
+  
             const detailsQuery = `
               SELECT 
                 c.username AS client_name,
-                d.name AS dog_name
+                c.address AS client_address,
+                c.phone_number AS client_phone,
+                d.name AS dog_name,
+                d.breed AS dog_breed,
+                d.age AS dog_age
               FROM reservations r
               JOIN users c ON r.client_id = c.id
               JOIN dogs d ON r.dog_id = d.id
               WHERE r.id = $1
             `;
-            const detailsResult = await client.query(detailsQuery, [
-              reservationId,
-            ]);
-            const { client_name, dog_name } = detailsResult.rows[0];
-
-            // Notify the new volunteer via email
-            const formattedDate = new Date(reservation_date).toLocaleDateString(
-              "fr-FR",
-              {
-                weekday: "long",
-                day: "numeric",
-                month: "long",
-                year: "numeric",
-              }
-            );
+            const detailsResult = await client.query(detailsQuery, [reservationId]);
+            const { client_name, dog_name, client_address, dog_breed, dog_age, client_phone } = detailsResult.rows[0];
+  
+            const formattedDate = new Date(reservation_date).toLocaleDateString("fr-FR", {
+              weekday: "long",
+              day: "numeric",
+              month: "long",
+              year: "numeric",
+            });
             await sendReservationRequestEmailToVolunteer(
               newVolunteer.email,
               newVolunteer.username,
@@ -694,32 +649,24 @@ module.exports = (
               start_time,
               end_time,
               reservationId,
-              clientVillage
+              client_address,
+              dog_breed,
+              dog_age,
+              client_phone
             );
-
-            // Notify connected clients via WebSocket
+  
             connectedClients.forEach((client) => {
-              if (
-                client.readyState === WebSocket.OPEN &&
-                client.village === clientVillage
-              ) {
-                client.send(
-                  JSON.stringify({
-                    type: "reservation_update",
-                    reservation: reassignedReservation,
-                  })
-                );
+              if (client.readyState === WebSocket.OPEN && client.village === clientVillage) {
+                client.send(JSON.stringify({ type: "reservation_update", reservation: reassignedReservation }));
               }
             });
-
+  
             await client.query("COMMIT");
             return res.json({
-              message:
-                "Reservation rejected and reassigned to another volunteer.",
+              message: "Reservation rejected and reassigned to another volunteer.",
               reservation: reassignedReservation,
             });
           } else {
-            // No available volunteers found, notify the client
             const rejectionDetailsQuery = `
               SELECT
                 r.reservation_date,
@@ -733,139 +680,120 @@ module.exports = (
               JOIN dogs d ON r.dog_id = d.id
               WHERE r.id = $1
             `;
-            const rejectionDetailsResult = await client.query(
-              rejectionDetailsQuery,
-              [reservationId]
-            );
-
+            const rejectionDetailsResult = await client.query(rejectionDetailsQuery, [reservationId]);
+  
             if (rejectionDetailsResult.rows.length > 0) {
-              const {
-                client_email,
-                client_name,
-                dog_name,
-                reservation_date,
-                start_time,
-                end_time,
-              } = rejectionDetailsResult.rows[0];
-              const formattedDate = new Date(
-                reservation_date
-              ).toLocaleDateString("fr-FR", {
+              const { client_email, client_name, dog_name, reservation_date, start_time, end_time } = rejectionDetailsResult.rows[0];
+              const formattedDate = new Date(reservation_date).toLocaleDateString("fr-FR", {
                 weekday: "long",
                 day: "numeric",
                 month: "long",
                 year: "numeric",
               });
-              await sendReservationRejectedEmail(
-                client_email,
-                client_name,
-                dog_name,
-                formattedDate,
-                start_time,
-                end_time
-              );
+              await sendReservationRejectedEmail(client_email, client_name, dog_name, formattedDate, start_time, end_time);
             }
-
+  
             await client.query("COMMIT");
             return res.json({
               message: "Reservation rejected. No other volunteers available.",
               reservation: updatedReservation,
             });
           }
-        } else {
-          // Handle other statuses (accepted, cancelled, etc.)
-          if (status === "accepted") {
-            const detailsQuery = `
-              SELECT
-                r.reservation_date,
-                TO_CHAR(r.start_time, 'HH24:MI') as start_time,
-                TO_CHAR(r.end_time, 'HH24:MI') as end_time,
-                c.email AS client_email,
-                c.username AS client_name,
-                c.address AS client_address,
-                c.phone_number AS client_phone,
-                d.name AS dog_name,
-                v.email AS volunteer_email,
-                v.username AS volunteer_name
-              FROM reservations r
-              JOIN users c ON r.client_id = c.id
-              JOIN users v ON r.volunteer_id = v.id
-              JOIN dogs d ON r.dog_id = d.id
-              WHERE r.id = $1
-            `;
-            const detailsResult = await client.query(detailsQuery, [
-              reservationId,
-            ]);
-
-            if (detailsResult.rows.length > 0) {
-              const {
-                client_email,
-                client_name,
-                dog_name,
-                reservation_date,
-                start_time,
-                end_time,
-                volunteer_email,
-                volunteer_name,
-                client_address,
-                client_phone,
-              } = detailsResult.rows[0];
-
-              const formattedDate = new Date(
-                reservation_date
-              ).toLocaleDateString("fr-FR", {
-                weekday: "long",
-                day: "numeric",
-                month: "long",
-                year: "numeric",
-              });
-
-              await sendReservationApprovedEmail(
-                client_email,
-                client_name,
-                dog_name,
-                formattedDate,
-                start_time,
-                end_time
-              );
-              await sendVolunteerConfirmationEmail(
-                volunteer_email,
-                volunteer_name,
-                client_name,
-                dog_name,
-                formattedDate,
-                start_time,
-                end_time,
-                client_address,
-                client_email,
-                client_phone
-              );
-            }
+        } else if (status === "accepted") {
+          const detailsQuery = `
+            SELECT
+              r.reservation_date,
+              TO_CHAR(r.start_time, 'HH24:MI') as start_time,
+              TO_CHAR(r.end_time, 'HH24:MI') as end_time,
+              c.email AS client_email,
+              c.username AS client_name,
+              c.address AS client_address,
+              c.phone_number AS client_phone,
+              d.name AS dog_name,
+              d.breed AS dog_breed,
+              d.age AS dog_age,
+              v.email AS volunteer_email,
+              v.username AS volunteer_name
+            FROM reservations r
+            JOIN users c ON r.client_id = c.id
+            JOIN users v ON r.volunteer_id = v.id
+            JOIN dogs d ON r.dog_id = d.id
+            WHERE r.id = $1
+          `;
+          const detailsResult = await client.query(detailsQuery, [reservationId]);
+  
+          if (detailsResult.rows.length > 0) {
+            const {
+              client_email,
+              client_name,
+              dog_name,
+              reservation_date,
+              start_time,
+              end_time,
+              volunteer_email,
+              volunteer_name,
+              client_address,
+              client_phone,
+              dog_breed,
+              dog_age,
+            } = detailsResult.rows[0];
+  
+            const formattedDate = new Date(reservation_date).toLocaleDateString("fr-FR", {
+              weekday: "long",
+              day: "numeric",
+              month: "long",
+              year: "numeric",
+            });
+  
+            await sendReservationApprovedEmail(
+              client_email,
+              client_name,
+              dog_name,
+              formattedDate,
+              start_time,
+              end_time,
+              client_address,
+              dog_breed,
+              dog_age,
+              client_phone
+            );
+            await sendVolunteerConfirmationEmail(
+              volunteer_email,
+              volunteer_name,
+              client_name,
+              dog_name,
+              formattedDate,
+              start_time,
+              end_time,
+              client_address,
+              dog_breed,
+              dog_age,
+              client_phone
+            );
           }
-
-          // Notify connected clients via WebSocket
+  
           connectedClients.forEach((client) => {
-            if (
-              client.readyState === WebSocket.OPEN &&
-              client.village === req.user.village
-            ) {
-              client.send(
-                JSON.stringify({
-                  type: "reservation_update",
-                  reservation: updatedReservation,
-                })
-              );
+            if (client.readyState === WebSocket.OPEN && client.village === req.user.village) {
+              client.send(JSON.stringify({ type: "reservation_update", reservation: updatedReservation }));
             }
           });
-
+  
+          await client.query("COMMIT");
+          res.json(updatedReservation);
+        } else {
+          connectedClients.forEach((client) => {
+            if (client.readyState === WebSocket.OPEN && client.village === req.user.village) {
+              client.send(JSON.stringify({ type: "reservation_update", reservation: updatedReservation }));
+            }
+          });
+  
           await client.query("COMMIT");
           res.json(updatedReservation);
         }
       } catch (error) {
         await client.query("ROLLBACK");
         console.error("Error updating reservation status:", error);
-        res.status(500).json({
-          error: error.message || "Failed to update reservation status.",
-        });
+        res.status(500).json({ error: error.message || "Failed to update reservation status." });
       } finally {
         client.release();
       }

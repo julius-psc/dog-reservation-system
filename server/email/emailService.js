@@ -52,7 +52,18 @@ async function sendApprovalEmail(email, username) {
 }
 
 // RESERVATION APPROVED EMAIL (CLIENT)
-async function sendReservationApprovedEmail(email, clientName, dogName, reservationDate, startTime, endTime) {
+async function sendReservationApprovedEmail(
+  email,
+  clientName,
+  dogName,
+  reservationDate,
+  startTime,
+  endTime,
+  clientAddress,
+  dogBreed,
+  dogAge,
+  clientPhone
+) {
   try {
     const templatePath = path.join(__dirname, "..", "templates", "reservationApprovedEmail.html");
     const emailTemplate = fs.readFileSync(templatePath, "utf8");
@@ -63,11 +74,15 @@ async function sendReservationApprovedEmail(email, clientName, dogName, reservat
       year: "numeric",
     });
     const htmlContent = emailTemplate
-      .replace("${clientName}", clientName)
-      .replace("${dogName}", dogName)
-      .replace("${reservationDate}", formattedDate)
-      .replace("${startTime}", startTime)
-      .replace("${endTime}", endTime);
+      .replace(/\${clientName}/g, clientName)
+      .replace(/\${dogName}/g, dogName)
+      .replace(/\${dogBreed}/g, dogBreed || "Non spécifié")
+      .replace(/\${dogAge}/g, dogAge || "Non spécifié")
+      .replace(/\${clientAddress}/g, clientAddress || "Non spécifié")
+      .replace(/\${clientPhone}/g, clientPhone || "Non spécifié")
+      .replace(/\${reservationDate}/g, formattedDate)
+      .replace(/\${startTime}/g, startTime)
+      .replace(/\${endTime}/g, endTime);
 
     await transporter.sendMail({
       from: `"Chiens en Cavale" <${process.env.EMAIL_USER}>`,
@@ -91,7 +106,8 @@ async function sendVolunteerConfirmationEmail(
   startTime,
   endTime,
   clientAddress,
-  clientEmail,
+  dogBreed,
+  dogAge,
   clientPhone
 ) {
   try {
@@ -101,12 +117,13 @@ async function sendVolunteerConfirmationEmail(
       .replace(/\${volunteerName}/g, volunteerName)
       .replace(/\${clientName}/g, clientName)
       .replace(/\${dogName}/g, dogName)
+      .replace(/\${dogBreed}/g, dogBreed || "Non spécifié")
+      .replace(/\${dogAge}/g, dogAge || "Non spécifié")
+      .replace(/\${clientAddress}/g, clientAddress || "Non spécifié")
+      .replace(/\${clientPhone}/g, clientPhone || "Non spécifié")
       .replace(/\${reservationDate}/g, reservationDate)
       .replace(/\${startTime}/g, startTime)
-      .replace(/\${endTime}/g, endTime)
-      .replace(/\${clientAddress}/g, clientAddress)
-      .replace(/\${clientEmail}/g, clientEmail)
-      .replace(/\${clientPhone}/g, clientPhone);
+      .replace(/\${endTime}/g, endTime);
 
     await transporter.sendMail({
       from: `"Chiens en Cavale" <${process.env.EMAIL_USER}>`,
@@ -161,7 +178,10 @@ async function sendReservationRequestEmailToVolunteer(
   startTime,
   endTime,
   reservationId,
-  village // New parameter for village
+  clientAddress,
+  dogBreed,
+  dogAge,
+  clientPhone
 ) {
   try {
     const templatePath = path.join(__dirname, "..", "templates", "reservationRequestEmailToVolunteer.html");
@@ -174,21 +194,18 @@ async function sendReservationRequestEmailToVolunteer(
       year: "numeric",
     });
 
-    // Placeholder links - replace these with actual links in your application
-    const approvalLink = `[LINK TO APPROVE RESERVATION IN APP - Replace with actual link including reservationId=${reservationId}]`;
-    const rejectionLink = `[LINK TO REJECT RESERVATION IN APP - Replace with actual link including reservationId=${reservationId}]`;
-
     const htmlContent = emailTemplate
       .replace(/\${volunteerName}/g, volunteerName)
       .replace(/\${clientName}/g, clientName)
       .replace(/\${dogName}/g, dogName)
+      .replace(/\${dogBreed}/g, dogBreed || "Non spécifié")
+      .replace(/\${dogAge}/g, dogAge || "Non spécifié")
+      .replace(/\${clientAddress}/g, clientAddress || "Non spécifié")
+      .replace(/\${clientPhone}/g, clientPhone || "Non spécifié")
       .replace(/\${reservationDate}/g, formattedDate)
       .replace(/\${startTime}/g, startTime)
       .replace(/\${endTime}/g, endTime)
-      .replace(/\${reservationId}/g, reservationId)
-      .replace(/\${village}/g, village) // Replace village placeholder
-      .replace(/\${approvalLink}/g, approvalLink)
-      .replace(/\${rejectionLink}/g, rejectionLink);
+      .replace(/\${reservationId}/g, reservationId);
 
     await transporter.sendMail({
       from: `"Chiens en Cavale" <${process.env.EMAIL_USER}>`,
