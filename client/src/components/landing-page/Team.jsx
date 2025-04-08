@@ -4,7 +4,6 @@ import lilou from "../../assets/landing-page/icons/lilou-pfp.png";
 import nana from "../../assets/landing-page/icons/nana-pfp.png";
 import nath from "../../assets/landing-page/icons/nath-pfp.png";
 import ben1 from "../../assets/landing-page/icons/ben1-pfp.png";
-import ben2 from "../../assets/landing-page/icons/ben2-pfp.png";
 import ben3 from "../../assets/landing-page/icons/ben3-pfp.png";
 import ben4 from "../../assets/landing-page/icons/ben4-pfp.png";
 import ben5 from "../../assets/landing-page/icons/ben5-pfp.png";
@@ -13,6 +12,7 @@ import ben7 from "../../assets/landing-page/icons/ben7-pfp.png";
 import ben8 from "../../assets/landing-page/icons/ben8-pfp.png";
 import ben9 from "../../assets/landing-page/icons/ben9-pfp.png";
 import ben10 from "../../assets/landing-page/icons/ben10-pfp.png";
+import ben11 from "../../assets/landing-page/icons/ben11-pfp.png";
 import { useState, useEffect } from "react";
 import { Skeleton } from "@mui/material";
 
@@ -58,7 +58,6 @@ const Team = () => {
 
         const hardcodedMembers = [
           ben1,
-          ben2,
           ben3,
           ben4,
           ben5,
@@ -67,6 +66,7 @@ const Team = () => {
           ben8,
           ben9,
           ben10,
+          ben11
         ];
         setMembers(hardcodedMembers);
       } catch (err) {
@@ -134,7 +134,7 @@ const Team = () => {
   }
 
   return (
-    <section className="bg-secondary-pink w-screen pt-16 md:pt-40 pb-20 relative overflow-hidden text-primary-black">
+    <section className="bg-secondary-pink w-screen pt-8 md:pt-40 pb-20 relative overflow-hidden text-primary-black">
       <img
         className="absolute bottom-10 left-40 z-0 hidden md:block"
         src={paws}

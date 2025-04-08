@@ -6,8 +6,8 @@ import { useState, useEffect } from "react";
 // Simple button without animation
 const SimpleDogButton = () => {
   return (
-    <button className="text-white bg-primary-pink px-4 md:px-5 py-3 md:py-4 text-lg md:text-xl cursor-pointer w-full rounded-3xl">
-      Se connecter
+    <button className="text-white bg-primary-pink px-4 md:px-5 py-3 md:py-4 text-md md:text- cursor-pointer w-full rounded-3xl">
+      Espace membre
     </button>
   );
 };
@@ -18,8 +18,8 @@ const AnimatedDogButton = () => {
     <div className="w-full h-full relative flex items-center justify-center">
       <div className="relative group">
         {/* Button */}
-        <button className="text-white bg-primary-pink px-5 py-4 text-xl rounded-xl cursor-pointer relative box-border">
-          Se connecter
+        <button className="text-white bg-primary-pink px-5 py-4 text-lg rounded-xl cursor-pointer relative box-border">
+          Espace membre
         </button>
 
         {/* Dog */}
@@ -179,16 +179,16 @@ function Navbar() {
             Les bienfaits des promenades
           </Link>
           <Link
-            to="/donate"
-            className="text-primary-black dark:text-white hover:text-primary-pink dark:hover:text-primary-pink transition duration-200 text-xs md:text-sm lg:text-base"
-          >
-            Faire un don
-          </Link>
-          <Link
             to="/documents"
             className="text-primary-black dark:text-white hover:text-primary-pink dark:hover:text-primary-pink transition duration-200 text-xs md:text-sm lg:text-base"
           >
             Publications
+          </Link>
+          <Link
+            to="/donate"
+            className="text-primary-black dark:text-white hover:text-primary-pink dark:hover:text-primary-pink transition duration-200 text-xs md:text-sm lg:text-base"
+          >
+            Faire un don
           </Link>
           <a href="mailto:contact.chiensencavale@gmail.com" target="_blank">
             <img
@@ -232,17 +232,17 @@ function Navbar() {
                 Les bienfaits des promenades
               </Link>
               <Link
+                to="/documents"
+                className="text-primary-black dark:text-white hover:text-primary-pink dark:hover:text-primary-pink transition duration-200 text-sm"
+              >
+                Publications
+              </Link>
+              <Link
                 to="/donate"
                 className="text-primary-black dark:text-white hover:text-primary-pink dark:hover:text-primary-pink transition duration-200 text-sm"
                 onClick={toggleMobileMenu}
               >
                 Faire un don
-              </Link>
-              <Link
-                to="/documents"
-                className="text-primary-black dark:text-white hover:text-primary-pink dark:hover:text-primary-pink transition duration-200 text-sm"
-              >
-                Publications
               </Link>
               <a
                 href="mailto:contact.chiensencavale@gmail.com"

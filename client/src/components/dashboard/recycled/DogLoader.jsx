@@ -58,7 +58,7 @@ const DogLoader = ({ duration = 3000 }) => {
 
       <div className="mt-28 md:mt-28 px-4">
         <p className="text-primary-pink hidden md:block">
-          Veuillez patienter, on a perdu vos chiens... (mais on les cherche !)
+          Un instant... nos truffes numériques sont à l&#39;œuvre!
         </p>
         <div className="mt-2 w-48 md:w-full md:max-w-md bg-gray-200 rounded-full h-3">
           <div
