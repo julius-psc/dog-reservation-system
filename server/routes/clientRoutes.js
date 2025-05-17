@@ -61,10 +61,10 @@ module.exports = (
 
       // Enforce 3-day advance booking rule
       const reservationMoment = moment(reservationDate);
-      const threeDaysFromNow = moment().add(3, "days").startOf("day");
+      const oneDayFromNow = moment().add(1, "days").startOf("day");
       if (reservationMoment.isBefore(threeDaysFromNow)) {
         throw new Error(
-          "Les réservations doivent se faire au moins 3 jours à l'avance."
+          "Les réservations doivent se faire au moins 1 jour à l'avance."
         );
       }
 
