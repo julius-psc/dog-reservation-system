@@ -8,6 +8,7 @@ import ben8 from "../../assets/landing-page/icons/ben8-pfp.png";
 import ben9 from "../../assets/landing-page/icons/ben9-pfp.png";
 import ben10 from "../../assets/landing-page/icons/ben10-pfp.png";
 import ben11 from "../../assets/landing-page/icons/ben11-pfp.png";
+import ben12 from "../../assets/landing-page/icons/ben12-pfp.png";
 import julius from "../../assets/landing-page/icons/julius-pfp.png";
 import lilou from "../../assets/landing-page/icons/lilou-pfp.png";
 import nana from "../../assets/landing-page/icons/nana-pfp.png";
@@ -28,7 +29,8 @@ const VolunteerMembers = () => {
     ben8,
     ben9,
     ben10,
-    ben11
+    ben11,
+    ben12
   ];
 
   return (
