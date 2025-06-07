@@ -13,6 +13,7 @@ import ben8 from "../../assets/landing-page/icons/ben8-pfp.png";
 import ben9 from "../../assets/landing-page/icons/ben9-pfp.png";
 import ben10 from "../../assets/landing-page/icons/ben10-pfp.png";
 import ben11 from "../../assets/landing-page/icons/ben11-pfp.png";
+import ben12 from "../../assets/landing-page/icons/ben12-pfp.png";
 import { useState, useEffect } from "react";
 import { Skeleton } from "@mui/material";
 
@@ -66,7 +67,8 @@ const Team = () => {
           ben8,
           ben9,
           ben10,
-          ben11
+          ben11,
+          ben12
         ];
         setMembers(hardcodedMembers);
       } catch (err) {

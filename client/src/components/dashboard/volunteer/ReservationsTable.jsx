@@ -57,7 +57,9 @@ const ReservationsTable = ({ reservations, handleReservationAction }) => {
         break;
       case "completed":
         statusColor = "bg-primary-blue text-white";
-        statusIcon = <FontAwesomeIcon icon={faFlagCheckered} className="mr-1" />;
+        statusIcon = (
+          <FontAwesomeIcon icon={faFlagCheckered} className="mr-1" />
+        );
         break;
       default:
         statusColor = "";
@@ -67,12 +69,19 @@ const ReservationsTable = ({ reservations, handleReservationAction }) => {
     return { status, statusColor, statusIcon, statusText };
   };
 
+  // FILTER: Only show current week and upcoming
+  const startOfWeek = moment().startOf("isoWeek"); // Monday
+  const filteredReservations = reservations.filter((reservation) => {
+    const reservationDate = moment(reservation.reservation_date, "YYYY-MM-DD");
+    return reservationDate.isSameOrAfter(startOfWeek, "day");
+  });
+
   return (
     <section className="bg-white dark:bg-gray-900 rounded-xl shadow-lg p-8 transform transition-all duration-300 hover:shadow-xl">
       <h3 className="text-2xl font-bold text-primary-blue dark:text-primary-blue mb-6 flex items-center">
         Réservations
       </h3>
-      {reservations.length === 0 ? (
+      {filteredReservations.length === 0 ? (
         <p className="text-gray-500 dark:text-gray-400 text-center">
           Aucune réservation à afficher
         </p>
@@ -81,20 +90,26 @@ const ReservationsTable = ({ reservations, handleReservationAction }) => {
           <table className="min-w-full table-auto border-collapse">
             <thead className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
               <tr>
-                {["Client", "Chien", "Date", "Début", "Fin", "Statut", "Actions"].map(
-                  (header) => (
-                    <th
-                      key={header}
-                      className="px-6 py-3 text-left text-sm font-semibold uppercase tracking-wider"
-                    >
-                      {header}
-                    </th>
-                  )
-                )}
+                {[
+                  "Client",
+                  "Chien",
+                  "Date",
+                  "Début",
+                  "Fin",
+                  "Statut",
+                  "Actions",
+                ].map((header) => (
+                  <th
+                    key={header}
+                    className="px-6 py-3 text-left text-sm font-semibold uppercase tracking-wider"
+                  >
+                    {header}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {reservations.map((reservation) => {
+              {filteredReservations.map((reservation) => {
                 const { status, statusColor, statusIcon, statusText } =
                   getStatusDetails(reservation);
 
@@ -110,7 +125,9 @@ const ReservationsTable = ({ reservations, handleReservationAction }) => {
                       {reservation.dog_name}
                     </td>
                     <td className="px-6 py-4 text-gray-800 dark:text-gray-200 text-sm">
-                      {moment(reservation.reservation_date).format("DD/MM/YYYY")}
+                      {moment(reservation.reservation_date).format(
+                        "DD/MM/YYYY"
+                      )}
                     </td>
                     <td className="px-6 py-4 text-gray-800 dark:text-gray-200 text-sm">
                       {reservation.start_time}
@@ -132,7 +149,10 @@ const ReservationsTable = ({ reservations, handleReservationAction }) => {
                           <button
                             className="bg-green-500 hover:bg-green-600 text-white py-1 px-4 rounded-lg text-sm font-semibold transition-all duration-300"
                             onClick={() =>
-                              handleReservationAction(reservation.id, "accepted")
+                              handleReservationAction(
+                                reservation.id,
+                                "accepted"
+                              )
                             }
                           >
                             Accepter
@@ -140,14 +160,19 @@ const ReservationsTable = ({ reservations, handleReservationAction }) => {
                           <button
                             className="bg-red-500 hover:bg-red-600 text-white py-1 px-4 rounded-lg text-sm font-semibold transition-all duration-300"
                             onClick={() =>
-                              handleReservationAction(reservation.id, "rejected")
+                              handleReservationAction(
+                                reservation.id,
+                                "rejected"
+                              )
                             }
                           >
                             Refuser
                           </button>
                         </div>
                       ) : (
-                        <span className="text-gray-400 dark:text-gray-600">—</span>
+                        <span className="text-gray-400 dark:text-gray-600">
+                          —
+                        </span>
                       )}
                     </td>
                   </tr>
