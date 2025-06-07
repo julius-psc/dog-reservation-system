@@ -152,12 +152,14 @@ const volunteerRoutes = require("./routes/volunteerRoutes");
 const clientRoutes = require("./routes/clientRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const miscRoutes = require("./routes/miscRoutes");
+const stripeWebhook = require("./routes/stripeWebhook")(pool);
 
 app.use("/", authRoutes(pool, bcrypt, jwt, sendPasswordResetEmail));
 app.use("/", volunteerRoutes(pool, authenticate, authorizeVolunteer, isValidTime, moment, connectedClients, WebSocket));
 app.use("/", clientRoutes(pool, authenticate, moment, connectedClients, WebSocket, isValidTime));
 app.use("/", adminRoutes(pool, authenticate, authorizeAdmin));
 app.use("/", miscRoutes(pool));
+app.use("/webhooks/stripe", stripeWebhook);
 
 app.get("/fetchUser", authenticate, async (req, res) => {
   try {
