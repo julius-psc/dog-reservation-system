@@ -109,9 +109,6 @@ const SubscriptionManager = ({ subscriptionStatus }) => {
           {loading ? "Chargement …" : "Payer 9 €"}
         </button>
       )}
-      {subscriptionStatus.paid && (
-        <div className="text-green-700">Vous êtes déjà abonné !</div>
-      )}
     </div>
   );
 };

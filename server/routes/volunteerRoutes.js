@@ -876,11 +876,9 @@ module.exports = (
       } catch (error) {
         await client.query("ROLLBACK");
         console.error("Error updating reservation status:", error);
-        res
-          .status(500)
-          .json({
-            error: error.message || "Failed to update reservation status.",
-          });
+        res.status(500).json({
+          error: error.message || "Failed to update reservation status.",
+        });
       } finally {
         client.release();
       }
@@ -1083,33 +1081,40 @@ module.exports = (
     }
   );
 
-   router.post(
+  router.post(
     "/volunteer/create-checkout-session",
     authenticate,
     authorizeVolunteer,
     async (req, res) => {
       try {
-        const YOUR_PRICE_ID = "price_1R2rlyGBanlKTQUgFSi07o7J"; // your annual-9€ price
+        const YOUR_PRICE_ID = "price_1R2rlyGBanlKTQUgFSi07o7J";
+        const domain = process.env.FRONTEND_URL;
 
-        // build URLs based on your front-end
-        const domain = process.env.FRONTEND_URL; 
         const session = await stripe.checkout.sessions.create({
           mode: "subscription",
           payment_method_types: ["card"],
-          line_items: [{ price: YOUR_PRICE_ID, quantity: 1 }],
+          line_items: [
+            {
+              price: YOUR_PRICE_ID,
+              quantity: 1,
+            },
+          ],
           success_url: `${domain}/subscription/success?session_id={CHECKOUT_SESSION_ID}`,
           cancel_url: `${domain}/subscription/cancel`,
-          customer_email: req.user.email,  // auto-fill email
+          customer_email: req.user.email,
         });
+
+        console.log(
+          `✅ Created Checkout Session: ${session.id} for user ${req.user.email}`
+        );
 
         res.json({ sessionId: session.id });
       } catch (err) {
-        console.error("Error creating Checkout session:", err);
+        console.error("❌ Error creating Checkout session:", err);
         res.status(500).json({ error: "Failed to create session" });
       }
     }
   );
-
 
   // Existing endpoint: GET /volunteer/subscription
   router.get(
