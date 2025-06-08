@@ -1083,6 +1083,34 @@ module.exports = (
     }
   );
 
+   router.post(
+    "/create-checkout-session",
+    authenticate,
+    authorizeVolunteer,
+    async (req, res) => {
+      try {
+        const YOUR_PRICE_ID = "price_1R2rlyGBanlKTQUgFSi07o7J"; // your annual-9€ price
+
+        // build URLs based on your front-end
+        const domain = process.env.FRONTEND_URL; 
+        const session = await stripe.checkout.sessions.create({
+          mode: "subscription",
+          payment_method_types: ["card"],
+          line_items: [{ price: YOUR_PRICE_ID, quantity: 1 }],
+          success_url: `${domain}/subscription/success?session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${domain}/subscription/cancel`,
+          customer_email: req.user.email,  // auto-fill email
+        });
+
+        res.json({ sessionId: session.id });
+      } catch (err) {
+        console.error("Error creating Checkout session:", err);
+        res.status(500).json({ error: "Failed to create session" });
+      }
+    }
+  );
+
+
   // Existing endpoint: GET /volunteer/subscription
   router.get(
     "/volunteer/subscription",
@@ -1110,99 +1138,6 @@ module.exports = (
       } catch (error) {
         console.error("Error fetching subscription status:", error);
         res.status(500).json({ error: "Failed to fetch subscription status" });
-      }
-    }
-  );
-
-  // Existing endpoint: POST /volunteer/subscription/pay
-  router.post(
-    "/volunteer/subscription/pay",
-    authenticate,
-    authorizeVolunteer,
-    async (req, res) => {
-      try {
-        const volunteerId = req.user.userId;
-        const { payment_method_id } = req.body;
-
-        if (!payment_method_id) {
-          return res
-            .status(400)
-            .json({ error: "Payment method ID is required" });
-        }
-
-        const userCheck = await pool.query(
-          "SELECT role, email, username FROM users WHERE id = $1",
-          [volunteerId]
-        );
-        if (
-          userCheck.rows.length === 0 ||
-          userCheck.rows[0].role !== "volunteer"
-        ) {
-          return res.status(403).json({ error: "Not a volunteer" });
-        }
-
-        const { email, username } = userCheck.rows[0];
-
-        // 1️⃣ Check if customer exists or create
-        let customer;
-        const existingCustomers = await stripe.customers.list({ email });
-        if (existingCustomers.data.length > 0) {
-          customer = existingCustomers.data[0];
-        } else {
-          customer = await stripe.customers.create({
-            email,
-            name: username,
-            payment_method: payment_method_id,
-            invoice_settings: { default_payment_method: payment_method_id },
-          });
-        }
-
-        // 2️⃣ Create subscription WITH correct payment_behavior + expand payment intent
-        const subscription = await stripe.subscriptions.create({
-          customer: customer.id,
-          items: [{ price: "price_1R2rlyGBanlKTQUgFSi07o7J" }],
-          payment_behavior: "default_incomplete", // THIS IS KEY!
-          expand: ["latest_invoice.payment_intent"], // Expand payment intent to confirm
-        });
-
-        const paymentIntent = subscription.latest_invoice.payment_intent;
-
-        // 3️⃣ Handle required action (3DS)
-        if (paymentIntent.status === "requires_action") {
-          return res.status(402).json({
-            status: "requires_action",
-            clientSecret: paymentIntent.client_secret,
-            subscriptionId: subscription.id,
-          });
-        }
-
-        // 4️⃣ If success → update database
-        if (paymentIntent.status === "succeeded") {
-          const expiryDate = moment()
-            .add(1, "year")
-            .format("YYYY-MM-DD HH:mm:ss");
-
-          await pool.query(
-            "UPDATE users SET subscription_paid = $1, subscription_expiry_date = $2, stripe_subscription_id = $3 WHERE id = $4",
-            [true, expiryDate, subscription.id, volunteerId]
-          );
-
-          return res.json({
-            success: true,
-            message: "Subscription created and paid successfully",
-            subscriptionId: subscription.id,
-          });
-        } else {
-          return res.status(400).json({
-            error: `Unexpected payment intent status: ${paymentIntent.status}`,
-          });
-        }
-      } catch (error) {
-        console.error("Error processing subscription payment:", error);
-        res.status(500).json({
-          error: "Failed to process subscription",
-          details: error.message,
-        });
       }
     }
   );

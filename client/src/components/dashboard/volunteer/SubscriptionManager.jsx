@@ -1,11 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import PropTypes from "prop-types";
-import {
-  Elements,
-  CardElement,
-  useStripe,
-  useElements,
-} from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
 import Cookies from "js-cookie";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -15,20 +9,21 @@ import "moment/locale/fr";
 import toast from "react-hot-toast";
 
 moment.locale("fr");
-
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
 const getSubscriptionMessage = (subscriptionStatus) => {
   if (subscriptionStatus.paid) return null;
   if (!subscriptionStatus.expiryDate) {
     return {
-      message: "ACQUITTEZ VOTRE COTISATION ANNUELLE (9€)",
+      message: "ACQUITTEZ VOTRE COTISATION ANNUELLE (9 €)",
       type: "error",
       action: true,
     };
   }
   const daysUntilExpiry = subscriptionStatus.expiryDate.diff(moment(), "days");
-  const gracePeriodEnd = subscriptionStatus.expiryDate.clone().add(14, "days"); // 2-week grace period
+  const gracePeriodEnd = subscriptionStatus.expiryDate
+    .clone()
+    .add(14, "days");
   const isGracePeriod =
     moment().isAfter(subscriptionStatus.expiryDate) &&
     moment().isBefore(gracePeriodEnd);
@@ -57,206 +52,70 @@ const getSubscriptionMessage = (subscriptionStatus) => {
 const SubscriptionManager = ({
   subscriptionStatus,
   fetchSubscriptionStatus,
-  showPaymentForm,
-  setShowPaymentForm,
 }) => {
+  const [loading, setLoading] = useState(false);
   const subscriptionMessage = getSubscriptionMessage(subscriptionStatus);
 
-  const PaymentForm = ({ onSuccess, onCancel }) => {
-    const stripe = useStripe();
-    const elements = useElements();
-    const [paymentError, setPaymentError] = useState(null);
-    const [processing, setProcessing] = useState(false);
-
-    const handleSubmit = async (e) => {
-      e.preventDefault();
-      if (!stripe || !elements) return;
-
-      setProcessing(true);
-      setPaymentError(null);
-
-      const token = Cookies.get("token");
-      try {
-        const cardElement = elements.getElement(CardElement);
-        const { error: paymentMethodError, paymentMethod } =
-          await stripe.createPaymentMethod({
-            type: "card",
-            card: cardElement,
-          });
-
-        if (paymentMethodError) {
-          throw new Error(paymentMethodError.message);
+  const handleCheckout = async () => {
+    setLoading(true);
+    const token = Cookies.get("token");
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL}/volunteer/create-checkout-session`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
         }
+      );
+      const { sessionId, error } = await res.json();
+      if (error || !sessionId) throw new Error(error || "Impossible de démarrer le paiement.");
 
-        console.log("Payment Method ID:", paymentMethod.id);
-
-        const response = await fetch(
-          `${import.meta.env.VITE_API_BASE_URL}/volunteer/subscription/pay`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              payment_method_id: paymentMethod.id,
-            }),
-          }
-        );
-
-        const data = await response.json();
-        console.log("Backend Response:", data);
-
-        // CASE 1 — fully paid already
-        if (response.ok && data.success) {
-          onSuccess();
-          toast.success("ABONNEMENT ACTIVÉ AVEC SUCCÈS!");
-        }
-        // CASE 2 — requires_action (3DSecure)
-        else if (
-          response.status === 402 &&
-          (data.status === "requires_action" ||
-            data.status === "requires_confirmation")
-        ) {
-          const { error: confirmError, paymentIntent } =
-            await stripe.confirmCardPayment(data.clientSecret);
-
-          if (confirmError) {
-            throw new Error(confirmError.message);
-          }
-
-          console.log("Confirm result:", paymentIntent.status);
-
-          if (paymentIntent.status === "succeeded") {
-            onSuccess();
-            toast.success("ABONNEMENT ACTIVÉ AVEC SUCCÈS!");
-          } else if (paymentIntent.status === "processing") {
-            onSuccess();
-            toast.success(
-              "Paiement en cours de traitement. Abonnement sera actif sous peu."
-            );
-          } else if (paymentIntent.status === "requires_action") {
-            throw new Error(
-              "Action supplémentaire requise (3D Secure). Veuillez réessayer."
-            );
-          } else if (paymentIntent.status === "requires_payment_method") {
-            throw new Error(
-              "Le paiement a échoué. Veuillez vérifier votre carte."
-            );
-          } else {
-            throw new Error(
-              `Statut inattendu après confirmation: ${paymentIntent.status}`
-            );
-          }
-        }
-
-        // CASE 3 — error
-        else {
-          throw new Error(data.error || "Échec du traitement de l'abonnement");
-        }
-      } catch (err) {
-        setPaymentError(err.message);
-        toast.error(err.message);
-      } finally {
-        setProcessing(false);
-      }
-    };
-
-    return (
-      <div className="p-6 bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-md mx-auto transform transition-all duration-300 scale-100 hover:scale-105">
-        <h3 className="text-xl font-bold mb-4 text-primary-blue dark:text-primary-blue">
-          Adhésion annuelle (9€)
-        </h3>
-        <p className="text-sm text-gray-600 dark:text-gray-300 mb-6">
-          Rejoignez-nous en tant que bénévole promeneur avec un abonnement
-          annuel !
-        </p>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700">
-            <CardElement
-              options={{
-                style: {
-                  base: {
-                    fontSize: "16px",
-                    color: "#424770",
-                    "::placeholder": { color: "#aab7c4" },
-                  },
-                  invalid: { color: "#9e2146" },
-                },
-              }}
-            />
-          </div>
-          {paymentError && (
-            <p className="text-red-500 text-sm animate-pulse">{paymentError}</p>
-          )}
-          <div className="flex justify-between gap-4">
-            <button
-              type="submit"
-              disabled={!stripe || processing}
-              className="flex-1 bg-primary-blue hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg disabled:opacity-50 transition-all duration-300"
-            >
-              {processing ? "Traitement..." : "Payer 9€"}
-            </button>
-            <button
-              type="button"
-              onClick={onCancel}
-              className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-all duration-300"
-            >
-              Annuler
-            </button>
-          </div>
-        </form>
-      </div>
-    );
+      const stripe = await stripePromise;
+      const { error: stripeError } = await stripe.redirectToCheckout({ sessionId });
+      if (stripeError) throw stripeError;
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  PaymentForm.propTypes = {
-    onSuccess: PropTypes.func.isRequired,
-    onCancel: PropTypes.func.isRequired,
-  };
+  useEffect(() => {
+    fetchSubscriptionStatus();
+  }, [fetchSubscriptionStatus]);
 
   return (
-    <>
+    <div className="space-y-4">
       {subscriptionMessage && (
         <div
-          className={`mb-8 p-6 rounded-xl shadow-lg flex items-center justify-between transform transition-all duration-300 hover:shadow-xl ${
+          className={`p-4 rounded shadow ${
             subscriptionMessage.type === "error"
-              ? "bg-red-100 dark:bg-red-800 text-red-800 dark:text-red-200"
+              ? "bg-red-100 text-red-800"
               : subscriptionMessage.type === "warning"
-              ? "bg-yellow-100 dark:bg-yellow-800 text-yellow-800 dark:text-yellow-200"
-              : "bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-200"
+              ? "bg-yellow-100 text-yellow-800"
+              : "bg-green-100 text-green-800"
           }`}
         >
-          <div className="flex items-center">
-            <FontAwesomeIcon icon={faEuroSign} className="mr-3 text-lg" />
-            <p className="text-sm font-semibold">
-              {subscriptionMessage.message}
-            </p>
-          </div>
-          {subscriptionMessage.action && (
-            <button
-              onClick={() => setShowPaymentForm(true)}
-              className="bg-primary-blue hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold transition-all duration-300"
-            >
-              {subscriptionStatus.paid ? "Renouveler" : "Payer maintenant"}
-            </button>
-          )}
+          <FontAwesomeIcon icon={faEuroSign} className="mr-2" />
+          {subscriptionMessage.message}
         </div>
       )}
-      {showPaymentForm && (
-        <div className="fixed inset-0 bg-gray-800 bg-opacity-75 flex justify-center items-center z-50">
-          <Elements stripe={stripePromise}>
-            <PaymentForm
-              onSuccess={() => {
-                setShowPaymentForm(false);
-                fetchSubscriptionStatus();
-              }}
-              onCancel={() => setShowPaymentForm(false)}
-            />
-          </Elements>
-        </div>
+      {!subscriptionStatus.paid && (
+        <button
+          onClick={handleCheckout}
+          disabled={loading}
+          className="bg-primary-blue hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded disabled:opacity-50"
+        >
+          {loading ? "Chargement…" : "Payer 9 €"}
+        </button>
       )}
-    </>
+      {subscriptionStatus.paid && (
+        <div className="text-green-700">Vous êtes déjà abonné !</div>
+      )}
+    </div>
   );
 };
 
@@ -266,8 +125,6 @@ SubscriptionManager.propTypes = {
     expiryDate: PropTypes.instanceOf(moment).nullable,
   }).isRequired,
   fetchSubscriptionStatus: PropTypes.func.isRequired,
-  showPaymentForm: PropTypes.bool.isRequired,
-  setShowPaymentForm: PropTypes.func.isRequired,
 };
 
 export default SubscriptionManager;
