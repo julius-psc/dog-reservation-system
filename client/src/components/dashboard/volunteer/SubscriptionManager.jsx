@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import PropTypes from "prop-types";
 import { loadStripe } from "@stripe/stripe-js";
 import Cookies from "js-cookie";
@@ -9,6 +9,7 @@ import "moment/locale/fr";
 import toast from "react-hot-toast";
 
 moment.locale("fr");
+
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
 const getSubscriptionMessage = (subscriptionStatus) => {
@@ -47,10 +48,7 @@ const getSubscriptionMessage = (subscriptionStatus) => {
   return null;
 };
 
-const SubscriptionManager = ({
-  subscriptionStatus,
-  fetchSubscriptionStatus,
-}) => {
+const SubscriptionManager = ({ subscriptionStatus }) => {
   const [loading, setLoading] = useState(false);
   const subscriptionMessage = getSubscriptionMessage(subscriptionStatus);
 
@@ -85,10 +83,6 @@ const SubscriptionManager = ({
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    fetchSubscriptionStatus();
-  }, [fetchSubscriptionStatus]);
 
   return (
     <div className="space-y-4">
@@ -131,3 +125,5 @@ SubscriptionManager.propTypes = {
 };
 
 export default SubscriptionManager;
+
+
