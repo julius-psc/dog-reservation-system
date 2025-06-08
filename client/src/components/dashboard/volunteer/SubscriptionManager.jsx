@@ -113,7 +113,11 @@ const SubscriptionManager = ({
           toast.success("ABONNEMENT ACTIVÉ AVEC SUCCÈS!");
         }
         // CASE 2 — requires_action (3DSecure)
-        else if (response.status === 402 && data.status === "requires_action") {
+        else if (
+          response.status === 402 &&
+          (data.status === "requires_action" ||
+            data.status === "requires_confirmation")
+        ) {
           const { error: confirmError, paymentIntent } =
             await stripe.confirmCardPayment(data.clientSecret);
 
@@ -251,3 +255,5 @@ SubscriptionManager.propTypes = {
 };
 
 export default SubscriptionManager;
+
+
