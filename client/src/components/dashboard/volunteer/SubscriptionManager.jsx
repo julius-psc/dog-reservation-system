@@ -1,6 +1,11 @@
 import { useState } from "react";
 import PropTypes from "prop-types";
-import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
+import {
+  Elements,
+  CardElement,
+  useStripe,
+  useElements,
+} from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
 import Cookies from "js-cookie";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -95,7 +100,6 @@ const SubscriptionManager = ({
             },
             body: JSON.stringify({
               payment_method_id: paymentMethod.id,
-              amount: 9, // Keep this for compatibility, though backend uses Price ID
             }),
           }
         );
@@ -103,10 +107,13 @@ const SubscriptionManager = ({
         const data = await response.json();
         console.log("Backend Response:", data);
 
+        // CASE 1 — fully paid already
         if (response.ok && data.success) {
           onSuccess();
           toast.success("ABONNEMENT ACTIVÉ AVEC SUCCÈS!");
-        } else if (response.status === 402 && data.status === "requires_action") {
+        }
+        // CASE 2 — requires_action (3DSecure)
+        else if (response.status === 402 && data.status === "requires_action") {
           const { error: confirmError, paymentIntent } =
             await stripe.confirmCardPayment(data.clientSecret);
 
@@ -122,7 +129,9 @@ const SubscriptionManager = ({
               `Échec de la confirmation: statut ${paymentIntent.status}`
             );
           }
-        } else {
+        }
+        // CASE 3 — error
+        else {
           throw new Error(data.error || "Échec du traitement de l'abonnement");
         }
       } catch (err) {
@@ -139,7 +148,8 @@ const SubscriptionManager = ({
           Adhésion annuelle (9€)
         </h3>
         <p className="text-sm text-gray-600 dark:text-gray-300 mb-6">
-          Rejoignez-nous en tant que bénévole promeneur avec un abonnement annuel !
+          Rejoignez-nous en tant que bénévole promeneur avec un abonnement
+          annuel !
         </p>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700">
@@ -199,7 +209,9 @@ const SubscriptionManager = ({
         >
           <div className="flex items-center">
             <FontAwesomeIcon icon={faEuroSign} className="mr-3 text-lg" />
-            <p className="text-sm font-semibold">{subscriptionMessage.message}</p>
+            <p className="text-sm font-semibold">
+              {subscriptionMessage.message}
+            </p>
           </div>
           {subscriptionMessage.action && (
             <button

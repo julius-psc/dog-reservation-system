@@ -533,49 +533,68 @@ module.exports = (
       const client = await pool.connect();
       try {
         await client.query("BEGIN");
-  
+
         const reservationId = req.params.id;
         const { status } = req.body;
-  
-        if (!status || !["pending", "accepted", "rejected", "cancelled"].includes(status)) {
+
+        if (
+          !status ||
+          !["pending", "accepted", "rejected", "cancelled"].includes(status)
+        ) {
           throw new Error("Invalid reservation status.");
         }
-  
+
         const reservationCheck = await client.query(
           "SELECT volunteer_id, client_id, dog_id, reservation_date, start_time, end_time, status FROM reservations WHERE id = $1",
           [reservationId]
         );
-  
-        if (reservationCheck.rows.length === 0 || reservationCheck.rows[0].volunteer_id !== req.user.userId) {
+
+        if (
+          reservationCheck.rows.length === 0 ||
+          reservationCheck.rows[0].volunteer_id !== req.user.userId
+        ) {
           throw new Error("Unauthorized to update this reservation.");
         }
-  
+
         const currentReservation = reservationCheck.rows[0];
-        const endDateTime = moment(`${currentReservation.reservation_date} ${currentReservation.end_time}`, "YYYY-MM-DD HH:mm");
+        const endDateTime = moment(
+          `${currentReservation.reservation_date} ${currentReservation.end_time}`,
+          "YYYY-MM-DD HH:mm"
+        );
         const now = moment();
-  
+
         if (endDateTime.isBefore(now)) {
           if (currentReservation.status === "accepted") {
-            await client.query("UPDATE reservations SET status = 'completed' WHERE id = $1", [reservationId]);
+            await client.query(
+              "UPDATE reservations SET status = 'completed' WHERE id = $1",
+              [reservationId]
+            );
             throw new Error("Cannot modify a completed reservation.");
           } else if (currentReservation.status === "pending") {
-            await client.query("UPDATE reservations SET status = 'cancelled' WHERE id = $1", [reservationId]);
+            await client.query(
+              "UPDATE reservations SET status = 'cancelled' WHERE id = $1",
+              [reservationId]
+            );
             throw new Error("Cannot modify a cancelled reservation.");
           }
         }
-  
+
         const updatedReservationResult = await client.query(
           "UPDATE reservations SET status = $1 WHERE id = $2 RETURNING *",
           [status, reservationId]
         );
         const updatedReservation = updatedReservationResult.rows[0];
-  
+
         if (status === "rejected") {
-          const { reservation_date, start_time, end_time, client_id, dog_id } = currentReservation;
-  
-          const clientVillageResult = await client.query("SELECT village FROM users WHERE id = $1", [client_id]);
+          const { reservation_date, start_time, end_time, client_id, dog_id } =
+            currentReservation;
+
+          const clientVillageResult = await client.query(
+            "SELECT village FROM users WHERE id = $1",
+            [client_id]
+          );
           const clientVillage = clientVillageResult.rows[0].village;
-  
+
           const dayOfWeek = moment(reservation_date).isoWeekday();
           const availableVolunteersQuery = `
             SELECT u.id, u.username, u.email
@@ -601,15 +620,18 @@ module.exports = (
               )
             LIMIT 1
           `;
-          const availableVolunteers = await client.query(availableVolunteersQuery, [
-            dayOfWeek,
-            req.user.userId,
-            clientVillage,
-            start_time,
-            end_time,
-            reservation_date,
-          ]);
-  
+          const availableVolunteers = await client.query(
+            availableVolunteersQuery,
+            [
+              dayOfWeek,
+              req.user.userId,
+              clientVillage,
+              start_time,
+              end_time,
+              reservation_date,
+            ]
+          );
+
           if (availableVolunteers.rows.length > 0) {
             const newVolunteer = availableVolunteers.rows[0];
             const reassignedReservationResult = await client.query(
@@ -617,7 +639,7 @@ module.exports = (
               [newVolunteer.id, reservationId]
             );
             const reassignedReservation = reassignedReservationResult.rows[0];
-  
+
             const detailsQuery = `
               SELECT 
                 c.username AS client_name,
@@ -631,15 +653,27 @@ module.exports = (
               JOIN dogs d ON r.dog_id = d.id
               WHERE r.id = $1
             `;
-            const detailsResult = await client.query(detailsQuery, [reservationId]);
-            const { client_name, dog_name, client_address, dog_breed, dog_age, client_phone } = detailsResult.rows[0];
-  
-            const formattedDate = new Date(reservation_date).toLocaleDateString("fr-FR", {
-              weekday: "long",
-              day: "numeric",
-              month: "long",
-              year: "numeric",
-            });
+            const detailsResult = await client.query(detailsQuery, [
+              reservationId,
+            ]);
+            const {
+              client_name,
+              dog_name,
+              client_address,
+              dog_breed,
+              dog_age,
+              client_phone,
+            } = detailsResult.rows[0];
+
+            const formattedDate = new Date(reservation_date).toLocaleDateString(
+              "fr-FR",
+              {
+                weekday: "long",
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+              }
+            );
             await sendReservationRequestEmailToVolunteer(
               newVolunteer.email,
               newVolunteer.username,
@@ -654,16 +688,25 @@ module.exports = (
               dog_age,
               client_phone
             );
-  
+
             connectedClients.forEach((client) => {
-              if (client.readyState === WebSocket.OPEN && client.village === clientVillage) {
-                client.send(JSON.stringify({ type: "reservation_update", reservation: reassignedReservation }));
+              if (
+                client.readyState === WebSocket.OPEN &&
+                client.village === clientVillage
+              ) {
+                client.send(
+                  JSON.stringify({
+                    type: "reservation_update",
+                    reservation: reassignedReservation,
+                  })
+                );
               }
             });
-  
+
             await client.query("COMMIT");
             return res.json({
-              message: "Reservation rejected and reassigned to another volunteer.",
+              message:
+                "Reservation rejected and reassigned to another volunteer.",
               reservation: reassignedReservation,
             });
           } else {
@@ -680,19 +723,38 @@ module.exports = (
               JOIN dogs d ON r.dog_id = d.id
               WHERE r.id = $1
             `;
-            const rejectionDetailsResult = await client.query(rejectionDetailsQuery, [reservationId]);
-  
+            const rejectionDetailsResult = await client.query(
+              rejectionDetailsQuery,
+              [reservationId]
+            );
+
             if (rejectionDetailsResult.rows.length > 0) {
-              const { client_email, client_name, dog_name, reservation_date, start_time, end_time } = rejectionDetailsResult.rows[0];
-              const formattedDate = new Date(reservation_date).toLocaleDateString("fr-FR", {
+              const {
+                client_email,
+                client_name,
+                dog_name,
+                reservation_date,
+                start_time,
+                end_time,
+              } = rejectionDetailsResult.rows[0];
+              const formattedDate = new Date(
+                reservation_date
+              ).toLocaleDateString("fr-FR", {
                 weekday: "long",
                 day: "numeric",
                 month: "long",
                 year: "numeric",
               });
-              await sendReservationRejectedEmail(client_email, client_name, dog_name, formattedDate, start_time, end_time);
+              await sendReservationRejectedEmail(
+                client_email,
+                client_name,
+                dog_name,
+                formattedDate,
+                start_time,
+                end_time
+              );
             }
-  
+
             await client.query("COMMIT");
             return res.json({
               message: "Reservation rejected. No other volunteers available.",
@@ -720,8 +782,10 @@ module.exports = (
             JOIN dogs d ON r.dog_id = d.id
             WHERE r.id = $1
           `;
-          const detailsResult = await client.query(detailsQuery, [reservationId]);
-  
+          const detailsResult = await client.query(detailsQuery, [
+            reservationId,
+          ]);
+
           if (detailsResult.rows.length > 0) {
             const {
               client_email,
@@ -737,14 +801,17 @@ module.exports = (
               dog_breed,
               dog_age,
             } = detailsResult.rows[0];
-  
-            const formattedDate = new Date(reservation_date).toLocaleDateString("fr-FR", {
-              weekday: "long",
-              day: "numeric",
-              month: "long",
-              year: "numeric",
-            });
-  
+
+            const formattedDate = new Date(reservation_date).toLocaleDateString(
+              "fr-FR",
+              {
+                weekday: "long",
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+              }
+            );
+
             await sendReservationApprovedEmail(
               client_email,
               client_name,
@@ -771,29 +838,49 @@ module.exports = (
               client_phone
             );
           }
-  
+
           connectedClients.forEach((client) => {
-            if (client.readyState === WebSocket.OPEN && client.village === req.user.village) {
-              client.send(JSON.stringify({ type: "reservation_update", reservation: updatedReservation }));
+            if (
+              client.readyState === WebSocket.OPEN &&
+              client.village === req.user.village
+            ) {
+              client.send(
+                JSON.stringify({
+                  type: "reservation_update",
+                  reservation: updatedReservation,
+                })
+              );
             }
           });
-  
+
           await client.query("COMMIT");
           res.json(updatedReservation);
         } else {
           connectedClients.forEach((client) => {
-            if (client.readyState === WebSocket.OPEN && client.village === req.user.village) {
-              client.send(JSON.stringify({ type: "reservation_update", reservation: updatedReservation }));
+            if (
+              client.readyState === WebSocket.OPEN &&
+              client.village === req.user.village
+            ) {
+              client.send(
+                JSON.stringify({
+                  type: "reservation_update",
+                  reservation: updatedReservation,
+                })
+              );
             }
           });
-  
+
           await client.query("COMMIT");
           res.json(updatedReservation);
         }
       } catch (error) {
         await client.query("ROLLBACK");
         console.error("Error updating reservation status:", error);
-        res.status(500).json({ error: error.message || "Failed to update reservation status." });
+        res
+          .status(500)
+          .json({
+            error: error.message || "Failed to update reservation status.",
+          });
       } finally {
         client.release();
       }
@@ -1056,7 +1143,7 @@ module.exports = (
 
         const { email, username } = userCheck.rows[0];
 
-        // Check if customer exists in Stripe, or create one
+        // 1️⃣ Check if customer exists or create
         let customer;
         const existingCustomers = await stripe.customers.list({ email });
         if (existingCustomers.data.length > 0) {
@@ -1070,45 +1157,46 @@ module.exports = (
           });
         }
 
-        // Create a subscription (removed payment_behavior)
+        // 2️⃣ Create subscription WITH correct payment_behavior + expand payment intent
         const subscription = await stripe.subscriptions.create({
           customer: customer.id,
           items: [{ price: "price_1R2rlyGBanlKTQUgFSi07o7J" }],
-          billing_cycle_anchor: Math.floor(Date.now() / 1000), // Start now
-          proration_behavior: "none",
+          payment_behavior: "default_incomplete", // THIS IS KEY!
+          expand: ["latest_invoice.payment_intent"], // Expand payment intent to confirm
         });
 
-        // Check subscription status
-        if (subscription.status === "incomplete") {
-          const invoice = await stripe.invoices.retrieve(
-            subscription.latest_invoice
-          );
-          if (
-            invoice.payment_intent &&
-            invoice.payment_intent.status === "requires_action"
-          ) {
-            return res.status(402).json({
-              status: "requires_action",
-              clientSecret: invoice.payment_intent.client_secret,
-              subscriptionId: subscription.id,
-            });
-          }
+        const paymentIntent = subscription.latest_invoice.payment_intent;
+
+        // 3️⃣ Handle required action (3DS)
+        if (paymentIntent.status === "requires_action") {
+          return res.status(402).json({
+            status: "requires_action",
+            clientSecret: paymentIntent.client_secret,
+            subscriptionId: subscription.id,
+          });
         }
 
-        // Subscription is active
-        const expiryDate = moment()
-          .add(1, "year")
-          .format("YYYY-MM-DD HH:mm:ss");
-        await pool.query(
-          "UPDATE users SET subscription_paid = $1, subscription_expiry_date = $2, stripe_subscription_id = $3 WHERE id = $4",
-          [true, expiryDate, subscription.id, volunteerId]
-        );
+        // 4️⃣ If success → update database
+        if (paymentIntent.status === "succeeded") {
+          const expiryDate = moment()
+            .add(1, "year")
+            .format("YYYY-MM-DD HH:mm:ss");
 
-        res.json({
-          success: true,
-          message: "Subscription created successfully",
-          subscriptionId: subscription.id,
-        });
+          await pool.query(
+            "UPDATE users SET subscription_paid = $1, subscription_expiry_date = $2, stripe_subscription_id = $3 WHERE id = $4",
+            [true, expiryDate, subscription.id, volunteerId]
+          );
+
+          return res.json({
+            success: true,
+            message: "Subscription created and paid successfully",
+            subscriptionId: subscription.id,
+          });
+        } else {
+          return res.status(400).json({
+            error: `Unexpected payment intent status: ${paymentIntent.status}`,
+          });
+        }
       } catch (error) {
         console.error("Error processing subscription payment:", error);
         res.status(500).json({
