@@ -21,9 +21,7 @@ const getSubscriptionMessage = (subscriptionStatus) => {
     };
   }
   const daysUntilExpiry = subscriptionStatus.expiryDate.diff(moment(), "days");
-  const gracePeriodEnd = subscriptionStatus.expiryDate
-    .clone()
-    .add(14, "days");
+  const gracePeriodEnd = subscriptionStatus.expiryDate.clone().add(14, "days");
   const isGracePeriod =
     moment().isAfter(subscriptionStatus.expiryDate) &&
     moment().isBefore(gracePeriodEnd);
@@ -58,10 +56,12 @@ const SubscriptionManager = ({
 
   const handleCheckout = async () => {
     setLoading(true);
-    const token = Cookies.get("token");
     try {
+      const token = Cookies.get("token");
       const res = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL}/volunteer/create-checkout-session`,
+        `${
+          import.meta.env.VITE_API_BASE_URL
+        }/volunteer/create-checkout-session`,
         {
           method: "POST",
           headers: {
@@ -71,10 +71,13 @@ const SubscriptionManager = ({
         }
       );
       const { sessionId, error } = await res.json();
-      if (error || !sessionId) throw new Error(error || "Impossible de démarrer le paiement.");
+      if (error || !sessionId)
+        throw new Error(error || "Impossible de démarrer le paiement.");
 
       const stripe = await stripePromise;
-      const { error: stripeError } = await stripe.redirectToCheckout({ sessionId });
+      const { error: stripeError } = await stripe.redirectToCheckout({
+        sessionId,
+      });
       if (stripeError) throw stripeError;
     } catch (err) {
       toast.error(err.message);
@@ -109,7 +112,7 @@ const SubscriptionManager = ({
           disabled={loading}
           className="bg-primary-blue hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded disabled:opacity-50"
         >
-          {loading ? "Chargement…" : "Payer 9 €"}
+          {loading ? "Chargement …" : "Payer 9 €"}
         </button>
       )}
       {subscriptionStatus.paid && (

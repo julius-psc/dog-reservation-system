@@ -1084,7 +1084,7 @@ module.exports = (
   );
 
    router.post(
-    "/create-checkout-session",
+    "/volunteer/create-checkout-session",
     authenticate,
     authorizeVolunteer,
     async (req, res) => {

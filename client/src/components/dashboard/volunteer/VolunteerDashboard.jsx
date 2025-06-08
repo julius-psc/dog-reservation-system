@@ -51,7 +51,6 @@ const VolunteerDashboard = ({ handleLogout }) => {
   } = useVolunteerData();
 
   const [showAvailabilityForm, setShowAvailabilityForm] = useState(false);
-  const [showPaymentForm, setShowPaymentForm] = useState(false);
 
   const villageOptions = [
     "ANISY",
@@ -140,7 +139,7 @@ const VolunteerDashboard = ({ handleLogout }) => {
       );
       if (!response.ok) throw new Error(`Échec de ${status} la réservation`);
       fetchReservations();
-      toast.success(`RÉSERVATION ${status} AVEC SUCCÈS!`);
+      toast.success(`RÉSERVATION ${status} AVEC SUCCÈS !`);
     } catch (err) {
       toast.error(`ERREUR: ${err.message}`);
     }
@@ -166,7 +165,6 @@ const VolunteerDashboard = ({ handleLogout }) => {
       toast.error("AJOUTEZ AU MOINS UN VILLAGE.");
       return;
     }
-
     if (!canUpdateVillages()) {
       const daysSinceUpdate = villagesUpdatedAt
         ? moment().diff(moment(villagesUpdatedAt), "days")
@@ -179,7 +177,6 @@ const VolunteerDashboard = ({ handleLogout }) => {
       );
       return;
     }
-
     const confirmation = window.confirm(
       "ATTENTION : LES COMMUNES SONT DÉFINIES AVEC UN DÉLAI DE 30 JOURS ENTRE LES CHANGEMENTS. CONTINUER ?"
     );
@@ -200,15 +197,13 @@ const VolunteerDashboard = ({ handleLogout }) => {
           body: JSON.stringify({ villagesCovered: fullyCapitalizedVillages }),
         }
       );
-
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(
           errorData.error || "ÉCHEC DE LA MISE À JOUR DES VILLAGES"
         );
       }
-
-      toast.success("VILLAGES DÉFINIS AVEC SUCCÈS!");
+      toast.success("VILLAGES DÉFINIS AVEC SUCCÈS !");
       fetchVolunteerData();
     } catch (error) {
       toast.error(`ERREUR: ${error.message}`);
@@ -284,14 +279,14 @@ const VolunteerDashboard = ({ handleLogout }) => {
           <LogoutButton handleLogout={handleLogout} />
         </div>
       </header>
+
       <main className="container mx-auto mt-8 px-4 pb-12">
         <SubscriptionManager
           subscriptionStatus={subscriptionStatus}
           fetchSubscriptionStatus={fetchSubscriptionStatus}
-          showPaymentForm={showPaymentForm}
-          setShowPaymentForm={setShowPaymentForm}
         />
-        <div>
+
+        <div className="mt-8">
           <p className="text-3xl text-primary-blue font-semibold dark:text-white">
             Bonjour {username} !
           </p>
@@ -300,7 +295,9 @@ const VolunteerDashboard = ({ handleLogout }) => {
             <span className="font-bold">{volunteerId}</span>
           </p>
         </div>
+
         <VolunteerCard />
+
         <section className="bg-white dark:bg-gray-900 rounded-xl shadow-lg p-8 mb-8 transform transition-all duration-300 hover:shadow-xl">
           <h3 className="text-2xl font-bold text-primary-blue dark:text-primary-blue mb-6">
             Paramètres de disponibilité
@@ -316,6 +313,7 @@ const VolunteerDashboard = ({ handleLogout }) => {
               villageOptionsFormatted={villageOptionsFormatted}
               hasVillagesCoveredBeenSet={hasVillagesCoveredBeenSet}
             />
+
             {showAvailabilityForm ? (
               <AvailabilityForm
                 onAvailabilitySaved={handleAvailabilitySaved}
@@ -327,16 +325,18 @@ const VolunteerDashboard = ({ handleLogout }) => {
               <AvailabilityDisplay
                 groupedAvailabilities={groupedAvailabilities}
                 daysOfWeekLabels={daysOfWeekLabels}
-                canUpdateAvailability={canUpdateAvailability}
+                canUpdateAvailability={canUpdateAvailability()}
                 setShowAvailabilityForm={setShowAvailabilityForm}
               />
             )}
           </div>
         </section>
+
         <ReservationsTable
           reservations={reservations}
           handleReservationAction={handleReservationAction}
         />
+
         <HolidayModeButton />
       </main>
     </div>
