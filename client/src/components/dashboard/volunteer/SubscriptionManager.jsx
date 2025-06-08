@@ -125,15 +125,31 @@ const SubscriptionManager = ({
             throw new Error(confirmError.message);
           }
 
+          console.log("Confirm result:", paymentIntent.status);
+
           if (paymentIntent.status === "succeeded") {
             onSuccess();
             toast.success("ABONNEMENT ACTIVÉ AVEC SUCCÈS!");
+          } else if (paymentIntent.status === "processing") {
+            onSuccess();
+            toast.success(
+              "Paiement en cours de traitement. Abonnement sera actif sous peu."
+            );
+          } else if (paymentIntent.status === "requires_action") {
+            throw new Error(
+              "Action supplémentaire requise (3D Secure). Veuillez réessayer."
+            );
+          } else if (paymentIntent.status === "requires_payment_method") {
+            throw new Error(
+              "Le paiement a échoué. Veuillez vérifier votre carte."
+            );
           } else {
             throw new Error(
-              `Échec de la confirmation: statut ${paymentIntent.status}`
+              `Statut inattendu après confirmation: ${paymentIntent.status}`
             );
           }
         }
+
         // CASE 3 — error
         else {
           throw new Error(data.error || "Échec du traitement de l'abonnement");
@@ -255,5 +271,3 @@ SubscriptionManager.propTypes = {
 };
 
 export default SubscriptionManager;
-
-
