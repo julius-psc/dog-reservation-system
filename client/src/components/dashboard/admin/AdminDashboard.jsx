@@ -29,6 +29,7 @@ const AdminDashboard = ({ handleLogout }) => {
     usersLoading,
     usersError,
     otherVillageRequests,
+    setOtherVillageRequests,
     otherVillageLoading,
     otherVillageError,
     fetchVolunteerDetails, // Added this from useAdminData
@@ -93,7 +94,7 @@ const AdminDashboard = ({ handleLogout }) => {
         <ReservationsManager allReservations={allReservations} />
         <UsersManager allUsers={allUsers} setAllUsers={setAllUsers} />
         <MemberImageManager />
-        <OtherVillageRequestsManager otherVillageRequests={otherVillageRequests} />
+        <OtherVillageRequestsManager   setOtherVillageRequests={setOtherVillageRequests} otherVillageRequests={otherVillageRequests} />
       </main>
     </div>
   );

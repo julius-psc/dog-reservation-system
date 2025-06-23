@@ -288,6 +288,29 @@ SELECT r.id,
     }
   );
 
+  router.delete(
+  "/admin/other-village-requests/:id",
+  authenticate,
+  authorizeAdmin,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const result = await pool.query(
+        "DELETE FROM other_village_requests WHERE id = $1 RETURNING *",
+        [id]
+      );
+      if (result.rowCount === 0) {
+        return res.status(404).json({ error: "Demande non trouvée" });
+      }
+      res.json({ message: "Demande supprimée" });
+    } catch (err) {
+      console.error("Error deleting village request:", err);
+      res.status(500).json({ error: "Erreur lors de la suppression" });
+    }
+  }
+);
+
+
   // Minimal volunteers
   router.get(
     "/admins/volunteers/minimal",

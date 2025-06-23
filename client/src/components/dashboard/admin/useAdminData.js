@@ -87,6 +87,7 @@ const useAdminData = () => {
     usersLoading,
     usersError,
     otherVillageRequests,
+    setOtherVillageRequests, // <-- added this line
     otherVillageLoading,
     otherVillageError,
     fetchVolunteerDetails,
