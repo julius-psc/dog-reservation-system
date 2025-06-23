@@ -190,9 +190,16 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
           WHERE status IN ('accepted','pending') AND (reservation_date+end_time::time)<NOW()
         `);
         const result = await client.query(`
-          SELECT r.id, u.username AS client, v.username AS volunteer, d.name AS dog,
-            r.reservation_date, TO_CHAR(r.start_time,'HH24:MI') AS start_time,
-            TO_CHAR(r.end_time,'HH24:MI') AS end_time, r.status
+SELECT r.id, 
+       u.username AS client_name, 
+       v.username AS volunteer_name, 
+       d.name AS dog_name,
+       u.village AS client_village,
+       r.reservation_date,
+       TO_CHAR(r.start_time,'HH24:MI') AS start_time,
+       TO_CHAR(r.end_time,'HH24:MI') AS end_time,
+       r.status
+
           FROM reservations r
           JOIN users u ON r.client_id=u.id
           JOIN users v ON r.volunteer_id=v.id

@@ -18,10 +18,6 @@ const useAdminData = () => {
   const [otherVillageLoading, setOtherVillageLoading] = useState(true);
   const [otherVillageError, setOtherVillageError] = useState(null);
 
-  const [memberImages, setMemberImages] = useState([]);
-  const [imagesLoading, setImagesLoading] = useState(true);
-  const [imagesError, setImagesError] = useState(null);
-
   const API_BASE_URL =
     import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
 
@@ -66,12 +62,6 @@ const useAdminData = () => {
       setOtherVillageLoading,
       setOtherVillageError
     );
-    fetchData(
-      `${API_BASE_URL}/member-images`,
-      setMemberImages,
-      setImagesLoading,
-      setImagesError
-    );
   }, [API_BASE_URL]);
 
   const fetchVolunteerDetails = async (volunteerId) => {
@@ -99,9 +89,6 @@ const useAdminData = () => {
     otherVillageRequests,
     otherVillageLoading,
     otherVillageError,
-    memberImages, // now contains objects with { id, url }
-    imagesLoading,
-    imagesError,
     fetchVolunteerDetails,
   };
 };
