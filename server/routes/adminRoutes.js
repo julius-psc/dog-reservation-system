@@ -153,6 +153,69 @@ router.get(
   }
 );
 
+// Get reservation stats
+router.get(
+  "/admin/reservations/stats",
+  authenticate,
+  authorizeAdmin,
+  async (req, res) => {
+    try {
+      const total = await pool.query("SELECT COUNT(*) FROM reservations");
+      const completed = await pool.query("SELECT COUNT(*) FROM reservations WHERE status = 'completed'");
+      const offPlatform = await pool.query("SELECT SUM(amount) FROM off_platform_reservations WHERE type='completed'");
+
+      const monthly = await pool.query(`
+        SELECT TO_CHAR(reservation_date, 'YYYY-MM') AS month, COUNT(*) AS count
+        FROM reservations WHERE status='completed'
+        GROUP BY month ORDER BY month
+      `);
+
+      const yearly = await pool.query(`
+        SELECT EXTRACT(YEAR FROM reservation_date)::TEXT AS year, COUNT(*) AS count
+        FROM reservations WHERE status='completed'
+        GROUP BY year ORDER BY year
+      `);
+
+      res.json({
+        total: parseInt(total.rows[0].count, 10),
+        completed: parseInt(completed.rows[0].count, 10) + (offPlatform.rows[0].sum || 0),
+        off_platform_adjustments: parseInt(offPlatform.rows[0].sum || 0, 10),
+        monthly: Object.fromEntries(monthly.rows.map(r => [r.month, parseInt(r.count, 10)])),
+        yearly: Object.fromEntries(yearly.rows.map(r => [r.year, parseInt(r.count, 10)])),
+      });
+    } catch (err) {
+      console.error("Error fetching reservation stats:", err);
+      res.status(500).json({ error: "Failed to fetch reservation stats" });
+    }
+  }
+);
+
+// Manual adjustment route
+router.post(
+  "/admin/reservations/offplatform-adjust",
+  authenticate,
+  authorizeAdmin,
+  async (req, res) => {
+    const { amount, type } = req.body;
+    if (!Number.isInteger(amount) || !['completed'].includes(type)) {
+      return res.status(400).json({ error: "Invalid adjustment" });
+    }
+
+    try {
+      await pool.query(`
+        INSERT INTO off_platform_reservations (type, amount, updated_at)
+        VALUES ($1, $2, NOW())
+      `, [type, amount]);
+
+      res.json({ message: "Adjustment applied" });
+    } catch (err) {
+      console.error("Error adjusting off-platform count:", err);
+      res.status(500).json({ error: "Failed to apply adjustment" });
+    }
+  }
+);
+
+
   // Update user role
   router.put(
     "/admin/users/:userId/role",
