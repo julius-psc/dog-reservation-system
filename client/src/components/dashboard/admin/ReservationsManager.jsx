@@ -17,9 +17,7 @@ const ReservationsManager = ({ allReservations }) => {
   const [reservationStatusFilter, setReservationStatusFilter] = useState("all");
 
   const getStatusDetails = (reservation) => {
-    // Handle invalid reservation input
     if (!reservation || !reservation.reservation_date || !reservation.end_time) {
-      console.warn('Invalid reservation data:', reservation);
       return {
         status: "unknown",
         color: "bg-gray-200 text-gray-800",
@@ -33,7 +31,7 @@ const ReservationsManager = ({ allReservations }) => {
       `${reservation.reservation_date} ${reservation.end_time}`,
       "YYYY-MM-DD HH:mm"
     );
-    let status = reservation.status || "pending"; // Default to "pending" if undefined
+    let status = reservation.status || "pending";
 
     // Auto-update status based on current time
     if (endDateTime.isBefore(now)) {
@@ -72,32 +70,31 @@ const ReservationsManager = ({ allReservations }) => {
       },
     };
 
-    return (
-      statusConfig[status] || {
-        status: "unknown",
+    return {
+      status, // <--- expose normalized status for filtering
+      ...statusConfig[status] || {
         color: "bg-gray-200 text-gray-800",
         icon: null,
         name: status,
-      }
-    );
+      },
+    };
   };
 
-const startOfThisWeek = moment().startOf("isoWeek");
-const endOfNextWeek = moment().add(1, "weeks").endOf("isoWeek");
+  const startOfThisWeek = moment().startOf("isoWeek");
+  const endOfNextWeek = moment().add(1, "weeks").endOf("isoWeek");
 
-const filteredReservations = allReservations.filter((r) => {
-  const { status } = getStatusDetails(r);
-  const date = moment(r.reservation_date);
+  const filteredReservations = allReservations.filter((r) => {
+    const { status } = getStatusDetails(r);
+    const date = moment(r.reservation_date);
 
-  const inThisOrNextWeek = date.isBetween(startOfThisWeek, endOfNextWeek, 'day', '[]');
+    const inThisOrNextWeek = date.isBetween(startOfThisWeek, endOfNextWeek, "day", "[]");
 
-  return (
-    inThisOrNextWeek &&
-    (reservationStatusFilter === "all" ||
-      (status && status.toLowerCase() === reservationStatusFilter.toLowerCase()))
-  );
-});
-
+    return (
+      inThisOrNextWeek &&
+      (reservationStatusFilter === "all" ||
+        status.toLowerCase() === reservationStatusFilter.toLowerCase())
+    );
+  });
 
   return (
     <section className="mb-8">
