@@ -82,13 +82,22 @@ const ReservationsManager = ({ allReservations }) => {
     );
   };
 
-  const filteredReservations = allReservations.filter((r) => {
-    const { status } = getStatusDetails(r);
-    return (
-      reservationStatusFilter === "all" ||
-      (status && status.toLowerCase() === reservationStatusFilter.toLowerCase())
-    );
-  });
+const startOfThisWeek = moment().startOf("isoWeek");
+const endOfNextWeek = moment().add(1, "weeks").endOf("isoWeek");
+
+const filteredReservations = allReservations.filter((r) => {
+  const { status } = getStatusDetails(r);
+  const date = moment(r.reservation_date);
+
+  const inThisOrNextWeek = date.isBetween(startOfThisWeek, endOfNextWeek, 'day', '[]');
+
+  return (
+    inThisOrNextWeek &&
+    (reservationStatusFilter === "all" ||
+      (status && status.toLowerCase() === reservationStatusFilter.toLowerCase()))
+  );
+});
+
 
   return (
     <section className="mb-8">

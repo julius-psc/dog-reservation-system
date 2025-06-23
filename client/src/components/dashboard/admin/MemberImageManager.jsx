@@ -27,7 +27,12 @@ const MemberImageManager = () => {
         body: formData,
       });
 
-      if (!res.ok) throw new Error("Échec du téléchargement");
+      if (!res.ok) {
+  const errorText = await res.text(); // pour voir le message venant du backend
+  console.error("Erreur backend AWS:", errorText);
+  throw new Error("Échec du téléchargement");
+}
+
 
       toast.success("Image téléchargée !");
       setFile(null);

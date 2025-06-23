@@ -64,7 +64,8 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
           where.push(`u.role = $${params.length}`);
         }
         if (where.length) query += " AND " + where.join(" AND ");
-        query += " GROUP BY u.id, u.username, u.email, u.phone_number, u.village, u.volunteer_status, u.insurance_file_path, u.address, u.subscription_paid, u.villages_covered, u.personal_id, u.is_adult, u.commitments";
+        query +=
+          " GROUP BY u.id, u.username, u.email, u.phone_number, u.village, u.volunteer_status, u.insurance_file_path, u.address, u.subscription_paid, u.villages_covered, u.personal_id, u.is_adult, u.commitments";
         const result = await pool.query(query, params);
         res.json(result.rows);
       } catch (err) {
@@ -83,15 +84,21 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
       try {
         const { volunteerId } = req.params;
         const { personal_id } = req.body;
-        if (!personal_id || typeof personal_id !== 'string' || personal_id.length > 50) {
+        if (
+          !personal_id ||
+          typeof personal_id !== "string" ||
+          personal_id.length > 50
+        ) {
           return res.status(400).json({ error: "Invalid personal_id" });
         }
         const check = await pool.query(
           "SELECT personal_id_set FROM users WHERE id = $1 AND role='volunteer'",
           [volunteerId]
         );
-        if (!check.rows.length) return res.status(404).json({ error: "Volunteer not found" });
-        if (check.rows[0].personal_id_set) return res.status(403).json({ error: "Personal ID already set" });
+        if (!check.rows.length)
+          return res.status(404).json({ error: "Volunteer not found" });
+        if (check.rows[0].personal_id_set)
+          return res.status(403).json({ error: "Personal ID already set" });
         await pool.query(
           "UPDATE users SET personal_id=$1, personal_id_set=TRUE WHERE id=$2",
           [personal_id, volunteerId]
@@ -134,14 +141,15 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
       try {
         const { userId } = req.params;
         const { newRole } = req.body;
-        if (!['client','volunteer','admin'].includes(newRole)) {
+        if (!["client", "volunteer", "admin"].includes(newRole)) {
           return res.status(400).json({ error: "Invalid role" });
         }
         const updated = await pool.query(
           "UPDATE users SET role=$1 WHERE id=$2 RETURNING id, role",
           [newRole, userId]
         );
-        if (!updated.rows.length) return res.status(404).json({ error: "User not found" });
+        if (!updated.rows.length)
+          return res.status(404).json({ error: "User not found" });
         res.json(updated.rows[0]);
       } catch (err) {
         console.error("Error updating user role:", err);
@@ -162,7 +170,8 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
           "DELETE FROM users WHERE id=$1 RETURNING id, username",
           [userId]
         );
-        if (!deleted.rows.length) return res.status(404).json({ error: "User not found" });
+        if (!deleted.rows.length)
+          return res.status(404).json({ error: "User not found" });
         res.json({ message: `User ${deleted.rows[0].username} deleted` });
       } catch (err) {
         console.error("Error deleting user:", err);
@@ -227,14 +236,15 @@ SELECT r.id,
       try {
         const { volunteerId } = req.params;
         const { status } = req.body;
-        if (!['approved','pending','rejected'].includes(status)) {
+        if (!["approved", "pending", "rejected"].includes(status)) {
           return res.status(400).json({ error: "Invalid status" });
         }
         const updated = await pool.query(
           "UPDATE users SET volunteer_status=$1 WHERE id=$2 RETURNING id, volunteer_status",
           [status, volunteerId]
         );
-        if (!updated.rows.length) return res.status(404).json({ error: "Volunteer not found" });
+        if (!updated.rows.length)
+          return res.status(404).json({ error: "Volunteer not found" });
         res.json(updated.rows[0]);
       } catch (err) {
         console.error("Error updating volunteer status:", err);
@@ -289,12 +299,23 @@ SELECT r.id,
         let query = `SELECT u.id, u.username, u.volunteer_status, u.personal_id FROM users u WHERE u.role='volunteer'`;
         const where = [];
         const params = [];
-        if (village) { params.push(village); where.push(`u.village=$${params.length}`); }
-        if (search) { params.push(`%${search}%`); where.push(`u.username ILIKE $${params.length}`); }
-        if (status) { params.push(status); where.push(`u.volunteer_status=$${params.length}`); }
+        if (village) {
+          params.push(village);
+          where.push(`u.village=$${params.length}`);
+        }
+        if (search) {
+          params.push(`%${search}%`);
+          where.push(`u.username ILIKE $${params.length}`);
+        }
+        if (status) {
+          params.push(status);
+          where.push(`u.volunteer_status=$${params.length}`);
+        }
         if (where.length) query += " AND " + where.join(" AND ");
         params.push(limit, offset);
-        query += ` ORDER BY u.username LIMIT $${params.length-1} OFFSET $${params.length}`;
+        query += ` ORDER BY u.username LIMIT $${params.length - 1} OFFSET $${
+          params.length
+        }`;
         const result = await pool.query(query, params);
         res.json(result.rows);
       } catch (err) {
@@ -323,7 +344,8 @@ SELECT r.id,
           GROUP BY u.id
         `;
         const result = await pool.query(query, [id]);
-        if (!result.rows.length) return res.status(404).json({ error: "Volunteer not found" });
+        if (!result.rows.length)
+          return res.status(404).json({ error: "Volunteer not found" });
         res.json(result.rows[0]);
       } catch (err) {
         console.error("Error fetching volunteer details:", err);
@@ -343,31 +365,45 @@ SELECT r.id,
         if (!req.files || !req.files.image) {
           return res.status(400).json({ error: "No file uploaded" });
         }
+
         const file = req.files.image;
-        const filename = `${Date.now()}_${file.name}`;
+        const filename = `member_${Date.now()}.png`;
+        const buffer = await sharp(file.data).resize(200, 200).png().toBuffer();
+
         let url;
+
         if (isProduction) {
-          const buffer = await sharp(file.data).resize(200,200).png().toBuffer();
-          const key = `member-images/${filename}.png`;
-          await s3Client.send(new PutObjectCommand({
-            Bucket: process.env.S3_BUCKET_NAME,
-            Key: key,
-            Body: buffer,
-            ContentType: "image/png",
-          }));
+          const key = `member-images/${filename}`;
+          await s3Client.send(
+            new PutObjectCommand({
+              Bucket: process.env.S3_BUCKET_NAME,
+              Key: key,
+              Body: buffer,
+              ContentType: "image/png",
+            })
+          );
+
           url = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
         } else {
-          const uploadPath = path.join(__dirname, "..", "uploads", "member-images", filename);
-          await fs.promises.writeFile(uploadPath, file.data);
-          url = `${process.env.API_BASE_URL}/uploads/member-images/${filename}`;
+          const uploadPath = path.join(
+            __dirname,
+            "..",
+            "uploads",
+            "member-images",
+            filename
+          );
+          await fs.promises.writeFile(uploadPath, buffer);
+          url = `/uploads/member-images/${filename}`;
         }
+
         const insert = await pool.query(
           "INSERT INTO member_images (url) VALUES ($1) RETURNING id, url",
           [url]
         );
+
         res.json(insert.rows[0]);
       } catch (err) {
-        console.error(err);
+        console.error("Image upload error:", err);
         res.status(500).json({ error: "Failed to upload image" });
       }
     }
@@ -384,7 +420,8 @@ SELECT r.id,
           "DELETE FROM member_images WHERE id=$1 RETURNING url",
           [id]
         );
-        if (!result.rows.length) return res.status(404).json({ error: "Not found" });
+        if (!result.rows.length)
+          return res.status(404).json({ error: "Not found" });
         res.json({ message: "Deleted" });
       } catch (err) {
         console.error(err);
