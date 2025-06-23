@@ -13,6 +13,7 @@ import VolunteersManager from "./VolunteersManager";
 import ReservationsManager from "./ReservationsManager";
 import UsersManager from "./UsersManager";
 import OtherVillageRequestsManager from "./OtherVillageRequestsManager";
+import MemberImageManager from './MemberImageManager';
 import useAdminData from "./useAdminData";
 
 const AdminDashboard = ({ handleLogout }) => {
@@ -91,6 +92,7 @@ const AdminDashboard = ({ handleLogout }) => {
         <VolunteersManager setAllUsers={setAllUsers} fetchVolunteerDetails={fetchVolunteerDetails} />
         <ReservationsManager allReservations={allReservations} />
         <UsersManager allUsers={allUsers} setAllUsers={setAllUsers} />
+        <MemberImageManager />
         <OtherVillageRequestsManager otherVillageRequests={otherVillageRequests} />
       </main>
     </div>
