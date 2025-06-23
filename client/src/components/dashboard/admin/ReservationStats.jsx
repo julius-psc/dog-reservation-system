@@ -46,6 +46,15 @@ const ReservationStats = () => {
   }, []);
 
   const adjustOffPlatform = async (amount) => {
+    if (!stats) return;
+
+    // Prevent going below 0
+    const newValue = (stats.off_platform_adjustments || 0) + amount;
+    if (newValue < 0) {
+      toast.error("Impossible de descendre en dessous de zéro");
+      return;
+    }
+
     const token = Cookies.get("token");
     try {
       const res = await fetch(
@@ -77,7 +86,10 @@ const ReservationStats = () => {
   if (error) return <p className="text-red-500">Erreur : {error}</p>;
 
   const monthlyData = Object.entries(stats.monthly).map(
-    ([label, completed]) => ({ label, completed })
+    ([label, completed]) => ({
+      label,
+      completed,
+    })
   );
   const yearlyData = Object.entries(stats.yearly).map(([label, completed]) => ({
     label,
@@ -110,14 +122,15 @@ const ReservationStats = () => {
             {stat.title.includes("Hors") && (
               <div className="flex gap-2 mt-4">
                 <button
-                  className="px-4 py-1 bg-green-600 text-white rounded"
+                  className="px-4 py-1 bg-green-600 text-white rounded disabled:bg-gray-400"
                   onClick={() => adjustOffPlatform(1)}
                 >
                   +1
                 </button>
                 <button
-                  className="px-4 py-1 bg-red-600 text-white rounded"
+                  className="px-4 py-1 bg-red-600 text-white rounded disabled:bg-gray-400"
                   onClick={() => adjustOffPlatform(-1)}
+                  disabled={(stats.off_platform_adjustments || 0) <= 0}
                 >
                   -1
                 </button>
@@ -127,33 +140,46 @@ const ReservationStats = () => {
         ))}
       </div>
 
-      {[
-        { title: "Réservations Mensuelles", data: monthlyData },
-        { title: "Réservations Annuelles", data: yearlyData },
-      ].map((block, idx) => (
-        <div
-          key={idx}
-          className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 my-6"
-        >
-          <h3 className="text-lg font-semibold mb-4 text-gray-700 dark:text-gray-200">
-            {block.title}
-          </h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={block.data}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="label" />
-              <YAxis allowDecimals={false} />
-              <Tooltip />
-              <Line type="monotone" dataKey="completed" stroke="#10B981" />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      ))}
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 my-6">
+        <h3 className="text-lg font-semibold mb-4 text-gray-700 dark:text-gray-200">
+          Réservations Mensuelles
+        </h3>
+        <ResponsiveContainer width="100%" height={300}>
+          <LineChart data={monthlyData}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="label" />
+            <YAxis allowDecimals={false} />
+            <Tooltip />
+            <Line type="monotone" dataKey="completed" stroke="#10B981" />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 my-6 overflow-x-auto">
+        <h3 className="text-lg font-semibold mb-4 text-gray-700 dark:text-gray-200">
+          Réservations Annuelles
+        </h3>
+        <table className="w-full table-auto text-gray-900 dark:text-white">
+          <thead>
+            <tr>
+              <th className="border px-4 py-2 text-left">Année</th>
+              <th className="border px-4 py-2 text-left">
+                Réservations Complétées
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {yearlyData.map(({ label, completed }) => (
+              <tr key={label}>
+                <td className="border px-4 py-2">{label}</td>
+                <td className="border px-4 py-2">{completed}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 };
 
 export default ReservationStats;
-
-
-

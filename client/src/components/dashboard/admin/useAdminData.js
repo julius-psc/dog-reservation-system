@@ -15,6 +15,7 @@ const useAdminData = () => {
   const [reservationsError, setReservationsError] = useState(null);
 
   const [allUsers, setAllUsers] = useState([]);
+  const [usersCount, setUsersCount] = useState(0);
   const [usersLoading, setUsersLoading] = useState(true);
   const [usersError, setUsersError] = useState(null);
 
@@ -77,13 +78,32 @@ const useAdminData = () => {
       setReservationsError
     );
 
-    // Fetch users
+    // Fetch users (paginated list)
     fetchData(
       `${API_BASE_URL}/admin/all-users`,
       setAllUsers,
       setUsersLoading,
       setUsersError
     );
+
+    // Fetch users count separately
+    const fetchUsersCount = async () => {
+      setUsersLoading(true);
+      setUsersError(null);
+      try {
+        const res = await fetch(`${API_BASE_URL}/admin/users/count`, {
+          headers,
+        });
+        if (!res.ok) throw new Error("Failed to fetch users count");
+        const data = await res.json();
+        setUsersCount(data.count);
+      } catch (err) {
+        setUsersError(err.message);
+      } finally {
+        setUsersLoading(false);
+      }
+    };
+    fetchUsersCount();
 
     // Fetch other village requests
     fetchData(
@@ -116,6 +136,7 @@ const useAdminData = () => {
     reservationsLoading,
     reservationsError,
     allUsers,
+    usersCount,
     setAllUsers,
     usersLoading,
     usersError,

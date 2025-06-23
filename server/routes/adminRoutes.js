@@ -112,109 +112,66 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
   );
 
   // Fetch all users
-router.get(
-  "/admin/all-users",
-  authenticate,
-  authorizeAdmin,
-  async (req, res) => {
-    try {
-      const search = req.query.search || "";
+  // Fetch all users (paginated + search)
+  router.get(
+    "/admin/all-users",
+    authenticate,
+    authorizeAdmin,
+    async (req, res) => {
+      try {
+        const search = req.query.search || "";
 
-      const users = await pool.query(`
+        const users = await pool.query(
+          `
         SELECT id, username, email, role, village, no_risk_confirmed, unable_to_walk_confirmed, photo_permission
         FROM users
         WHERE username ILIKE $1
         ORDER BY username
         LIMIT 10
-      `, [`%${search}%`]);
+      `,
+          [`%${search}%`]
+        );
 
-      res.json(users.rows);
-    } catch (err) {
-      console.error("Error fetching users:", err);
-      res.status(500).json({ error: "Failed to fetch users" });
+        res.json(users.rows);
+      } catch (err) {
+        console.error("Error fetching users:", err);
+        res.status(500).json({ error: "Failed to fetch users" });
+      }
     }
-  }
-);
+  );
 
-router.get(
-  "/admin/volunteers/count",
-  authenticate,
-  authorizeAdmin,
-  async (req, res) => {
-    try {
-      const result = await pool.query(
-        `SELECT COUNT(*) FROM users WHERE role = 'volunteer'`
-      );
-      res.json({ count: parseInt(result.rows[0].count, 10) });
-    } catch (err) {
-      console.error("Error fetching volunteer count:", err);
-      res.status(500).json({ error: "Failed to fetch volunteer count" });
+  // Fetch users count only
+  router.get(
+    "/admin/users/count",
+    authenticate,
+    authorizeAdmin,
+    async (req, res) => {
+      try {
+        const result = await pool.query("SELECT COUNT(*) FROM users");
+        res.json({ count: parseInt(result.rows[0].count, 10) });
+      } catch (err) {
+        console.error("Error fetching users count:", err);
+        res.status(500).json({ error: "Failed to fetch users count" });
+      }
     }
-  }
-);
+  );
 
-// Get reservation stats
-router.get(
-  "/admin/reservations/stats",
-  authenticate,
-  authorizeAdmin,
-  async (req, res) => {
-    try {
-      const total = await pool.query("SELECT COUNT(*) FROM reservations");
-      const completed = await pool.query("SELECT COUNT(*) FROM reservations WHERE status = 'completed'");
-      const offPlatform = await pool.query("SELECT SUM(amount) FROM off_platform_reservations WHERE type='completed'");
-
-      const monthly = await pool.query(`
-        SELECT TO_CHAR(reservation_date, 'YYYY-MM') AS month, COUNT(*) AS count
-        FROM reservations WHERE status='completed'
-        GROUP BY month ORDER BY month
-      `);
-
-      const yearly = await pool.query(`
-        SELECT EXTRACT(YEAR FROM reservation_date)::TEXT AS year, COUNT(*) AS count
-        FROM reservations WHERE status='completed'
-        GROUP BY year ORDER BY year
-      `);
-
-      res.json({
-        total: parseInt(total.rows[0].count, 10),
-        completed: parseInt(completed.rows[0].count, 10) + (offPlatform.rows[0].sum || 0),
-        off_platform_adjustments: parseInt(offPlatform.rows[0].sum || 0, 10),
-        monthly: Object.fromEntries(monthly.rows.map(r => [r.month, parseInt(r.count, 10)])),
-        yearly: Object.fromEntries(yearly.rows.map(r => [r.year, parseInt(r.count, 10)])),
-      });
-    } catch (err) {
-      console.error("Error fetching reservation stats:", err);
-      res.status(500).json({ error: "Failed to fetch reservation stats" });
+  router.get(
+    "/admin/volunteers/count",
+    authenticate,
+    authorizeAdmin,
+    async (req, res) => {
+      try {
+        const result = await pool.query(
+          `SELECT COUNT(*) FROM users WHERE role = 'volunteer'`
+        );
+        res.json({ count: parseInt(result.rows[0].count, 10) });
+      } catch (err) {
+        console.error("Error fetching volunteer count:", err);
+        res.status(500).json({ error: "Failed to fetch volunteer count" });
+      }
     }
-  }
-);
-
-// Manual adjustment route
-router.post(
-  "/admin/reservations/offplatform-adjust",
-  authenticate,
-  authorizeAdmin,
-  async (req, res) => {
-    const { amount, type } = req.body;
-    if (!Number.isInteger(amount) || !['completed'].includes(type)) {
-      return res.status(400).json({ error: "Invalid adjustment" });
-    }
-
-    try {
-      await pool.query(`
-        INSERT INTO off_platform_reservations (type, amount, updated_at)
-        VALUES ($1, $2, NOW())
-      `, [type, amount]);
-
-      res.json({ message: "Adjustment applied" });
-    } catch (err) {
-      console.error("Error adjusting off-platform count:", err);
-      res.status(500).json({ error: "Failed to apply adjustment" });
-    }
-  }
-);
-
+  );
 
   // Update user role
   router.put(
@@ -311,6 +268,96 @@ SELECT r.id,
     }
   );
 
+  // Fetch reservation stats
+  router.get(
+    "/admin/reservations/stats",
+    authenticate,
+    authorizeAdmin,
+    async (req, res) => {
+      try {
+        // Total reservations count
+        const totalResult = await pool.query(
+          "SELECT COUNT(*) FROM reservations"
+        );
+
+        // Completed reservations count
+        const completedResult = await pool.query(
+          "SELECT COUNT(*) FROM reservations WHERE status = 'completed'"
+        );
+
+        // Sum of off-platform completed reservations amounts
+        const offPlatformResult = await pool.query(
+          "SELECT COALESCE(SUM(amount), 0) AS sum FROM off_platform_reservations WHERE type = 'completed'"
+        );
+
+        // Monthly completed reservations count grouped by YYYY-MM
+        const monthlyResult = await pool.query(`
+        SELECT TO_CHAR(reservation_date, 'YYYY-MM') AS month, COUNT(*) AS count
+        FROM reservations
+        WHERE status = 'completed'
+        GROUP BY month
+        ORDER BY month
+      `);
+
+        // Yearly completed reservations count grouped by year
+        const yearlyResult = await pool.query(`
+        SELECT EXTRACT(YEAR FROM reservation_date)::TEXT AS year, COUNT(*) AS count
+        FROM reservations
+        WHERE status = 'completed'
+        GROUP BY year
+        ORDER BY year
+      `);
+
+        res.json({
+          total: parseInt(totalResult.rows[0].count, 10),
+          completed:
+            parseInt(completedResult.rows[0].count, 10) +
+            parseInt(offPlatformResult.rows[0].sum, 10),
+          off_platform_adjustments: parseInt(offPlatformResult.rows[0].sum, 10),
+          monthly: Object.fromEntries(
+            monthlyResult.rows.map((r) => [r.month, parseInt(r.count, 10)])
+          ),
+          yearly: Object.fromEntries(
+            yearlyResult.rows.map((r) => [r.year, parseInt(r.count, 10)])
+          ),
+        });
+      } catch (err) {
+        console.error("Error fetching reservation stats:", err);
+        res.status(500).json({ error: "Failed to fetch reservation stats" });
+      }
+    }
+  );
+
+  router.post(
+    "/admin/reservations/offplatform-adjust",
+    authenticate,
+    authorizeAdmin,
+    async (req, res) => {
+      const { amount, type } = req.body;
+
+      // Validate input
+      if (!Number.isInteger(amount) || !["completed"].includes(type)) {
+        return res.status(400).json({ error: "Invalid adjustment data" });
+      }
+
+      try {
+        // Insert a new adjustment record
+        await pool.query(
+          `
+        INSERT INTO off_platform_reservations (type, amount, updated_at)
+        VALUES ($1, $2, NOW())
+      `,
+          [type, amount]
+        );
+
+        res.json({ message: "Adjustment applied" });
+      } catch (err) {
+        console.error("Error applying off-platform adjustment:", err);
+        res.status(500).json({ error: "Failed to apply adjustment" });
+      }
+    }
+  );
+
   // Update volunteer status
   router.put(
     "/admin/volunteers/:volunteerId/status",
@@ -373,27 +420,26 @@ SELECT r.id,
   );
 
   router.delete(
-  "/admin/other-village-requests/:id",
-  authenticate,
-  authorizeAdmin,
-  async (req, res) => {
-    try {
-      const { id } = req.params;
-      const result = await pool.query(
-        "DELETE FROM other_village_requests WHERE id = $1 RETURNING *",
-        [id]
-      );
-      if (result.rowCount === 0) {
-        return res.status(404).json({ error: "Demande non trouvée" });
+    "/admin/other-village-requests/:id",
+    authenticate,
+    authorizeAdmin,
+    async (req, res) => {
+      try {
+        const { id } = req.params;
+        const result = await pool.query(
+          "DELETE FROM other_village_requests WHERE id = $1 RETURNING *",
+          [id]
+        );
+        if (result.rowCount === 0) {
+          return res.status(404).json({ error: "Demande non trouvée" });
+        }
+        res.json({ message: "Demande supprimée" });
+      } catch (err) {
+        console.error("Error deleting village request:", err);
+        res.status(500).json({ error: "Erreur lors de la suppression" });
       }
-      res.json({ message: "Demande supprimée" });
-    } catch (err) {
-      console.error("Error deleting village request:", err);
-      res.status(500).json({ error: "Erreur lors de la suppression" });
     }
-  }
-);
-
+  );
 
   // Minimal volunteers
   router.get(
