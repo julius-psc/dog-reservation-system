@@ -18,7 +18,9 @@ import useAdminData from "./useAdminData";
 
 const AdminDashboard = ({ handleLogout }) => {
   const {
-    volunteers,
+    volunteerCount,
+    volunteerCountLoading,
+    volunteerCountError,
     loading,
     error,
     allReservations,
@@ -32,10 +34,20 @@ const AdminDashboard = ({ handleLogout }) => {
     setOtherVillageRequests,
     otherVillageLoading,
     otherVillageError,
-    fetchVolunteerDetails, // Added this from useAdminData
+    fetchVolunteerDetails,
   } = useAdminData();
 
-  if (loading || reservationsLoading || usersLoading || otherVillageLoading) {
+  const isLoading =
+    loading ||
+    reservationsLoading ||
+    usersLoading ||
+    otherVillageLoading ||
+    volunteerCountLoading;
+
+  const isError =
+    error || reservationsError || usersError || otherVillageError || volunteerCountError;
+
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 to-gray-200 dark:from-gray-900 dark:to-gray-800">
         <ClipLoader color="#3b82f6" size={50} />
@@ -43,7 +55,7 @@ const AdminDashboard = ({ handleLogout }) => {
     );
   }
 
-  if (error || reservationsError || usersError || otherVillageError) {
+  if (isError) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-200 dark:from-gray-900 dark:to-gray-800 p-6">
         <div className="max-w-2xl mx-auto bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
@@ -51,7 +63,8 @@ const AdminDashboard = ({ handleLogout }) => {
           {error && <p className="text-red-600 dark:text-red-400 mb-2">Erreur: {error}</p>}
           {reservationsError && <p className="text-red-600 dark:text-red-400 mb-2">Erreur Réservations: {reservationsError}</p>}
           {usersError && <p className="text-red-600 dark:text-red-400 mb-2">Erreur Utilisateurs: {usersError}</p>}
-          {otherVillageError && <p className="text-red-600 dark:text-red-400">Erreur Autres Villages: {otherVillageError}</p>}
+          {otherVillageError && <p className="text-red-600 dark:text-red-400 mb-2">Erreur Autres Villages: {otherVillageError}</p>}
+          {volunteerCountError && <p className="text-red-600 dark:text-red-400 mb-2">Erreur Nombre Bénévoles: {volunteerCountError}</p>}
         </div>
       </div>
     );
@@ -73,9 +86,24 @@ const AdminDashboard = ({ handleLogout }) => {
       <main className="max-w-7xl mx-auto px-4 py-8">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {[
-            { title: "Total Bénévoles", count: volunteers.length, icon: faUsers, color: "blue-500" },
-            { title: "Réservations Totales", count: allReservations.length, icon: faCalendarCheck, color: "green-500" },
-            { title: "Total Utilisateurs", count: allUsers.length, icon: faUsers, color: "yellow-500" },
+            {
+              title: "Total Bénévoles",
+              count: volunteerCount,
+              icon: faUsers,
+              color: "blue-500",
+            },
+            {
+              title: "Réservations Totales",
+              count: allReservations.length,
+              icon: faCalendarCheck,
+              color: "green-500",
+            },
+            {
+              title: "Total Utilisateurs",
+              count: allUsers.length,
+              icon: faUsers,
+              color: "yellow-500",
+            },
           ].map((stat) => (
             <div
               key={stat.title}
@@ -94,7 +122,7 @@ const AdminDashboard = ({ handleLogout }) => {
         <ReservationsManager allReservations={allReservations} />
         <UsersManager allUsers={allUsers} setAllUsers={setAllUsers} />
         <MemberImageManager />
-        <OtherVillageRequestsManager   setOtherVillageRequests={setOtherVillageRequests} otherVillageRequests={otherVillageRequests} />
+        <OtherVillageRequestsManager setOtherVillageRequests={setOtherVillageRequests} otherVillageRequests={otherVillageRequests} />
       </main>
     </div>
   );

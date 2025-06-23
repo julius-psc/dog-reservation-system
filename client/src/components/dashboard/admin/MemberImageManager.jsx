@@ -47,7 +47,7 @@ const MemberImageManager = () => {
   return (
     <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md mb-8">
       <h2 className="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-100">
-        Télécharger une photo de membre
+        Téléverser image bénévole - site principal
       </h2>
       <div className="flex items-center mb-4">
         <input

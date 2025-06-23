@@ -3,6 +3,10 @@ import Cookies from "js-cookie";
 
 const useAdminData = () => {
   const [volunteers, setVolunteers] = useState([]);
+  const [volunteerCount, setVolunteerCount] = useState(0);
+  const [volunteerCountLoading, setVolunteerCountLoading] = useState(true);
+  const [volunteerCountError, setVolunteerCountError] = useState(null);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -38,24 +42,50 @@ const useAdminData = () => {
       }
     };
 
+    // Fetch paginated volunteers (minimal)
     fetchData(
       `${API_BASE_URL}/admins/volunteers/minimal`,
       setVolunteers,
       setLoading,
       setError
     );
+
+    // Fetch volunteer count separately
+    const fetchVolunteerCount = async () => {
+      setVolunteerCountLoading(true);
+      setVolunteerCountError(null);
+      try {
+        const res = await fetch(`${API_BASE_URL}/admin/volunteers/count`, {
+          headers,
+        });
+        if (!res.ok) throw new Error("Failed to fetch volunteer count");
+        const data = await res.json();
+        setVolunteerCount(data.count);
+      } catch (err) {
+        setVolunteerCountError(err.message);
+      } finally {
+        setVolunteerCountLoading(false);
+      }
+    };
+    fetchVolunteerCount();
+
+    // Fetch reservations
     fetchData(
       `${API_BASE_URL}/admin/reservations`,
       setAllReservations,
       setReservationsLoading,
       setReservationsError
     );
+
+    // Fetch users
     fetchData(
       `${API_BASE_URL}/admin/all-users`,
       setAllUsers,
       setUsersLoading,
       setUsersError
     );
+
+    // Fetch other village requests
     fetchData(
       `${API_BASE_URL}/admin/other-village-requests`,
       setOtherVillageRequests,
@@ -77,6 +107,9 @@ const useAdminData = () => {
 
   return {
     volunteers,
+    volunteerCount,
+    volunteerCountLoading,
+    volunteerCountError,
     loading,
     error,
     allReservations,
@@ -87,7 +120,7 @@ const useAdminData = () => {
     usersLoading,
     usersError,
     otherVillageRequests,
-    setOtherVillageRequests, // <-- added this line
+    setOtherVillageRequests,
     otherVillageLoading,
     otherVillageError,
     fetchVolunteerDetails,
