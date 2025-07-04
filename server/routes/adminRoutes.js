@@ -140,20 +140,20 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
   );
 
   // Fetch users count only
-router.get(
-  "/admin/users/count",
-  authenticate,
-  authorizeAdmin,
-  async (req, res) => {
-    try {
-      const result = await pool.query("SELECT COUNT(*) FROM users");
-      res.json({ count: parseInt(result.rows[0].count, 10) });
-    } catch (err) {
-      console.error("Error fetching users count:", err);
-      res.status(500).json({ error: "Failed to fetch users count" });
+  router.get(
+    "/admin/users/count",
+    authenticate,
+    authorizeAdmin,
+    async (req, res) => {
+      try {
+        const result = await pool.query("SELECT COUNT(*) FROM users");
+        res.json({ count: parseInt(result.rows[0].count, 10) });
+      } catch (err) {
+        console.error("Error fetching users count:", err);
+        res.status(500).json({ error: "Failed to fetch users count" });
+      }
     }
-  }
-);
+  );
 
   router.get(
     "/admin/volunteers/count",
@@ -486,15 +486,18 @@ SELECT r.id,
       try {
         const { id } = req.params;
         const query = `
-          SELECT u.id, u.username, u.email, u.phone_number, u.village, u.volunteer_status,
-            u.insurance_file_path, u.address, u.subscription_paid, u.villages_covered,
-            u.personal_id, u.is_adult, u.commitments,
-            COALESCE(json_agg(json_build_object('day_of_week', a.day_of_week, 'start_time', a.start_time, 'end_time', a.end_time)) FILTER (WHERE a.id IS NOT NULL), '[]') AS availabilities
-          FROM users u
-          LEFT JOIN availabilities a ON u.id=a.user_id
-          WHERE u.id=$1 AND u.role='volunteer'
-          GROUP BY u.id
-        `;
+  SELECT u.id, u.username, u.email, u.phone_number, u.village, u.volunteer_status,
+    u.insurance_file_path, u.address, u.subscription_paid, u.villages_covered,
+    u.personal_id, u.is_adult, u.commitments,
+    COALESCE(json_agg(json_build_object('day_of_week', a.day_of_week, 'start_time', a.start_time, 'end_time', a.end_time)) FILTER (WHERE a.id IS NOT NULL), '[]') AS availabilities
+  FROM users u
+  LEFT JOIN availabilities a ON u.id=a.user_id
+  WHERE u.id=$1 AND u.role='volunteer'
+  GROUP BY u.id, u.username, u.email, u.phone_number, u.village, u.volunteer_status,
+           u.insurance_file_path, u.address, u.subscription_paid, u.villages_covered,
+           u.personal_id, u.is_adult, u.commitments
+`;
+
         const result = await pool.query(query, [id]);
         if (!result.rows.length)
           return res.status(404).json({ error: "Volunteer not found" });
