@@ -112,48 +112,48 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
   );
 
   // Fetch all users
-router.get(
-  "/admin/all-users",
-  authenticate,
-  authorizeAdmin,
-  async (req, res) => {
-    try {
-      const search = req.query.search || "";
-
-      const users = await pool.query(
-        `
-        SELECT id, username, email, role, village, no_risk_confirmed, unable_to_walk_confirmed, photo_permission
-        FROM users
-        WHERE username ILIKE $1
-        ORDER BY username
-      `,
-        [`%${search}%`]
-      );
-
-      res.json(users.rows);
-    } catch (err) {
-      console.error("Error fetching users:", err);
-      res.status(500).json({ error: "Failed to fetch users" });
-    }
-  }
-);
-
-
-  // Fetch users count only
   router.get(
-    "/admin/users/count",
+    "/admin/all-users",
     authenticate,
     authorizeAdmin,
     async (req, res) => {
       try {
-        const result = await pool.query("SELECT COUNT(*) FROM users");
-        res.json({ count: parseInt(result.rows[0].count, 10) });
+        const search = req.query.search || "";
+
+        const users = await pool.query(
+          `
+        SELECT id, username, email, role, village, no_risk_confirmed, unable_to_walk_confirmed, photo_permission
+        FROM users
+        WHERE username ILIKE $1
+        ORDER BY username
+        LIMIT 10
+      `,
+          [`%${search}%`]
+        );
+
+        res.json(users.rows);
       } catch (err) {
-        console.error("Error fetching users count:", err);
-        res.status(500).json({ error: "Failed to fetch users count" });
+        console.error("Error fetching users:", err);
+        res.status(500).json({ error: "Failed to fetch users" });
       }
     }
   );
+
+  // Fetch users count only
+router.get(
+  "/admin/users/count",
+  authenticate,
+  authorizeAdmin,
+  async (req, res) => {
+    try {
+      const result = await pool.query("SELECT COUNT(*) FROM users");
+      res.json({ count: parseInt(result.rows[0].count, 10) });
+    } catch (err) {
+      console.error("Error fetching users count:", err);
+      res.status(500).json({ error: "Failed to fetch users count" });
+    }
+  }
+);
 
   router.get(
     "/admin/volunteers/count",
