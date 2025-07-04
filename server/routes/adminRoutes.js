@@ -268,30 +268,25 @@ SELECT r.id,
   );
 
   // Fetch reservation stats
-// Fetch reservation stats
-router.get(
-  "/admin/reservations/stats",
-  authenticate,
-  authorizeAdmin,
-  async (req, res) => {
-    try {
-      // Total reservations count
-      const totalResult = await pool.query(
-        "SELECT COUNT(*) FROM reservations"
-      );
+  router.get(
+    "/admin/reservations/stats",
+    authenticate,
+    authorizeAdmin,
+    async (req, res) => {
+      try {
+        const totalResult = await pool.query(
+          "SELECT COUNT(*) FROM reservations"
+        );
 
-      // Completed reservations count
-      const completedResult = await pool.query(
-        "SELECT COUNT(*) FROM reservations WHERE status = 'completed'"
-      );
+        const completedResult = await pool.query(
+          "SELECT COUNT(*) FROM reservations WHERE status = 'completed'"
+        );
 
-      // Sum of off-platform completed reservations amounts
-      const offPlatformResult = await pool.query(
-        "SELECT COALESCE(SUM(amount), 0) AS sum FROM off_platform_reservations WHERE type = 'completed'"
-      );
+        const offPlatformResult = await pool.query(
+          "SELECT COALESCE(SUM(amount), 0) AS sum FROM off_platform_reservations WHERE type = 'completed'"
+        );
 
-      // Monthly completed reservations count grouped by YYYY-MM
-      const monthlyResult = await pool.query(`
+        const monthlyResult = await pool.query(`
         SELECT TO_CHAR(reservation_date, 'YYYY-MM') AS month, COUNT(*) AS count
         FROM reservations
         WHERE status = 'completed'
@@ -299,27 +294,25 @@ router.get(
         ORDER BY month
       `);
 
-      // Off-platform monthly completed count
-      const offPlatformMonthly = await pool.query(`
-        SELECT TO_CHAR(updated_at, 'YYYY-MM') AS month, COUNT(*) AS count
+        // ✅ FIXED: use SUM(amount) instead of COUNT(*) for correct adjustment logic
+        const offPlatformMonthly = await pool.query(`
+        SELECT TO_CHAR(updated_at, 'YYYY-MM') AS month, SUM(amount)::int AS count
         FROM off_platform_reservations
         WHERE type = 'completed'
         GROUP BY month
       `);
 
-      // Merge both monthly datasets
-      const monthlyMap = new Map();
-      monthlyResult.rows.forEach(({ month, count }) => {
-        monthlyMap.set(month, parseInt(count, 10));
-      });
-      offPlatformMonthly.rows.forEach(({ month, count }) => {
-        const existing = monthlyMap.get(month) || 0;
-        monthlyMap.set(month, existing + parseInt(count, 10));
-      });
-      const mergedMonthly = Object.fromEntries(monthlyMap.entries());
+        const monthlyMap = new Map();
+        monthlyResult.rows.forEach(({ month, count }) => {
+          monthlyMap.set(month, parseInt(count, 10));
+        });
+        offPlatformMonthly.rows.forEach(({ month, count }) => {
+          const existing = monthlyMap.get(month) || 0;
+          monthlyMap.set(month, existing + count);
+        });
+        const mergedMonthly = Object.fromEntries(monthlyMap.entries());
 
-      // Yearly completed reservations count grouped by year
-      const yearlyResult = await pool.query(`
+        const yearlyResult = await pool.query(`
         SELECT EXTRACT(YEAR FROM reservation_date)::TEXT AS year, COUNT(*) AS count
         FROM reservations
         WHERE status = 'completed'
@@ -327,23 +320,23 @@ router.get(
         ORDER BY year
       `);
 
-      res.json({
-        total: parseInt(totalResult.rows[0].count, 10),
-        completed:
-          parseInt(completedResult.rows[0].count, 10) +
-          parseInt(offPlatformResult.rows[0].sum, 10),
-        off_platform_adjustments: parseInt(offPlatformResult.rows[0].sum, 10),
-        monthly: mergedMonthly,
-        yearly: Object.fromEntries(
-          yearlyResult.rows.map((r) => [r.year, parseInt(r.count, 10)])
-        ),
-      });
-    } catch (err) {
-      console.error("Error fetching reservation stats:", err);
-      res.status(500).json({ error: "Failed to fetch reservation stats" });
+        res.json({
+          total: parseInt(totalResult.rows[0].count, 10),
+          completed:
+            parseInt(completedResult.rows[0].count, 10) +
+            parseInt(offPlatformResult.rows[0].sum, 10),
+          off_platform_adjustments: parseInt(offPlatformResult.rows[0].sum, 10),
+          monthly: mergedMonthly,
+          yearly: Object.fromEntries(
+            yearlyResult.rows.map((r) => [r.year, parseInt(r.count, 10)])
+          ),
+        });
+      } catch (err) {
+        console.error("Error fetching reservation stats:", err);
+        res.status(500).json({ error: "Failed to fetch reservation stats" });
+      }
     }
-  }
-);
+  );
 
   router.post(
     "/admin/reservations/offplatform-adjust",
@@ -352,13 +345,20 @@ router.get(
     async (req, res) => {
       const { amount, type } = req.body;
 
-      // Validate input
       if (!Number.isInteger(amount) || !["completed"].includes(type)) {
         return res.status(400).json({ error: "Invalid adjustment data" });
       }
 
       try {
-        // Insert a new adjustment record
+        const currentTotal = await pool.query(
+          `SELECT COALESCE(SUM(amount), 0) AS sum FROM off_platform_reservations WHERE type = 'completed'`
+        );
+
+        const newTotal = parseInt(currentTotal.rows[0].sum, 10) + amount;
+        if (newTotal < 0) {
+          return res.status(400).json({ error: "Total cannot go below zero" });
+        }
+
         await pool.query(
           `
         INSERT INTO off_platform_reservations (type, amount, updated_at)

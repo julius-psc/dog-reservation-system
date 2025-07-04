@@ -22,7 +22,8 @@ const VolunteersManager = ({ setAllUsers, fetchVolunteerDetails }) => {
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
 
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
+  const API_BASE_URL =
+    import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
   const isProduction = import.meta.env.MODE === "production";
 
   const daysOfWeekLabels = [
@@ -41,12 +42,15 @@ const VolunteersManager = ({ setAllUsers, fetchVolunteerDetails }) => {
       const token = Cookies.get("token");
       // If there's a search filter, fetch all statuses; otherwise, fetch only pending
       const url = volunteerFilter.trim()
-        ? `${API_BASE_URL}/admins/volunteers/minimal?search=${encodeURIComponent(volunteerFilter)}`
+        ? `${API_BASE_URL}/admins/volunteers/minimal?search=${encodeURIComponent(
+            volunteerFilter
+          )}`
         : `${API_BASE_URL}/admins/volunteers/minimal?status=pending`;
       const response = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!response.ok) throw new Error("Échec de la récupération des bénévoles");
+      if (!response.ok)
+        throw new Error("Échec de la récupération des bénévoles");
       const data = await response.json();
       setVolunteers(data);
     } catch (error) {
@@ -90,35 +94,61 @@ const VolunteersManager = ({ setAllUsers, fetchVolunteerDetails }) => {
   const handleVolunteerStatusChange = async (volunteerId, newStatus) => {
     try {
       const token = Cookies.get("token");
-      const response = await fetch(`${API_BASE_URL}/admin/volunteers/${volunteerId}/status`, {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ status: newStatus }),
-      });
-      if (!response.ok) throw new Error("Échec de la mise à jour du statut du bénévole");
+
+      // Find the volunteer in the local state
+      const volunteer = volunteers
+        .filter(Boolean)
+        .find((vol) => vol?.id === volunteerId);
+
+      const response = await fetch(
+        `${API_BASE_URL}/admin/volunteers/${volunteerId}/status`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ status: newStatus }),
+        }
+      );
+
+      if (!response.ok)
+        throw new Error("Échec de la mise à jour du statut du bénévole");
+
       const updatedVolunteer = await response.json();
+
       setVolunteers((prev) =>
-        prev.map((vol) => (vol.id === volunteerId ? updatedVolunteer.volunteer : vol))
+        prev.map((vol) =>
+          vol?.id === volunteerId ? updatedVolunteer.volunteer : vol
+        )
       );
       setAllUsers((prev) =>
         prev.map((user) =>
-          user.id === volunteerId ? { ...user, volunteer_status: newStatus } : user
+          user.id === volunteerId
+            ? { ...user, volunteer_status: newStatus }
+            : user
         )
       );
       setVolunteerDetails((prev) => ({
         ...prev,
         [volunteerId]: { ...prev[volunteerId], volunteer_status: newStatus },
       }));
+
       toast.success(`Statut du bénévole mis à jour à ${newStatus}`);
+
       if (newStatus === "approved" || newStatus === "rejected") {
-        setVolunteers((prev) => prev.filter((vol) => vol.id !== volunteerId)); // Remove from list if no longer pending
-        if (expandedVolunteerId === volunteerId) setExpandedVolunteerId(null); // Collapse if expanded
+        setVolunteers((prev) => prev.filter((vol) => vol?.id !== volunteerId));
+        if (expandedVolunteerId === volunteerId) setExpandedVolunteerId(null);
       }
+
       if (newStatus === "approved") {
-        const volunteer = volunteers.find((vol) => vol.id === volunteerId);
+        // Use the username from the response or volunteer details as fallback
+        const username =
+          updatedVolunteer.volunteer?.username ||
+          volunteer?.username ||
+          volunteerDetails[volunteerId]?.username ||
+          "Unknown";
+
         await fetch(`${API_BASE_URL}/send-approval-email`, {
           method: "POST",
           headers: {
@@ -127,7 +157,7 @@ const VolunteersManager = ({ setAllUsers, fetchVolunteerDetails }) => {
           },
           body: JSON.stringify({
             email: updatedVolunteer.volunteer.email,
-            username: volunteer.username,
+            username: username,
           }),
         });
       }
@@ -143,25 +173,34 @@ const VolunteersManager = ({ setAllUsers, fetchVolunteerDetails }) => {
     }
     try {
       const token = Cookies.get("token");
-      const response = await fetch(`${API_BASE_URL}/admin/volunteers/${volunteerId}/personal-id`, {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ personal_id: newPersonalId }),
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/admin/volunteers/${volunteerId}/personal-id`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ personal_id: newPersonalId }),
+        }
+      );
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Échec de la définition du numéro promeneur");
+        throw new Error(
+          errorData.error || "Échec de la définition du numéro promeneur"
+        );
       }
       const updatedVolunteer = await response.json();
       setVolunteers((prev) =>
-        prev.map((vol) => (vol.id === volunteerId ? updatedVolunteer.volunteer : vol))
+        prev.map((vol) =>
+          vol.id === volunteerId ? updatedVolunteer.volunteer : vol
+        )
       );
       setAllUsers((prev) =>
         prev.map((user) =>
-          user.id === volunteerId ? { ...user, personal_id: newPersonalId } : user
+          user.id === volunteerId
+            ? { ...user, personal_id: newPersonalId }
+            : user
         )
       );
       setVolunteerDetails((prev) => ({
@@ -194,7 +233,9 @@ const VolunteersManager = ({ setAllUsers, fetchVolunteerDetails }) => {
         </div>
         <div className="overflow-x-auto">
           {searchLoading ? (
-            <p className="text-gray-800 dark:text-gray-200">Recherche en cours...</p>
+            <p className="text-gray-800 dark:text-gray-200">
+              Recherche en cours...
+            </p>
           ) : volunteers.length === 0 ? (
             <p className="text-gray-800 dark:text-gray-200">
               {volunteerFilter.trim()
@@ -205,41 +246,50 @@ const VolunteersManager = ({ setAllUsers, fetchVolunteerDetails }) => {
             <table className="w-full border-collapse">
               <thead className="bg-gray-100 dark:bg-gray-700">
                 <tr className="border-b border-gray-200 dark:border-gray-600">
-                  {["Nom", "Statut", "Numéro Promeneur", "Actions"].map((header) => (
-                    <th
-                      key={header}
-                      className="px-4 py-3 text-left text-sm font-semibold text-gray-600 dark:text-gray-300"
-                    >
-                      {header}
-                    </th>
-                  ))}
+                  {["Nom", "Statut", "Numéro Promeneur", "Actions"].map(
+                    (header) => (
+                      <th
+                        key={header}
+                        className="px-4 py-3 text-left text-sm font-semibold text-gray-600 dark:text-gray-300"
+                      >
+                        {header}
+                      </th>
+                    )
+                  )}
                 </tr>
               </thead>
               <tbody>
                 {volunteers.map((volunteer) => {
+                  // Add safety check for volunteer
+                  if (!volunteer) return null;
+
                   const details = volunteerDetails[volunteer.id] || {};
-                  const groupedAvailabilities = (details.availabilities || []).reduce(
-                    (acc, availability) => {
-                      const dayOfWeek = availability.day_of_week;
-                      if (!acc[dayOfWeek]) acc[dayOfWeek] = [];
-                      acc[dayOfWeek].push({
-                        startTime: availability.start_time,
-                        endTime: availability.end_time,
-                      });
-                      return acc;
-                    },
-                    {}
-                  );
+                  const groupedAvailabilities = (
+                    details.availabilities || []
+                  ).reduce((acc, availability) => {
+                    const dayOfWeek = availability.day_of_week;
+                    if (!acc[dayOfWeek]) acc[dayOfWeek] = [];
+                    acc[dayOfWeek].push({
+                      startTime: availability.start_time,
+                      endTime: availability.end_time,
+                    });
+                    return acc;
+                  }, {});
 
                   return (
                     <React.Fragment key={volunteer.id}>
                       <tr
                         className={`border-b border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer ${
-                          expandedVolunteerId && expandedVolunteerId !== volunteer.id ? "opacity-50" : ""
+                          expandedVolunteerId &&
+                          expandedVolunteerId !== volunteer.id
+                            ? "opacity-50"
+                            : ""
                         }`}
                         onClick={() => handleVolunteerRowClick(volunteer.id)}
                       >
-                        <td className="px-4 py-4 text-gray-800 dark:text-gray-200">{volunteer.username}</td>
+                        <td className="px-4 py-4 text-gray-800 dark:text-gray-200">
+                          {volunteer.username}
+                        </td>
                         <td className="px-4 py-4">
                           <span
                             className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -260,8 +310,12 @@ const VolunteersManager = ({ setAllUsers, fetchVolunteerDetails }) => {
                                 type="text"
                                 value={newPersonalId}
                                 onChange={(e) => {
-                                  const value = e.target.value.replace(/\D/g, "");
-                                  if (value.length <= 5) setNewPersonalId(value);
+                                  const value = e.target.value.replace(
+                                    /\D/g,
+                                    ""
+                                  );
+                                  if (value.length <= 5)
+                                    setNewPersonalId(value);
                                 }}
                                 className="px-2 py-1 border rounded-lg dark:bg-gray-700 dark:text-white"
                                 placeholder="Numéro promeneur"
@@ -310,7 +364,10 @@ const VolunteersManager = ({ setAllUsers, fetchVolunteerDetails }) => {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleVolunteerStatusChange(volunteer.id, "approved");
+                                  handleVolunteerStatusChange(
+                                    volunteer.id,
+                                    "approved"
+                                  );
                                 }}
                                 className="px-3 py-1 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
                               >
@@ -319,7 +376,10 @@ const VolunteersManager = ({ setAllUsers, fetchVolunteerDetails }) => {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleVolunteerStatusChange(volunteer.id, "rejected");
+                                  handleVolunteerStatusChange(
+                                    volunteer.id,
+                                    "rejected"
+                                  );
                                 }}
                                 className="px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
                               >
@@ -331,61 +391,116 @@ const VolunteersManager = ({ setAllUsers, fetchVolunteerDetails }) => {
                       </tr>
                       {expandedVolunteerId === volunteer.id && (
                         <tr className="border-b border-gray-200 dark:border-gray-600">
-                          <td colSpan="4" className="px-4 py-4 bg-gray-50 dark:bg-gray-700">
+                          <td
+                            colSpan="4"
+                            className="px-4 py-4 bg-gray-50 dark:bg-gray-700"
+                          >
                             {detailsLoading ? (
-                              <p className="text-gray-800 dark:text-gray-200">Chargement des détails...</p>
+                              <p className="text-gray-800 dark:text-gray-200">
+                                Chargement des détails...
+                              </p>
                             ) : !volunteerDetails[volunteer.id] ? (
-                              <p className="text-gray-800 dark:text-gray-200">Échec du chargement des détails.</p>
+                              <p className="text-gray-800 dark:text-gray-200">
+                                Échec du chargement des détails.
+                              </p>
                             ) : (
                               <div className="text-gray-800 dark:text-gray-200 space-y-2">
-                                <p><span className="font-semibold">Email:</span> {details.email}</p>
                                 <p>
-                                  <span className="font-semibold">Abonnement:</span>{" "}
+                                  <span className="font-semibold">Email:</span>{" "}
+                                  {details.email}
+                                </p>
+                                <p>
+                                  <span className="font-semibold">
+                                    Abonnement:
+                                  </span>{" "}
                                   <FontAwesomeIcon
-                                    icon={details.subscription_paid ? faCheckCircle : faTimesCircle}
-                                    className={details.subscription_paid ? "text-green-500" : "text-red-500"}
+                                    icon={
+                                      details.subscription_paid
+                                        ? faCheckCircle
+                                        : faTimesCircle
+                                    }
+                                    className={
+                                      details.subscription_paid
+                                        ? "text-green-500"
+                                        : "text-red-500"
+                                    }
                                   />
                                 </p>
-                                <p><span className="font-semibold">Téléphone:</span> {details.phone_number || "Non spécifié"}</p>
-                                <p><span className="font-semibold">Commune:</span> {details.village}</p>
                                 <p>
-                                  <FontAwesomeIcon icon={faHome} className="mr-1" />{" "}
-                                  <span className="font-semibold">Adresse:</span> {details.address || "Non spécifiée"}
+                                  <span className="font-semibold">
+                                    Téléphone:
+                                  </span>{" "}
+                                  {details.phone_number || "Non spécifié"}
+                                </p>
+                                <p>
+                                  <span className="font-semibold">
+                                    Commune:
+                                  </span>{" "}
+                                  {details.village}
+                                </p>
+                                <p>
+                                  <FontAwesomeIcon
+                                    icon={faHome}
+                                    className="mr-1"
+                                  />{" "}
+                                  <span className="font-semibold">
+                                    Adresse:
+                                  </span>{" "}
+                                  {details.address || "Non spécifiée"}
                                 </p>
                                 <div>
-                                  <span className="font-semibold">Communes de promenade:</span>
+                                  <span className="font-semibold">
+                                    Communes de promenade:
+                                  </span>
                                   <ul className="list-disc pl-4">
-                                    {details.villages_covered?.map((village, idx) => (
-                                      <li key={idx}>{village}</li>
-                                    ))}
+                                    {details.villages_covered?.map(
+                                      (village, idx) => (
+                                        <li key={idx}>{village}</li>
+                                      )
+                                    )}
                                   </ul>
                                 </div>
                                 <div>
-                                  <span className="font-semibold">Disponibilités:</span>
-                                  {(details.availabilities || []).length === 0 ? (
+                                  <span className="font-semibold">
+                                    Disponibilités:
+                                  </span>
+                                  {(details.availabilities || []).length ===
+                                  0 ? (
                                     <p>Aucune disponibilité définie</p>
                                   ) : (
                                     <ul className="list-disc pl-4">
-                                      {daysOfWeekLabels.map((dayLabel, index) => {
-                                        const dayOfWeek = index + 1;
-                                        const dayAvailabilities = groupedAvailabilities[dayOfWeek] || [];
-                                        return dayAvailabilities.length > 0 ? (
-                                          <li key={dayOfWeek}>
-                                            {dayLabel}:{" "}
-                                            {dayAvailabilities.map((av, idx) => (
-                                              <span key={idx}>
-                                                {av.startTime} - {av.endTime}
-                                                {idx < dayAvailabilities.length - 1 && ", "}
-                                              </span>
-                                            ))}
-                                          </li>
-                                        ) : null;
-                                      })}
+                                      {daysOfWeekLabels.map(
+                                        (dayLabel, index) => {
+                                          const dayOfWeek = index + 1;
+                                          const dayAvailabilities =
+                                            groupedAvailabilities[dayOfWeek] ||
+                                            [];
+                                          return dayAvailabilities.length >
+                                            0 ? (
+                                            <li key={dayOfWeek}>
+                                              {dayLabel}:{" "}
+                                              {dayAvailabilities.map(
+                                                (av, idx) => (
+                                                  <span key={idx}>
+                                                    {av.startTime} -{" "}
+                                                    {av.endTime}
+                                                    {idx <
+                                                      dayAvailabilities.length -
+                                                        1 && ", "}
+                                                  </span>
+                                                )
+                                              )}
+                                            </li>
+                                          ) : null;
+                                        }
+                                      )}
                                     </ul>
                                   )}
                                 </div>
                                 <p>
-                                  <span className="font-semibold">Responsabilité Civile:</span>{" "}
+                                  <span className="font-semibold">
+                                    Responsabilité Civile:
+                                  </span>{" "}
                                   {details.insurance_file_path ? (
                                     <a
                                       href={
@@ -397,29 +512,65 @@ const VolunteersManager = ({ setAllUsers, fetchVolunteerDetails }) => {
                                       rel="noopener noreferrer"
                                       className="text-blue-600 hover:underline dark:text-blue-500 ml-2 flex items-center"
                                     >
-                                      <FontAwesomeIcon icon={faFileDownload} className="mr-1" />
+                                      <FontAwesomeIcon
+                                        icon={faFileDownload}
+                                        className="mr-1"
+                                      />
                                       Voir / Télécharger
                                     </a>
                                   ) : (
-                                    <span className="ml-2 text-gray-500">Aucune assurance téléversée</span>
+                                    <span className="ml-2 text-gray-500">
+                                      Aucune assurance téléversée
+                                    </span>
                                   )}
                                 </p>
                                 <p>
-                                  <FontAwesomeIcon icon={faListCheck} className="mr-1" />
-                                  <span className="font-semibold">Majeur(e):</span>{" "}
-                                  {details.is_adult === true ? "Oui" : details.is_adult === false ? "Non" : "Non spécifié"}
+                                  <FontAwesomeIcon
+                                    icon={faListCheck}
+                                    className="mr-1"
+                                  />
+                                  <span className="font-semibold">
+                                    Majeur(e):
+                                  </span>{" "}
+                                  {details.is_adult === true
+                                    ? "Oui"
+                                    : details.is_adult === false
+                                    ? "Non"
+                                    : "Non spécifié"}
                                 </p>
                                 <div>
-                                  <FontAwesomeIcon icon={faListCheck} className="mr-1" />
-                                  <span className="font-semibold">Engagements:</span>
+                                  <FontAwesomeIcon
+                                    icon={faListCheck}
+                                    className="mr-1"
+                                  />
+                                  <span className="font-semibold">
+                                    Engagements:
+                                  </span>
                                   {details.commitments ? (
                                     <ul className="list-disc pl-4">
-                                      <li>Honorer les promenades: {details.commitments.honorWalks ? "Oui" : "Non"}</li>
-                                      <li>Tenir en laisse: {details.commitments.keepLeash ? "Oui" : "Non"}</li>
-                                      <li>Signaler les comportements: {details.commitments.reportBehavior ? "Oui" : "Non"}</li>
+                                      <li>
+                                        Honorer les promenades:{" "}
+                                        {details.commitments.honorWalks
+                                          ? "Oui"
+                                          : "Non"}
+                                      </li>
+                                      <li>
+                                        Tenir en laisse:{" "}
+                                        {details.commitments.keepLeash
+                                          ? "Oui"
+                                          : "Non"}
+                                      </li>
+                                      <li>
+                                        Signaler les comportements:{" "}
+                                        {details.commitments.reportBehavior
+                                          ? "Oui"
+                                          : "Non"}
+                                      </li>
                                     </ul>
                                   ) : (
-                                    <span className="ml-2 text-gray-500">Aucun engagement spécifié</span>
+                                    <span className="ml-2 text-gray-500">
+                                      Aucun engagement spécifié
+                                    </span>
                                   )}
                                 </div>
                               </div>
