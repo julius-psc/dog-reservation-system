@@ -478,22 +478,25 @@ module.exports = (
       }
 
       const volunteersQuery = `
-        SELECT
-          u.id,
-          u.username,
-          u.email,
-          u.villages_covered,
-          COALESCE(json_agg(
-            json_build_object('day_of_week', a.day_of_week, 'start_time', a.start_time::TEXT, 'end_time', a.end_time::TEXT)
-          ) FILTER (WHERE a.id IS NOT NULL), '[]'::json) AS availabilities
-        FROM users u
-        LEFT JOIN availabilities a ON u.id = a.user_id AND a.day_of_week = $1
-        WHERE u.role = 'volunteer'
-          AND u.volunteer_status = 'approved'
-          AND u.holiday_mode IS NOT TRUE
-          AND u.villages_covered @> jsonb_build_array(CAST($2 AS TEXT))
-        GROUP BY u.id, u.username, u.email, u.villages_covered
-      `;
+      SELECT
+        u.id,
+        u.username,
+        u.email,
+        u.villages_covered,
+        COALESCE(json_agg(
+          json_build_object('day_of_week', a.day_of_week, 'start_time', a.start_time::TEXT, 'end_time', a.end_time::TEXT)
+        ) FILTER (WHERE a.id IS NOT NULL), '[]'::json) AS availabilities
+      FROM users u
+      LEFT JOIN availabilities a ON u.id = a.user_id AND a.day_of_week = $1
+      WHERE u.role = 'volunteer'
+        AND u.volunteer_status = 'approved'
+        AND u.holiday_mode IS NOT TRUE
+        AND (
+          u.village = $2 OR
+          u.villages_covered @> jsonb_build_array(CAST($2 AS TEXT))
+        )
+      GROUP BY u.id, u.username, u.email, u.villages_covered
+    `;
 
       const reservationsQuery = `
       SELECT
@@ -508,7 +511,10 @@ module.exports = (
         AND r.volunteer_id IN (
           SELECT id FROM users
           WHERE role = 'volunteer'
-          AND villages_covered @> jsonb_build_array(CAST($2 AS TEXT))
+            AND (
+              village = $2 OR
+              villages_covered @> jsonb_build_array(CAST($2 AS TEXT))
+            )
         )
         AND r.status IN ('pending', 'accepted')
     `;

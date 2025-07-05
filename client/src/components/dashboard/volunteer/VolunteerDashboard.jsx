@@ -281,10 +281,10 @@ const VolunteerDashboard = ({ handleLogout }) => {
       </header>
 
       <main className="container mx-auto mt-8 px-4 pb-12">
-       <SubscriptionManager
-  subscriptionStatus={subscriptionStatus}
-  fetchSubscriptionStatus={fetchSubscriptionStatus}
-/>
+        <SubscriptionManager
+          subscriptionStatus={subscriptionStatus}
+          fetchSubscriptionStatus={fetchSubscriptionStatus}
+        />
 
         <div className="mt-8">
           <p className="text-3xl text-primary-blue font-semibold dark:text-white">
@@ -317,7 +317,7 @@ const VolunteerDashboard = ({ handleLogout }) => {
             {showAvailabilityForm ? (
               <AvailabilityForm
                 onAvailabilitySaved={handleAvailabilitySaved}
-                canUpdateAvailability={canUpdateAvailability}
+                canUpdate={canUpdateAvailability()}
                 reservations={reservations}
                 timeUpdatedAt={timeUpdatedAt}
               />
