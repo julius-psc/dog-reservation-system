@@ -35,12 +35,23 @@ module.exports = (pool) => {
               data.customer_email
             ) {
               // Save stripe_subscription_id in user row
+              // Fetch subscription details from Stripe
+              const subscription = await stripe.subscriptions.retrieve(
+                data.subscription
+              );
+              const expiryDate = new Date(
+                subscription.current_period_end * 1000
+              );
+
               await pool.query(
                 `UPDATE users 
-                 SET stripe_subscription_id = $1
-                 WHERE email = $2`,
-                [data.subscription, data.customer_email]
+   SET stripe_subscription_id = $1,
+       subscription_paid = $2,
+       subscription_expiry_date = $3
+   WHERE email = $4`,
+                [data.subscription, true, expiryDate, data.customer_email]
               );
+
               console.log(
                 `✅ User ${data.customer_email} subscription saved: ${data.subscription}`
               );
