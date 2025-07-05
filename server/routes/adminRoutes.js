@@ -112,32 +112,51 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
   );
 
   // Fetch all users
-  router.get(
-    "/admin/all-users",
-    authenticate,
-    authorizeAdmin,
-    async (req, res) => {
-      try {
-        const search = req.query.search || "";
+router.get(
+  "/admin/all-users",
+  authenticate,
+  authorizeAdmin,
+  async (req, res) => {
+    try {
+      const search = req.query.search || "";
+      const role = req.query.role;
+      const limit = parseInt(req.query.limit || "10", 10);
+      const offset = parseInt(req.query.offset || "0", 10);
 
-        const users = await pool.query(
-          `
+      const conditions = [];
+      const params = [];
+
+      if (search) {
+        conditions.push(`username ILIKE $${params.length + 1}`);
+        params.push(`%${search}%`);
+      }
+
+      if (role && role !== "all") {
+        conditions.push(`role = $${params.length + 1}`);
+        params.push(role);
+      }
+
+      const whereClause = conditions.length > 0 ? "WHERE " + conditions.join(" AND ") : "";
+
+      const query = `
         SELECT id, username, email, role, village, no_risk_confirmed, unable_to_walk_confirmed, photo_permission
         FROM users
-        WHERE username ILIKE $1
+        ${whereClause}
         ORDER BY username
-        LIMIT 10
-      `,
-          [`%${search}%`]
-        );
+        LIMIT $${params.length + 1} OFFSET $${params.length + 2}
+      `;
 
-        res.json(users.rows);
-      } catch (err) {
-        console.error("Error fetching users:", err);
-        res.status(500).json({ error: "Failed to fetch users" });
-      }
+      params.push(limit, offset);
+
+      const users = await pool.query(query, params);
+      res.json(users.rows);
+    } catch (err) {
+      console.error("Error fetching users:", err);
+      res.status(500).json({ error: "Failed to fetch users" });
     }
-  );
+  }
+);
+
 
   // Fetch users count only
   router.get(

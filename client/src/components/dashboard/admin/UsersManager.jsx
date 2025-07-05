@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import PropTypes from "prop-types";
 import Cookies from "js-cookie";
 import { toast } from "react-hot-toast";
@@ -9,30 +9,56 @@ const UsersManager = ({ allUsers, setAllUsers }) => {
   const [userFilter, setUserFilter] = useState("");
   const [userRoleFilter, setUserRoleFilter] = useState("all");
 
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
+  const API_BASE_URL =
+    import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
+
+  useEffect(() => {
+    const fetchFilteredUsers = async () => {
+      try {
+        const token = Cookies.get("token");
+        const headers = { Authorization: `Bearer ${token}` };
+
+        const params = new URLSearchParams();
+        if (userFilter) params.append("search", userFilter);
+        if (userRoleFilter !== "all") params.append("role", userRoleFilter);
+        if (!userFilter && userRoleFilter === "all") {
+          params.append("limit", 10); // Only limit when no filters
+        }
+
+        const res = await fetch(
+          `${API_BASE_URL}/admin/all-users?${params.toString()}`,
+          {
+            headers,
+          }
+        );
+        if (!res.ok) throw new Error("Échec du chargement des utilisateurs");
+        const data = await res.json();
+        setAllUsers(data);
+      } catch (err) {
+        toast.error(err.message);
+      }
+    };
+
+    fetchFilteredUsers();
+  }, [userFilter, userRoleFilter, API_BASE_URL, setAllUsers]);
 
   const handleDeleteUser = async (userId) => {
-    if (!confirm("Êtes-vous sûr de vouloir supprimer cet utilisateur ?")) return;
-
+    if (!confirm("Êtes-vous sûr de vouloir supprimer cet utilisateur ?"))
+      return;
     try {
       const token = Cookies.get("token");
       const response = await fetch(`${API_BASE_URL}/admin/users/${userId}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!response.ok) throw new Error("Échec de la suppression de l'utilisateur");
+      if (!response.ok)
+        throw new Error("Échec de la suppression de l'utilisateur");
       setAllUsers((prev) => prev.filter((user) => user.id !== userId));
       toast.success("Utilisateur supprimé avec succès");
     } catch (error) {
       toast.error(`Erreur lors de la suppression: ${error.message}`);
     }
   };
-
-  const filteredUsers = allUsers.filter(
-    (u) =>
-      u.username.toLowerCase().includes(userFilter.toLowerCase()) &&
-      (userRoleFilter === "all" || u.role === userRoleFilter)
-  );
 
   return (
     <section className="mb-8">
@@ -66,23 +92,52 @@ const UsersManager = ({ allUsers, setAllUsers }) => {
           <table className="w-full border-collapse">
             <thead className="bg-gray-100 dark:bg-gray-700">
               <tr className="border-b border-gray-200 dark:border-gray-600">
-                {["Nom", "Email", "Rôle", "Village", "Pas de Risque", "Incapable de Promener", "Permission Photo", "Actions"].map((header) => (
-                  <th key={header} className="px-4 py-3 text-left text-sm font-semibold text-gray-600 dark:text-gray-300">
+                {[
+                  "Nom",
+                  "Email",
+                  "Rôle",
+                  "Village",
+                  "Pas de Risque",
+                  "Incapable de Promener",
+                  "Permission Photo",
+                  "Actions",
+                ].map((header) => (
+                  <th
+                    key={header}
+                    className="px-4 py-3 text-left text-sm font-semibold text-gray-600 dark:text-gray-300"
+                  >
                     {header}
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {filteredUsers.map((user) => (
-                <tr key={user.id} className="border-b border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                  <td className="px-4 py-4 text-gray-800 dark:text-gray-200">{user.username}</td>
-                  <td className="px-4 py-4 text-gray-800 dark:text-gray-200">{user.email}</td>
-                  <td className="px-4 py-4 text-gray-800 dark:text-gray-200">{user.role}</td>
-                  <td className="px-4 py-4 text-gray-800 dark:text-gray-200">{user.village}</td>
-                  <td className="px-4 py-4 text-gray-800 dark:text-gray-200">{user.no_risk_confirmed ? "Oui" : "Non"}</td>
-                  <td className="px-4 py-4 text-gray-800 dark:text-gray-200">{user.unable_to_walk_confirmed ? "Oui" : "Non"}</td>
-                  <td className="px-4 py-4 text-gray-800 dark:text-gray-200">{user.photo_permission ? "Oui" : "Non"}</td>
+              {allUsers.map((user) => (
+                <tr
+                  key={user.id}
+                  className="border-b border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <td className="px-4 py-4 text-gray-800 dark:text-gray-200">
+                    {user.username}
+                  </td>
+                  <td className="px-4 py-4 text-gray-800 dark:text-gray-200">
+                    {user.email}
+                  </td>
+                  <td className="px-4 py-4 text-gray-800 dark:text-gray-200">
+                    {user.role}
+                  </td>
+                  <td className="px-4 py-4 text-gray-800 dark:text-gray-200">
+                    {user.village}
+                  </td>
+                  <td className="px-4 py-4 text-gray-800 dark:text-gray-200">
+                    {user.no_risk_confirmed ? "Oui" : "Non"}
+                  </td>
+                  <td className="px-4 py-4 text-gray-800 dark:text-gray-200">
+                    {user.unable_to_walk_confirmed ? "Oui" : "Non"}
+                  </td>
+                  <td className="px-4 py-4 text-gray-800 dark:text-gray-200">
+                    {user.photo_permission ? "Oui" : "Non"}
+                  </td>
                   <td className="px-4 py-4">
                     <button
                       onClick={() => handleDeleteUser(user.id)}
@@ -118,3 +173,7 @@ UsersManager.propTypes = {
 };
 
 export default UsersManager;
+
+
+
+

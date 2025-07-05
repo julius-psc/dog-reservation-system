@@ -29,6 +29,7 @@ const AdminDashboard = ({ handleLogout }) => {
     reservationsLoading,
     reservationsError,
     allUsers,
+    usersCount,
     setAllUsers,
     usersLoading,
     usersError,
@@ -102,7 +103,7 @@ const AdminDashboard = ({ handleLogout }) => {
             },
             {
               title: "Total Utilisateurs",
-              count: allUsers.length,
+              count: usersCount,
               icon: faUsers,
               color: "yellow-500",
             },
@@ -136,3 +137,4 @@ AdminDashboard.propTypes = {
 };
 
 export default AdminDashboard;
+
