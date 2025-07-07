@@ -15,12 +15,12 @@ export default function HotWeatherWarningClient() {
           </div>
           <p className="text-orange-700 mb-3">
             En raison des températures élevées, nous recommandons fortement de privilégier les 
-            <span className="font-medium"> réservations matinales (avant 10h) ou en soirée (après 18h) </span> 
-            pour le bien-être de nos bénévoles et de vos compagnons à quatre pattes.
+            <span className="font-medium"> promenades matinales (avant 10h) ou en fin d'après-midi (après 18h) </span> 
+            pour le bien-être de nos bénévoles et de vos compagnons à quatre pattes. Pensez à bien hydrater votre chien avant et après la promenade.
           </p>
           <div className="flex items-center space-x-2 text-sm text-orange-600">
             <Clock className="h-4 w-4" />
-            <span>Créneaux recommandés : 6h-10h et 18h-21h</span>
+            <span>6h-10h et 18h-21h</span>
           </div>
         </div>
       </div>

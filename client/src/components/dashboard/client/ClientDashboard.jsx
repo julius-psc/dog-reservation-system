@@ -186,7 +186,7 @@ const ClientDashboard = memo(({ handleLogout }) => {
       <header className="bg-white dark:bg-gray-800 shadow-md py-6">
         <div className="container mx-auto px-4 flex justify-between items-center">
           <div>
-            <h2 className="text-2xl font-semibold text-gray-800 dark:text-white">
+            <h2 className="text-3xl font-extrabold text-primary-black dark:text-primary-black flex items-center">
               <FontAwesomeIcon icon={faPaw} className="mr-2" />
               Tableau de bord - Propriétaire de chiens
             </h2>

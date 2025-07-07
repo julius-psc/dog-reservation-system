@@ -275,7 +275,7 @@ const VolunteerDashboard = ({ handleLogout }) => {
               icon={faPaw}
               className="mr-3 text-primary-blue animate-pulse"
             />
-            Tableau de Bord Bénévole
+            Tableau de Bord -  Bénévole
           </h2>
           <LogoutButton handleLogout={handleLogout} />
         </div>

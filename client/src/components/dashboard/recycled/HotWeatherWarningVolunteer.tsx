@@ -25,7 +25,7 @@ export default function VolunteerHotWeatherWarning() {
             <div className="flex items-start space-x-2">
               <XCircle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
               <p className="text-red-700">
-                <span className="font-medium">N'hésitez pas à annuler une promenade</span> si les conditions météorologiques ne sont pas appropriées. La sécurité du chien est notre priorité absolue.
+                <span className="font-medium">N'hésitez pas à annuler ou raccourcir la durée d'une promenade</span> si les conditions météorologiques ne sont pas appropriées. Votre sécurité et celle du chien sont nos priorités absolues.
               </p>
             </div>
           </div>
