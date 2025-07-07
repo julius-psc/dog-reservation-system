@@ -4,6 +4,7 @@ import guideProprio from "../../assets/landing-page/documents/guide_proprio.pdf"
 import affiche from "../../assets/landing-page/documents/chiensencavale_affiche.pdf";
 import bio1 from '../../assets/landing-page/documents/tome1_bio.png';
 import bio2 from '../../assets/landing-page/documents/tome2_bio.png';
+import bio3 from '../../assets/landing-page/documents/tome3_bio.pdf';
 
 const Docs = () => {
   const documentCategories = [
@@ -52,6 +53,11 @@ const Docs = () => {
           title: "Tome 2",
           description: "Les espaces protégés.",
           file: bio2,
+        },
+                {
+          title: "Tome 3",
+          description: "Climats changeants, chiens prudents!",
+          file: bio3,
         },
       ],
     },
