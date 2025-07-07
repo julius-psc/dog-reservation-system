@@ -15,7 +15,7 @@ export default function HotWeatherWarningClient() {
           </div>
           <p className="text-orange-700 mb-3">
             En raison des températures élevées, nous recommandons fortement de privilégier les 
-            <span className="font-medium"> réservations matinales (avant 10h) ou en soirée (après 18h)</span> 
+            <span className="font-medium"> réservations matinales (avant 10h) ou en soirée (après 18h) </span> 
             pour le bien-être de nos bénévoles et de vos compagnons à quatre pattes.
           </p>
           <div className="flex items-center space-x-2 text-sm text-orange-600">
