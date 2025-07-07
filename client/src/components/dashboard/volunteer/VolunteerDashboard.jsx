@@ -18,6 +18,7 @@ import AvailabilityDisplay from "./AvailabilityDisplay";
 import ReservationsTable from "./ReservationsTable";
 import useVolunteerData from "./useVolunteerData";
 import toast from "react-hot-toast";
+import HotWeatherWarningVolunteer from "../recycled/HotWeatherWarningVolunteer";
 
 moment.locale("fr");
 
@@ -279,6 +280,8 @@ const VolunteerDashboard = ({ handleLogout }) => {
           <LogoutButton handleLogout={handleLogout} />
         </div>
       </header>
+
+      <HotWeatherWarningVolunteer />
 
       <main className="container mx-auto mt-8 px-4 pb-12">
         <SubscriptionManager
