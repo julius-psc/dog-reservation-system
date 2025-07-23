@@ -38,13 +38,7 @@ module.exports = (
         req.body;
 
       // Validate required fields
-      if (
-        !reservationDate ||
-        !startTime ||
-        !endTime ||
-        !dogId ||
-        !volunteerId
-      ) {
+      if (!reservationDate || !startTime || !endTime || !dogId) {
         throw new Error("Missing required fields");
       }
 
@@ -59,7 +53,7 @@ module.exports = (
         throw new Error("End time must be after start time");
       }
 
-      // Enforce 3-day advance booking rule
+      // Enforce 1-day advance booking rule
       const reservationMoment = moment(reservationDate);
       const oneDayFromNow = moment().add(1, "days").startOf("day");
       if (reservationMoment.isBefore(oneDayFromNow)) {
@@ -77,42 +71,87 @@ module.exports = (
         throw new Error("Invalid dog ID or dog doesn't belong to you");
       }
 
-      // Check for overlapping reservations with the volunteer
+      // Determine volunteer to assign
+      let chosenVolunteerId = volunteerId;
+
+      if (!chosenVolunteerId) {
+        // No preference: pick a volunteer randomly
+        const availableVolunteersQuery = `
+        SELECT u.id
+        FROM users u
+        WHERE u.role = 'volunteer'
+          AND u.volunteer_status = 'approved'
+          AND u.holiday_mode IS NOT TRUE
+          AND (
+            u.village = $1 OR
+            u.villages_covered @> jsonb_build_array(CAST($1 AS TEXT))
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM reservations r2
+            WHERE r2.volunteer_id = u.id
+              AND r2.reservation_date = $2
+              AND r2.status IN ('pending', 'accepted')
+              AND (
+                (r2.start_time <= $3 AND r2.end_time > $3)
+                OR (r2.start_time < $4 AND r2.end_time >= $4)
+                OR (r2.start_time >= $3 AND r2.end_time <= $4)
+              )
+          )
+      `;
+
+        const available = await client.query(availableVolunteersQuery, [
+          req.user.village,
+          reservationDate,
+          startTime,
+          endTime,
+        ]);
+
+        if (available.rows.length === 0) {
+          throw new Error("Aucun bénévole disponible à ce créneau.");
+        }
+
+        const randomIndex = Math.floor(Math.random() * available.rows.length);
+        chosenVolunteerId = available.rows[randomIndex].id;
+      }
+
+      // Check for overlapping reservations with chosen volunteer
       const overlapQuery = `
-        SELECT id
-        FROM reservations
-        WHERE reservation_date = $1
+      SELECT id
+      FROM reservations
+      WHERE reservation_date = $1
         AND volunteer_id = $2
         AND status IN ('pending', 'accepted')
         AND (
           (start_time <= $3 AND end_time > $3)
           OR (start_time < $4 AND end_time >= $4)
           OR (start_time >= $3 AND end_time <= $4)
-        )`;
+        )
+    `;
       const overlapResult = await client.query(overlapQuery, [
         reservationDate,
-        volunteerId,
+        chosenVolunteerId,
         startTime,
         endTime,
       ]);
       if (overlapResult.rows.length > 0) {
         throw new Error(
-          "This slot is already reserved. Please choose another time."
+          "Ce créneau est déjà réservé. Veuillez en choisir un autre."
         );
       }
 
-      // Check for overlapping reservations by the client
+      // Check for client's own overlapping reservations
       const clientOverlapQuery = `
-        SELECT id
-        FROM reservations
-        WHERE reservation_date = $1
+      SELECT id
+      FROM reservations
+      WHERE reservation_date = $1
         AND client_id = $2
         AND status IN ('pending', 'accepted')
         AND (
           (start_time <= $3 AND end_time > $3)
           OR (start_time < $4 AND end_time >= $4)
           OR (start_time >= $3 AND end_time <= $4)
-        )`;
+        )
+    `;
       const clientOverlapResult = await client.query(clientOverlapQuery, [
         reservationDate,
         req.user.userId,
@@ -120,45 +159,44 @@ module.exports = (
         endTime,
       ]);
       if (clientOverlapResult.rows.length > 0) {
-        throw new Error("You already have a reservation for this slot.");
+        throw new Error("Vous avez déjà une réservation pour ce créneau.");
       }
 
-      // Insert the new reservation
+      // Insert new reservation
       const insertQuery = `
-        INSERT INTO reservations (
-          client_id,
-          volunteer_id,
-          dog_id,
-          reservation_date,
-          start_time,
-          end_time,
-          status,
-          created_at,
-          updated_at
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
-        RETURNING *`;
+      INSERT INTO reservations (
+        client_id,
+        volunteer_id,
+        dog_id,
+        reservation_date,
+        start_time,
+        end_time,
+        status,
+        created_at,
+        updated_at
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, 'pending', NOW(), NOW())
+      RETURNING *;
+    `;
       const values = [
         req.user.userId,
-        volunteerId,
+        chosenVolunteerId,
         dogId,
         reservationDate,
         startTime,
         endTime,
-        "pending",
       ];
       const result = await client.query(insertQuery, values);
       const newReservation = result.rows[0];
 
-      // Check if the reservation should immediately be marked as completed or cancelled
+      // Auto-cancel if past date (edge case)
       const endDateTime = moment(
         `${reservationDate} ${endTime}`,
         "YYYY-MM-DD HH:mm"
       );
       const now = moment();
       if (endDateTime.isBefore(now)) {
-        // This should not happen due to the 3-day rule, but included for completeness
-        const updatedStatus = "cancelled"; // Since it’s past and still pending
+        const updatedStatus = "cancelled";
         await client.query(
           "UPDATE reservations SET status = $1 WHERE id = $2",
           [updatedStatus, newReservation.id]
@@ -166,39 +204,36 @@ module.exports = (
         newReservation.status = updatedStatus;
       }
 
-      // Fetch full reservation details for response and notifications
+      // Fetch full reservation details
       const reservationQuery = `
-        SELECT
-          r.id as reservation_id,
-          r.reservation_date,
-          TO_CHAR(r.start_time, 'HH24:MI') as start_time,
-          TO_CHAR(r.end_time, 'HH24:MI') as end_time,
-          r.status,
-          d.name as dog_name,
-          u_vol.username as volunteer_name,
-          u_vol.email as volunteer_email,
-          u_cli.village as client_village,
-          u_cli.username as client_name
-        FROM reservations r
-        JOIN dogs d ON r.dog_id = d.id
-        JOIN users u_vol ON r.volunteer_id = u_vol.id
-        JOIN users u_cli ON r.client_id = u_cli.id
-        WHERE r.id = $1`;
+      SELECT
+        r.id as reservation_id,
+        r.reservation_date,
+        TO_CHAR(r.start_time, 'HH24:MI') as start_time,
+        TO_CHAR(r.end_time, 'HH24:MI') as end_time,
+        r.status,
+        d.name as dog_name,
+        u_vol.username as volunteer_name,
+        u_vol.email as volunteer_email,
+        u_cli.village as client_village,
+        u_cli.username as client_name
+      FROM reservations r
+      JOIN dogs d ON r.dog_id = d.id
+      JOIN users u_vol ON r.volunteer_id = u_vol.id
+      JOIN users u_cli ON r.client_id = u_cli.id
+      WHERE r.id = $1
+    `;
       const newReservationDetails = await client.query(reservationQuery, [
         newReservation.id,
       ]);
 
       if (newReservationDetails.rows.length === 0) {
-        throw new Error(
-          "Failed to fetch reservation details; reservation not found."
-        );
+        throw new Error("Reservation created, but details not found.");
       }
+
       const reservationData = newReservationDetails.rows[0];
-      console.log("Reservation details fetched:", reservationData);
 
-      await client.query("COMMIT");
-
-      // Send email notification to volunteer (only if volunteer_email exists)
+      // Send reservation email to volunteer
       if (reservationData.volunteer_email) {
         try {
           await sendReservationRequestEmailToVolunteer(
@@ -213,26 +248,17 @@ module.exports = (
             reservationData.client_village
           );
         } catch (emailError) {
-          console.error("Error sending reservation request email:", emailError);
-          // Don’t throw here; email failure shouldn’t block the response
+          console.error("Error sending email:", emailError);
         }
-      } else {
-        console.warn("No volunteer email found; skipping email notification.");
       }
 
-      // Fetch volunteer's covered villages for WebSocket broadcast
+      // WebSocket broadcast to village users
       const volunteerQuery = await client.query(
         "SELECT villages_covered FROM users WHERE id = $1",
-        [volunteerId]
+        [chosenVolunteerId]
       );
-      if (volunteerQuery.rows.length === 0) {
-        console.error("Volunteer not found for ID:", volunteerId);
-        throw new Error("Volunteer not found");
-      }
-      const volunteerVillages = volunteerQuery.rows[0].villages_covered || [];
-      console.log("Volunteer villages covered:", volunteerVillages);
+      const volunteerVillages = volunteerQuery.rows[0]?.villages_covered || [];
 
-      // Broadcast reservation update to all clients in volunteer's covered villages
       connectedClients.forEach((ws) => {
         if (
           ws.readyState === WebSocket.OPEN &&
@@ -244,15 +270,12 @@ module.exports = (
               reservation: reservationData,
             })
           );
-          console.log(
-            `Sent reservation update to client in village: ${ws.village}`
-          );
         }
       });
 
-      // Respond to the client
+      await client.query("COMMIT");
       res.status(201).json({
-        message: "Reservation created successfully",
+        message: "Réservation enregistrée avec succès",
         reservation: reservationData,
       });
     } catch (error) {
@@ -450,12 +473,13 @@ module.exports = (
       });
     });
 
-    const formattedMergedSlots = {};
-    Object.keys(mergedSlotsByDay).forEach((dayIndex) => {
-      formattedMergedSlots[dayIndex] = Object.values(
-        mergedSlotsByDay[dayIndex]
-      ).filter((slot) => slot.volunteerIds.length > 0 || slot.isReserved);
-    });
+const formattedMergedSlots = {};
+Object.keys(mergedSlotsByDay).forEach((dayIndex) => {
+  formattedMergedSlots[dayIndex] = Object.values(mergedSlotsByDay[dayIndex])
+    .filter((slot) => slot.volunteerIds.length > 0 || slot.isReserved)
+    .sort((a, b) => moment(a.time, "HH:mm").diff(moment(b.time, "HH:mm")));
+});
+
 
     return formattedMergedSlots;
   }

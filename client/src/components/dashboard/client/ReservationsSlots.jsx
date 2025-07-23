@@ -28,6 +28,7 @@ const ReservationSlots = ({
 }) => {
   const [isConfirmationVisible, setIsConfirmationVisible] = useState(false);
   const [confirmationDetails, setConfirmationDetails] = useState(null);
+  const [selectedVolunteerId, setSelectedVolunteerId] = useState(null);
 
   const daysOfWeek = [
     "Lundi",
@@ -104,32 +105,35 @@ const ReservationSlots = ({
     );
   };
 
-  const showConfirmation = (volunteerId, startTime, dayIndex) => {
+  const showConfirmation = (slot, dayIndex) => {
     const reservationDate = moment(currentWeekStart).add(dayIndex, "days");
     setConfirmationDetails({
-      volunteerId,
-      startTime,
+      slot,
       dayIndex,
       date: reservationDate.format("DD/MM/YYYY"),
     });
+    setSelectedVolunteerId(null); // default to "no preference"
     setIsConfirmationVisible(true);
   };
 
   const handleConfirmReservation = () => {
     if (confirmationDetails) {
+      const { slot, dayIndex } = confirmationDetails;
       handleReservation(
-        confirmationDetails.volunteerId,
-        confirmationDetails.startTime,
-        confirmationDetails.dayIndex
+        selectedVolunteerId, // might be null
+        slot.time,
+        dayIndex
       );
       setIsConfirmationVisible(false);
       setConfirmationDetails(null);
+      setSelectedVolunteerId(null);
     }
   };
 
   const handleCancelConfirmation = () => {
     setIsConfirmationVisible(false);
     setConfirmationDetails(null);
+    setSelectedVolunteerId(null);
   };
 
   return (
@@ -138,6 +142,7 @@ const ReservationSlots = ({
         <FontAwesomeIcon icon={faCalendarAlt} className="mr-2" />
         Créneaux disponibles
       </h3>
+
       <div className="mb-4 flex justify-center space-x-3">
         <button
           onClick={goToPreviousWeek}
@@ -161,6 +166,7 @@ const ReservationSlots = ({
           Semaine prochaine
         </button>
       </div>
+
       <div className="flex flex-col">
         {daysOfWeek.map((dayName, dayIndex) => {
           const currentDate = moment(currentWeekStart).add(dayIndex, "days");
@@ -178,7 +184,8 @@ const ReservationSlots = ({
               <h4 className="text-lg font-semibold mb-2 dark:text-white">
                 {dayName} ({currentDate.format("DD/MM")})
               </h4>
-              {allAvailableSlots[dayIndex] && allAvailableSlots[dayIndex].length > 0 ? (
+              {allAvailableSlots[dayIndex] &&
+              allAvailableSlots[dayIndex].length > 0 ? (
                 <div className="flex flex-wrap">
                   {allAvailableSlots[dayIndex].map((slot) => {
                     const isReserved = isSlotReserved(currentDate, slot, dayIndex);
@@ -200,7 +207,7 @@ const ReservationSlots = ({
                           }`}
                         onClick={() => {
                           if (!isPastSlot && !isReserved && !reservationLoading) {
-                            showConfirmation(slot.volunteerIds[0], slot.time, dayIndex);
+                            showConfirmation(slot, dayIndex);
                           } else if (isReserved) {
                             toast.error("Ce créneau est déjà réservé.");
                           }
@@ -224,7 +231,7 @@ const ReservationSlots = ({
 
       {isConfirmationVisible && confirmationDetails && (
         <div className="fixed inset-0 bg-primary-pink bg-opacity-75 overflow-y-auto h-full w-full z-50 flex justify-center items-center p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 space-y-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 space-y-4 w-full max-w-md">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
               <FontAwesomeIcon
                 icon={faExclamationTriangle}
@@ -233,24 +240,40 @@ const ReservationSlots = ({
               Confirmer la Réservation?
             </h3>
             <p className="text-gray-700 dark:text-gray-300 text-sm">
-              Êtes-vous certain de vouloir réserver le créneau à{" "}
-              <span className="font-semibold">{confirmationDetails.startTime}</span>{" "}
-              le{" "}
-              <span className="font-semibold">{confirmationDetails.date}</span> ?
+              Choisissez le bénévole pour le créneau à{" "}
+              <span className="font-semibold">{confirmationDetails.slot.time}</span> le{" "}
+              <span className="font-semibold">{confirmationDetails.date}</span>
             </p>
-            <p className="bg-yellow-100 border-l-4 border-yellow-500 text-sm text-yellow-700 p-4 rounded-md">
+
+            <select
+              className="w-full px-3 py-2 rounded border text-sm dark:bg-gray-700 dark:text-white"
+              value={selectedVolunteerId || ""}
+              onChange={(e) =>
+                setSelectedVolunteerId(e.target.value || null)
+              }
+            >
+              <option value="">Aucune préférence</option>
+              {confirmationDetails.slot.volunteerIds.map((id, i) => (
+                <option key={id} value={id}>
+                  {confirmationDetails.slot.volunteerUsernames[i]}
+                </option>
+              ))}
+            </select>
+
+            <div className="bg-yellow-100 border-l-4 border-yellow-500 text-sm text-yellow-700 p-4 rounded-md">
               Pensez à fournir un sac à déjection ou une toutounette pour votre bénévole à votre prochaine rencontre !
-            </p>
+            </div>
+
             <div className="flex justify-end space-x-4">
               <button
                 onClick={handleCancelConfirmation}
-                className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline text-sm"
+                className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded text-sm"
               >
                 Annuler
               </button>
               <button
                 onClick={handleConfirmReservation}
-                className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline text-sm"
+                className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded text-sm"
               >
                 Je confirme
               </button>
@@ -268,6 +291,7 @@ ReservationSlots.propTypes = {
       PropTypes.shape({
         time: PropTypes.string.isRequired,
         volunteerIds: PropTypes.arrayOf(PropTypes.string).isRequired,
+        volunteerUsernames: PropTypes.arrayOf(PropTypes.string).isRequired,
         isReserved: PropTypes.bool,
       })
     )
@@ -278,24 +302,8 @@ ReservationSlots.propTypes = {
   setIsCurrentWeekDisplayed: PropTypes.func.isRequired,
   selectedDate: PropTypes.instanceOf(Date).isRequired,
   setSelectedDate: PropTypes.func.isRequired,
-  reservations: PropTypes.arrayOf(
-    PropTypes.shape({
-      id: PropTypes.string.isRequired,
-      reservation_date: PropTypes.string.isRequired,
-      start_time: PropTypes.string.isRequired,
-      end_time: PropTypes.string.isRequired,
-      status: PropTypes.string.isRequired,
-    })
-  ).isRequired,
-  personalReservations: PropTypes.arrayOf(
-    PropTypes.shape({
-      id: PropTypes.string.isRequired,
-      reservation_date: PropTypes.string.isRequired,
-      start_time: PropTypes.string.isRequired,
-      end_time: PropTypes.string.isRequired,
-      status: PropTypes.string.isRequired,
-    })
-  ).isRequired,
+  reservations: PropTypes.array.isRequired,
+  personalReservations: PropTypes.array.isRequired,
   handleReservation: PropTypes.func.isRequired,
   reservationLoading: PropTypes.bool.isRequired,
 };
