@@ -1,5 +1,4 @@
-import { useState } from "react";
-import PropTypes from "prop-types";
+import { useState, useEffect } from "react";
 import moment from "moment";
 import "moment/locale/fr";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -13,8 +12,14 @@ import {
 
 moment.locale("fr");
 
-const ReservationsManager = ({ allReservations }) => {
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
+
+const ReservationsManager = () => {
+  const [allReservations, setAllReservations] = useState([]);
   const [reservationStatusFilter, setReservationStatusFilter] = useState("all");
+  const [fromDate, setFromDate] = useState(moment().subtract(7, "days").format("YYYY-MM-DD"));
+  const [toDate, setToDate] = useState(moment().add(7, "days").format("YYYY-MM-DD"));
 
   const getStatusDetails = (reservation) => {
     if (!reservation || !reservation.reservation_date || !reservation.end_time) {
@@ -33,7 +38,6 @@ const ReservationsManager = ({ allReservations }) => {
     );
     let status = reservation.status || "pending";
 
-    // Auto-update status based on current time
     if (endDateTime.isBefore(now)) {
       if (status === "accepted") {
         status = "completed";
@@ -71,7 +75,7 @@ const ReservationsManager = ({ allReservations }) => {
     };
 
     return {
-      status, // <--- expose normalized status for filtering
+      status,
       ...statusConfig[status] || {
         color: "bg-gray-200 text-gray-800",
         icon: null,
@@ -80,49 +84,84 @@ const ReservationsManager = ({ allReservations }) => {
     };
   };
 
-  const startOfThisWeek = moment().startOf("isoWeek");
-  const endOfNextWeek = moment().add(1, "weeks").endOf("isoWeek");
+  useEffect(() => {
+    const fetchReservations = async () => {
+      try {
+        const token = document.cookie
+          .split("; ")
+          .find((row) => row.startsWith("token="))
+          ?.split("=")[1];
+
+        const res = await fetch(
+          `${API_BASE_URL}/admin/reservations?from=${fromDate}&to=${toDate}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        if (!res.ok) throw new Error("Erreur lors du chargement des réservations");
+        const data = await res.json();
+        setAllReservations(data);
+      } catch (err) {
+        console.error(err);
+        setAllReservations([]);
+      }
+    };
+
+    fetchReservations();
+  }, [fromDate, toDate]);
 
   const filteredReservations = allReservations.filter((r) => {
     const { status } = getStatusDetails(r);
-    const date = moment(r.reservation_date);
-
-    const inThisOrNextWeek = date.isBetween(startOfThisWeek, endOfNextWeek, "day", "[]");
-
     return (
-      inThisOrNextWeek &&
-      (reservationStatusFilter === "all" ||
-        status.toLowerCase() === reservationStatusFilter.toLowerCase())
+      reservationStatusFilter === "all" ||
+      status.toLowerCase() === reservationStatusFilter.toLowerCase()
     );
   });
 
   return (
     <section className="mb-8">
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-        <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
-          <h2 className="text-xl font-semibold text-gray-800 dark:text-white flex items-center">
+        <div className="flex flex-col lg:flex-row justify-between items-center mb-6 gap-4">
+          <div className="flex items-center gap-2">
             <FontAwesomeIcon
               icon={faCalendarCheck}
-              className="mr-2 text-green-500"
+              className="text-green-500 text-xl"
             />
-            Liste des Réservations
-          </h2>
-          <select
-            value={reservationStatusFilter}
-            onChange={(e) => setReservationStatusFilter(e.target.value)}
-            className="w-full sm:w-48 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="all">Tous les Statuts</option>
-            <option value="pending">En attente</option>
-            <option value="accepted">Accepté</option>
-            <option value="rejected">Rejeté</option>
-            <option value="cancelled">Annulé</option>
-            <option value="completed">Terminé</option>
-          </select>
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-white">
+              Liste des Réservations
+            </h2>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-4 items-center">
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+            />
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+            />
+            <select
+              value={reservationStatusFilter}
+              onChange={(e) => setReservationStatusFilter(e.target.value)}
+              className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+            >
+              <option value="all">Tous les Statuts</option>
+              <option value="pending">En attente</option>
+              <option value="accepted">Accepté</option>
+              <option value="rejected">Rejeté</option>
+              <option value="cancelled">Annulé</option>
+              <option value="completed">Terminé</option>
+            </select>
+          </div>
         </div>
+
         {filteredReservations.length === 0 ? (
           <p className="text-gray-500 dark:text-gray-400 text-center">
-            Aucune réservation correspondant au filtre sélectionné.
+            Aucune réservation correspondant aux filtres sélectionnés.
           </p>
         ) : (
           <div className="overflow-x-auto">
@@ -202,30 +241,6 @@ const ReservationsManager = ({ allReservations }) => {
   );
 };
 
-ReservationsManager.propTypes = {
-  allReservations: PropTypes.arrayOf(
-    PropTypes.shape({
-      id: PropTypes.string.isRequired,
-      client_village: PropTypes.string,
-      volunteer_name: PropTypes.string,
-      client_name: PropTypes.string,
-      dog_name: PropTypes.string,
-      reservation_date: PropTypes.string,
-      start_time: PropTypes.string,
-      end_time: PropTypes.string,
-      status: PropTypes.oneOf([
-        "accepted",
-        "pending",
-        "rejected",
-        "cancelled",
-        "completed",
-      ]),
-    })
-  ).isRequired,
-};
-
-ReservationsManager.defaultProps = {
-  allReservations: [],
-};
+ReservationsManager.propTypes = {};
 
 export default ReservationsManager;

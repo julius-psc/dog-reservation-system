@@ -268,52 +268,76 @@ router.get(
     }
   );
 
-  // Fetch all reservations (admin)
-  router.get(
-    "/admin/reservations",
-    authenticate,
-    authorizeAdmin,
-    async (req, res) => {
-      const client = await pool.connect();
-      try {
-        await client.query("BEGIN");
-        await client.query(`
-          UPDATE reservations
-          SET status = CASE
-            WHEN status='accepted' AND (reservation_date+end_time::time)<NOW() THEN 'completed'
-            WHEN status='pending' AND (reservation_date+end_time::time)<NOW() THEN 'cancelled'
-            ELSE status
-          END
-          WHERE status IN ('accepted','pending') AND (reservation_date+end_time::time)<NOW()
-        `);
-        const result = await client.query(`
-SELECT r.id, 
-       u.username AS client_name, 
-       v.username AS volunteer_name, 
-       d.name AS dog_name,
-       u.village AS client_village,
-       r.reservation_date,
-       TO_CHAR(r.start_time,'HH24:MI') AS start_time,
-       TO_CHAR(r.end_time,'HH24:MI') AS end_time,
-       r.status
+// Fetch all reservations (admin)
+router.get(
+  "/admin/reservations",
+  authenticate,
+  authorizeAdmin,
+  async (req, res) => {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
 
-          FROM reservations r
-          JOIN users u ON r.client_id=u.id
-          JOIN users v ON r.volunteer_id=v.id
-          JOIN dogs d ON r.dog_id=d.id
-          ORDER BY r.reservation_date, r.start_time
-        `);
-        await client.query("COMMIT");
-        res.json(result.rows);
-      } catch (err) {
-        await client.query("ROLLBACK");
-        console.error("Error fetching reservations:", err);
-        res.status(500).json({ error: "Failed to fetch reservations" });
-      } finally {
-        client.release();
+      await client.query(`
+        UPDATE reservations
+        SET status = CASE
+          WHEN status='accepted' AND (reservation_date+end_time::time)<NOW() THEN 'completed'
+          WHEN status='pending' AND (reservation_date+end_time::time)<NOW() THEN 'cancelled'
+          ELSE status
+        END
+        WHERE status IN ('accepted','pending') AND (reservation_date+end_time::time)<NOW()
+      `);
+
+      // Get optional filters
+      const from = req.query.from; // YYYY-MM-DD
+      const to = req.query.to;     // YYYY-MM-DD
+      const conditions = [];
+      const params = [];
+
+      if (from) {
+        params.push(from);
+        conditions.push(`r.reservation_date >= $${params.length}`);
       }
+
+      if (to) {
+        params.push(to);
+        conditions.push(`r.reservation_date <= $${params.length}`);
+      }
+
+      const whereClause = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+
+      const query = `
+        SELECT r.id, 
+               u.username AS client_name, 
+               v.username AS volunteer_name, 
+               d.name AS dog_name,
+               u.village AS client_village,
+               r.reservation_date,
+               TO_CHAR(r.start_time,'HH24:MI') AS start_time,
+               TO_CHAR(r.end_time,'HH24:MI') AS end_time,
+               r.status
+        FROM reservations r
+        JOIN users u ON r.client_id=u.id
+        JOIN users v ON r.volunteer_id=v.id
+        JOIN dogs d ON r.dog_id=d.id
+        ${whereClause}
+        ORDER BY r.reservation_date DESC, r.start_time DESC
+      `;
+
+      const result = await client.query(query, params);
+
+      await client.query("COMMIT");
+      res.json(result.rows);
+    } catch (err) {
+      await client.query("ROLLBACK");
+      console.error("Error fetching reservations:", err);
+      res.status(500).json({ error: "Failed to fetch reservations" });
+    } finally {
+      client.release();
     }
-  );
+  }
+);
+
 
   // Fetch reservation stats
   router.get(
