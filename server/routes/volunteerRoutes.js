@@ -1179,5 +1179,36 @@ module.exports = (
     }
   );
 
+  router.post(
+  "/volunteer/confirm-subscription",
+  authenticate,
+  authorizeVolunteer,
+  async (req, res) => {
+    try {
+      const { sessionId } = req.body;
+      if (!sessionId) {
+        return res.status(400).json({ error: "Missing sessionId" });
+      }
+
+      const session = await stripe.checkout.sessions.retrieve(sessionId);
+      const subscription = await stripe.subscriptions.retrieve(session.subscription);
+
+      const expiryDate = new Date(subscription.current_period_end * 1000);
+      await pool.query(
+        `UPDATE users 
+         SET stripe_subscription_id = $1,
+             subscription_paid = true,
+             subscription_expiry_date = $2
+         WHERE email = $3`,
+        [subscription.id, expiryDate, session.customer_email]
+      );
+
+      res.json({ message: "Subscription confirmed." });
+    } catch (err) {
+      console.error("Error confirming subscription:", err);
+      res.status(500).json({ error: "Failed to confirm subscription" });
+    }
+  }
+);
   return router;
 };

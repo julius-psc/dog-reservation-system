@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import PropTypes from "prop-types";
 import { loadStripe } from "@stripe/stripe-js";
 import Cookies from "js-cookie";
@@ -48,18 +48,52 @@ const getSubscriptionMessage = (subscriptionStatus) => {
   return null;
 };
 
-const SubscriptionManager = ({ subscriptionStatus }) => {
+const getSessionIdFromURL = () => {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("session_id");
+};
+
+const SubscriptionManager = ({ subscriptionStatus, fetchSubscriptionStatus }) => {
   const [loading, setLoading] = useState(false);
   const subscriptionMessage = getSubscriptionMessage(subscriptionStatus);
+
+  // 🔁 Confirm subscription manually if redirected from Stripe
+  useEffect(() => {
+    const sessionId = getSessionIdFromURL();
+    if (!sessionId || subscriptionStatus.paid) return;
+
+    const confirmSubscription = async () => {
+      try {
+        const token = Cookies.get("token");
+        const res = await fetch(
+          `${import.meta.env.VITE_API_BASE_URL}/volunteer/confirm-subscription`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ sessionId }),
+          }
+        );
+        if (!res.ok) throw new Error("Échec de la confirmation.");
+        toast.success("Abonnement confirmé !");
+        fetchSubscriptionStatus(); // refresh UI
+      } catch (err) {
+        console.error("Confirmation error:", err);
+        toast.error("Impossible de confirmer l'abonnement.");
+      }
+    };
+
+    confirmSubscription();
+  }, [subscriptionStatus.paid, fetchSubscriptionStatus]);
 
   const handleCheckout = async () => {
     setLoading(true);
     try {
       const token = Cookies.get("token");
       const res = await fetch(
-        `${
-          import.meta.env.VITE_API_BASE_URL
-        }/volunteer/create-checkout-session`,
+        `${import.meta.env.VITE_API_BASE_URL}/volunteer/create-checkout-session`,
         {
           method: "POST",
           headers: {
@@ -122,5 +156,3 @@ SubscriptionManager.propTypes = {
 };
 
 export default SubscriptionManager;
-
-
