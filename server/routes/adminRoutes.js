@@ -120,6 +120,7 @@ router.get(
     try {
       const search = req.query.search || "";
       const role = req.query.role;
+      const village = req.query.village;
       const limit = parseInt(req.query.limit || "10", 10);
       const offset = parseInt(req.query.offset || "0", 10);
 
@@ -134,6 +135,13 @@ router.get(
       if (role && role !== "all") {
         conditions.push(`role = $${params.length + 1}`);
         params.push(role);
+      }
+
+      if (village) {
+        const idx1 = params.length + 1;
+        const idx2 = params.length + 2;
+        params.push(village, JSON.stringify([village]));
+        conditions.push(`(village = $${idx1} OR villages_covered @> $${idx2}::jsonb)`);
       }
 
       const whereClause = conditions.length > 0 ? "WHERE " + conditions.join(" AND ") : "";
@@ -157,22 +165,43 @@ router.get(
   }
 );
 
+// Fetch users count only
+router.get(
+  "/admin/users/count",
+  authenticate,
+  authorizeAdmin,
+  async (req, res) => {
+    try {
+      const search = req.query.search || "";
+      const role = req.query.role;
 
-  // Fetch users count only
-  router.get(
-    "/admin/users/count",
-    authenticate,
-    authorizeAdmin,
-    async (req, res) => {
-      try {
-        const result = await pool.query("SELECT COUNT(*) FROM users");
-        res.json({ count: parseInt(result.rows[0].count, 10) });
-      } catch (err) {
-        console.error("Error fetching users count:", err);
-        res.status(500).json({ error: "Failed to fetch users count" });
+      const conditions = [];
+      const params = [];
+
+      if (search) {
+        conditions.push(`username ILIKE $${params.length + 1}`);
+        params.push(`%${search}%`);
       }
+      if (role && role !== "all") {
+        conditions.push(`role = $${params.length + 1}`);
+        params.push(role);
+      }
+      const whereClause = conditions.length
+        ? "WHERE " + conditions.join(" AND ")
+        : "";
+
+      const result = await pool.query(
+        `SELECT COUNT(*) AS count FROM users ${whereClause}`,
+        params
+      );
+
+      res.json({ count: parseInt(result.rows[0].count, 10) });
+    } catch (err) {
+      console.error("Error fetching users count:", err);
+      res.status(500).json({ error: "Failed to fetch users count" });
     }
-  );
+  }
+);
 
   router.get(
     "/admin/volunteers/count",
@@ -665,7 +694,31 @@ SELECT r.id,
   }
 );
 
+// Get volunteer reservation count
+router.get(
+  "/admin/volunteer/reservations-count",
+  authenticate,
+  authorizeAdmin,
+  async (req, res) => {
+    try {
+      const result = await pool.query(`
+        SELECT volunteer_id, COUNT(*) AS count
+        FROM reservations
+        WHERE status = 'completed' AND volunteer_id IS NOT NULL
+        GROUP BY volunteer_id
+      `);
+
+      const counts = {};
+      result.rows.forEach(({ volunteer_id, count }) => {
+        counts[volunteer_id] = parseInt(count, 10);
+      });
+
+      res.json(counts);
+    } catch (err) {
+      console.error("Error fetching volunteer reservation counts:", err);
+      res.status(500).json({ error: "Failed to fetch reservation counts" });
+    }
+  }
+);
   return router;
 };
-
-
