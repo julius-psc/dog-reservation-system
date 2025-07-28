@@ -410,6 +410,8 @@ module.exports = (
   // HELPER FUNCTION TO MERGE AVAILABILITIES
   function mergeAvailabilities(volunteersData, reservations, dateStr) {
     const mergedSlotsByDay = {};
+    // The day of the week (0-6, where Monday is 0) for which we are generating slots.
+    const targetDayIndex = moment(dateStr, "YYYY-MM-DD").isoWeekday() - 1;
 
     volunteersData.forEach((volunteer) => {
       if (!volunteer.availabilities || volunteer.availabilities.length === 0) {
@@ -417,69 +419,106 @@ module.exports = (
       }
 
       volunteer.availabilities.forEach((availability) => {
-        const dayOfWeek = availability.day_of_week - 1;
-        const startTime = availability.start_time;
-        const endTime = availability.end_time;
+        const startMoment = moment(availability.start_time, "HH:mm");
+        const endMoment = moment(availability.end_time, "HH:mm");
+        const isOvernight = endMoment.isBefore(startMoment);
 
-        let currentMoment = moment(startTime, "HH:mm");
-        const endMoment = moment(endTime, "HH:mm");
+        // Determine the actual start date/time of the availability period.
+        // This is necessary to correctly handle iterating past midnight.
+        let availabilityStartDateTime;
+        const availabilityDayOfWeek = availability.day_of_week; // From DB (1=Mon, 7=Sun)
+        const targetDayOfWeek = moment(dateStr, "YYYY-MM-DD").isoWeekday();
 
-        while (currentMoment.isBefore(endMoment)) {
-          const slotTime = currentMoment.format("HH:mm");
-
-          const slotStartMoment = moment(slotTime, "HH:mm");
-          const slotEndMoment = slotStartMoment.clone().add(1, "hour");
-
-          const isSlotTaken = reservations.some((reservation) => {
-            const reservationDate = moment(reservation.reservation_date).format(
-              "YYYY-MM-DD"
-            );
-            const reservationStart = moment(reservation.start_time, "HH:mm");
-            const reservationEnd = moment(reservation.end_time, "HH:mm");
-
-            return (
-              reservationDate === dateStr &&
-              reservation.volunteer_id === volunteer.id &&
-              reservationStart.isBefore(slotEndMoment) &&
-              reservationEnd.isAfter(slotStartMoment) &&
-              (reservation.status === "accepted" ||
-                reservation.status === "pending")
-            );
+        if (availabilityDayOfWeek === targetDayOfWeek) {
+          // The availability starts on the day we are currently processing.
+          availabilityStartDateTime = moment(dateStr, "YYYY-MM-DD").set({
+            hour: startMoment.get("hour"),
+            minute: startMoment.get("minute"),
           });
+        } else {
+          // The availability must have started on the previous day.
+          availabilityStartDateTime = moment(dateStr, "YYYY-MM-DD")
+            .subtract(1, "day")
+            .set({
+              hour: startMoment.get("hour"),
+              minute: startMoment.get("minute"),
+            });
+        }
 
-          if (!mergedSlotsByDay[dayOfWeek]) {
-            mergedSlotsByDay[dayOfWeek] = {};
-          }
-          if (!mergedSlotsByDay[dayOfWeek][slotTime]) {
-            mergedSlotsByDay[dayOfWeek][slotTime] = {
-              time: slotTime,
-              volunteerUsernames: [],
-              volunteerIds: [],
-              isReserved: isSlotTaken,
-            };
+        // Determine the end date/time of the availability period.
+        const availabilityEndDateTime = availabilityStartDateTime.clone().set({
+          hour: endMoment.get("hour"),
+          minute: endMoment.get("minute"),
+        });
+
+        if (isOvernight) {
+          availabilityEndDateTime.add(1, "day");
+        }
+
+        // Iterate from the start to the end of the availability, one hour at a time.
+        let currentSlotMoment = availabilityStartDateTime.clone();
+        while (currentSlotMoment.isBefore(availabilityEndDateTime)) {
+          // We only create a slot if its date matches the target date (`dateStr`).
+          if (currentSlotMoment.isSame(moment(dateStr, "YYYY-MM-DD"), "day")) {
+            const slotTime = currentSlotMoment.format("HH:mm");
+            const slotStartMomentForCheck = moment(slotTime, "HH:mm");
+            const slotEndMomentForCheck = slotStartMomentForCheck
+              .clone()
+              .add(1, "hour");
+
+            const isSlotTaken = reservations.some((reservation) => {
+              const reservationDate = moment(
+                reservation.reservation_date
+              ).format("YYYY-MM-DD");
+              const reservationStart = moment(reservation.start_time, "HH:mm");
+              const reservationEnd = moment(reservation.end_time, "HH:mm");
+
+              return (
+                reservationDate === dateStr &&
+                reservation.volunteer_id === volunteer.id &&
+                reservationStart.isBefore(slotEndMomentForCheck) &&
+                reservationEnd.isAfter(slotStartMomentForCheck) &&
+                (reservation.status === "accepted" ||
+                  reservation.status === "pending")
+              );
+            });
+
+            // Initialize the structure if it doesn't exist.
+            if (!mergedSlotsByDay[targetDayIndex]) {
+              mergedSlotsByDay[targetDayIndex] = {};
+            }
+            if (!mergedSlotsByDay[targetDayIndex][slotTime]) {
+              mergedSlotsByDay[targetDayIndex][slotTime] = {
+                time: slotTime,
+                volunteerUsernames: [],
+                volunteerIds: [],
+                isReserved: isSlotTaken,
+              };
+            }
+
+            // Add the volunteer to the slot if it's not taken.
+            if (!isSlotTaken) {
+              mergedSlotsByDay[targetDayIndex][
+                slotTime
+              ].volunteerUsernames.push(volunteer.username);
+              mergedSlotsByDay[targetDayIndex][slotTime].volunteerIds.push(
+                volunteer.id
+              );
+            }
           }
 
-          if (!isSlotTaken) {
-            mergedSlotsByDay[dayOfWeek][slotTime].volunteerUsernames.push(
-              volunteer.username
-            );
-            mergedSlotsByDay[dayOfWeek][slotTime].volunteerIds.push(
-              volunteer.id
-            );
-          }
-
-          currentMoment.add(1, "hour");
+          currentSlotMoment.add(1, "hour");
         }
       });
     });
 
-const formattedMergedSlots = {};
-Object.keys(mergedSlotsByDay).forEach((dayIndex) => {
-  formattedMergedSlots[dayIndex] = Object.values(mergedSlotsByDay[dayIndex])
-    .filter((slot) => slot.volunteerIds.length > 0 || slot.isReserved)
-    .sort((a, b) => moment(a.time, "HH:mm").diff(moment(b.time, "HH:mm")));
-});
-
+    // Format the output to be an array of slots for each day.
+    const formattedMergedSlots = {};
+    Object.keys(mergedSlotsByDay).forEach((dayIndex) => {
+      formattedMergedSlots[dayIndex] = Object.values(mergedSlotsByDay[dayIndex])
+        .filter((slot) => slot.volunteerIds.length > 0 || slot.isReserved)
+        .sort((a, b) => moment(a.time, "HH:mm").diff(moment(b.time, "HH:mm")));
+    });
 
     return formattedMergedSlots;
   }
@@ -501,26 +540,36 @@ Object.keys(mergedSlotsByDay).forEach((dayIndex) => {
           .json({ error: "Invalid date format. Use YYYY-MM-DD." });
       }
 
+      // MODIFIED QUERY: This query now fetches availabilities for the requested day
+      // AND the previous day, to correctly handle overnight slots.
       const volunteersQuery = `
-      SELECT
-        u.id,
-        u.username,
-        u.email,
-        u.villages_covered,
-        COALESCE(json_agg(
-          json_build_object('day_of_week', a.day_of_week, 'start_time', a.start_time::TEXT, 'end_time', a.end_time::TEXT)
-        ) FILTER (WHERE a.id IS NOT NULL), '[]'::json) AS availabilities
-      FROM users u
-      LEFT JOIN availabilities a ON u.id = a.user_id AND a.day_of_week = $1
-      WHERE u.role = 'volunteer'
-        AND u.volunteer_status = 'approved'
-        AND u.holiday_mode IS NOT TRUE
-        AND (
-          u.village = $2 OR
-          u.villages_covered @> jsonb_build_array(CAST($2 AS TEXT))
-        )
-      GROUP BY u.id, u.username, u.email, u.villages_covered
-    `;
+        SELECT
+          u.id,
+          u.username,
+          u.email,
+          u.village,
+          u.villages_covered,
+          COALESCE(json_agg(
+            json_build_object(
+              'day_of_week', a.day_of_week,
+              'start_time',  TO_CHAR(a.start_time,'HH24:MI'),
+              'end_time',    TO_CHAR(a.end_time,  'HH24:MI'),
+              'recurring',   a.recurring
+            )
+          ) FILTER (WHERE a.id IS NOT NULL), '[]') AS availabilities
+        FROM users u
+        LEFT JOIN availabilities a
+          ON u.id = a.user_id
+          AND a.day_of_week IN ($1, CASE WHEN $1 = 1 THEN 7 ELSE $1 - 1 END)
+        WHERE u.role = 'volunteer'
+          AND u.volunteer_status = 'approved'
+          AND u.holiday_mode IS NOT TRUE
+          AND (
+            u.village = $2 OR
+            u.villages_covered @> jsonb_build_array(CAST($2 AS TEXT))
+          )
+        GROUP BY u.id, u.username, u.email, u.village, u.villages_covered
+      `;
 
       const reservationsQuery = `
       SELECT

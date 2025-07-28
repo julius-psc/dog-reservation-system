@@ -622,5 +622,50 @@ SELECT r.id,
     }
   );
 
+  // Set volunteer availabilities
+  router.put(
+  "/admin/volunteers/:volunteerId/availabilities",
+  authenticate,
+  authorizeAdmin,
+  async (req, res) => {
+    try {
+      const { volunteerId } = req.params;
+      const availabilities = req.body;
+
+      if (!Array.isArray(availabilities)) {
+        return res.status(400).json({ error: "Invalid availabilities format" });
+      }
+
+      await pool.query("DELETE FROM availabilities WHERE user_id = $1", [
+        volunteerId,
+      ]);
+
+      for (const { dayOfWeek, startTime, endTime } of availabilities) {
+        if (
+          typeof dayOfWeek !== "number" ||
+          dayOfWeek < 1 ||
+          dayOfWeek > 7 ||
+          typeof startTime !== "string" ||
+          typeof endTime !== "string"
+        ) {
+          return res.status(400).json({ error: "Invalid availability data" });
+        }
+
+        await pool.query(
+          "INSERT INTO availabilities (user_id, day_of_week, start_time, end_time, recurring) VALUES ($1, $2, $3, $4, $5)",
+          [volunteerId, dayOfWeek, startTime, endTime, true]
+        );
+      }
+
+      res.json({ message: "Availabilities updated successfully" });
+    } catch (err) {
+      console.error("Admin update availabilities error:", err);
+      res.status(500).json({ error: "Failed to update availabilities" });
+    }
+  }
+);
+
   return router;
 };
+
+

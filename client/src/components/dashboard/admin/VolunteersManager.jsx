@@ -21,6 +21,8 @@ const VolunteersManager = ({ setAllUsers, fetchVolunteerDetails }) => {
   const [volunteerDetails, setVolunteerDetails] = useState({});
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [showAvailabilityForm, setShowAvailabilityForm] = useState(false);
+  const [availabilityEditingId, setAvailabilityEditingId] = useState(null);
 
   const API_BASE_URL =
     import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
@@ -212,6 +214,35 @@ const VolunteersManager = ({ setAllUsers, fetchVolunteerDetails }) => {
       setNewPersonalId("");
     } catch (error) {
       toast.error(`Erreur du numéro promeneur: ${error.message}`);
+    }
+  };
+
+  const saveAvailabilities = async (volunteerId, newAvailabilities) => {
+    try {
+      const token = Cookies.get("token");
+      const res = await fetch(
+        `${API_BASE_URL}/admin/volunteers/${volunteerId}/availabilities`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(newAvailabilities),
+        }
+      );
+
+      if (!res.ok)
+        throw new Error("Erreur lors de la mise à jour des disponibilités");
+
+      toast.success("Disponibilités mises à jour");
+      setShowAvailabilityForm(false);
+      setAvailabilityEditingId(null);
+
+      const freshDetails = await fetchVolunteerDetails(volunteerId);
+      setVolunteerDetails((prev) => ({ ...prev, [volunteerId]: freshDetails }));
+    } catch (err) {
+      toast.error(err.message);
     }
   };
 
@@ -461,42 +492,74 @@ const VolunteersManager = ({ setAllUsers, fetchVolunteerDetails }) => {
                                   </ul>
                                 </div>
                                 <div>
-                                  <span className="font-semibold">
-                                    Disponibilités:
-                                  </span>
-                                  {(details.availabilities || []).length ===
-                                  0 ? (
-                                    <p>Aucune disponibilité définie</p>
+                                  {showAvailabilityForm &&
+                                  availabilityEditingId === volunteer.id ? (
+                                    <AvailabilityEditor
+                                      initialAvailabilities={
+                                        groupedAvailabilities
+                                      }
+                                      onSave={(data) =>
+                                        saveAvailabilities(volunteer.id, data)
+                                      }
+                                      onCancel={() => {
+                                        setShowAvailabilityForm(false);
+                                        setAvailabilityEditingId(null);
+                                      }}
+                                      daysOfWeekLabels={daysOfWeekLabels}
+                                    />
                                   ) : (
-                                    <ul className="list-disc pl-4">
-                                      {daysOfWeekLabels.map(
-                                        (dayLabel, index) => {
-                                          const dayOfWeek = index + 1;
-                                          const dayAvailabilities =
-                                            groupedAvailabilities[dayOfWeek] ||
-                                            [];
-                                          return dayAvailabilities.length >
-                                            0 ? (
-                                            <li key={dayOfWeek}>
-                                              {dayLabel}:{" "}
-                                              {dayAvailabilities.map(
-                                                (av, idx) => (
-                                                  <span key={idx}>
-                                                    {av.startTime} -{" "}
-                                                    {av.endTime}
-                                                    {idx <
-                                                      dayAvailabilities.length -
-                                                        1 && ", "}
-                                                  </span>
-                                                )
-                                              )}
-                                            </li>
-                                          ) : null;
-                                        }
+                                    <>
+                                      <div className="flex justify-between items-center">
+                                        <span className="font-semibold">
+                                          Disponibilités:
+                                        </span>
+                                        <button
+                                          onClick={() => {
+                                            setShowAvailabilityForm(true);
+                                            setAvailabilityEditingId(
+                                              volunteer.id
+                                            );
+                                          }}
+                                          className="ml-4 bg-blue-500 text-white px-3 py-1 rounded-lg hover:bg-blue-600"
+                                        >
+                                          Modifier
+                                        </button>
+                                      </div>
+                                      {(details.availabilities || []).length ===
+                                      0 ? (
+                                        <p className="mt-2 text-gray-500">
+                                          Aucune disponibilité définie
+                                        </p>
+                                      ) : (
+                                        <ul className="list-disc pl-4 mt-2">
+                                          {daysOfWeekLabels.map(
+                                            (dayLabel, index) => {
+                                              const dayOfWeek = index + 1;
+                                              const slots =
+                                                groupedAvailabilities[
+                                                  dayOfWeek
+                                                ] || [];
+                                              return slots.length > 0 ? (
+                                                <li key={dayOfWeek}>
+                                                  {dayLabel}:{" "}
+                                                  {slots.map((slot, idx) => (
+                                                    <span key={idx}>
+                                                      {slot.startTime} -{" "}
+                                                      {slot.endTime}
+                                                      {idx < slots.length - 1 &&
+                                                        ", "}
+                                                    </span>
+                                                  ))}
+                                                </li>
+                                              ) : null;
+                                            }
+                                          )}
+                                        </ul>
                                       )}
-                                    </ul>
+                                    </>
                                   )}
                                 </div>
+
                                 <p>
                                   <span className="font-semibold">
                                     Responsabilité Civile:
@@ -593,6 +656,129 @@ const VolunteersManager = ({ setAllUsers, fetchVolunteerDetails }) => {
 VolunteersManager.propTypes = {
   setAllUsers: PropTypes.func.isRequired,
   fetchVolunteerDetails: PropTypes.func.isRequired,
+};
+
+const AvailabilityEditor = ({
+  initialAvailabilities,
+  onSave,
+  onCancel,
+  daysOfWeekLabels,
+}) => {
+  const [entries, setEntries] = useState(() => {
+    const flat = [];
+    for (const [day, slots] of Object.entries(initialAvailabilities || {})) {
+      for (const slot of slots) {
+        flat.push({
+          dayOfWeek: parseInt(day),
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+        });
+      }
+    }
+    return flat.length
+      ? flat
+      : [{ dayOfWeek: 1, startTime: "08:00", endTime: "10:00" }];
+  });
+
+  const updateEntry = (index, key, value) => {
+    setEntries((prev) =>
+      prev.map((e, i) => (i === index ? { ...e, [key]: value } : e))
+    );
+  };
+
+  const addEntry = () => {
+    setEntries((prev) => [
+      ...prev,
+      { dayOfWeek: 1, startTime: "08:00", endTime: "10:00" },
+    ]);
+  };
+
+  const removeEntry = (index) => {
+    setEntries((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSave(entries);
+  };
+
+  return (
+    <form
+      onSubmit={handleSubmit}
+      className="bg-gray-50 dark:bg-gray-800 p-6 rounded-lg space-y-4"
+    >
+      <h4 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
+        Modifier les disponibilités
+      </h4>
+      {entries.map((entry, idx) => (
+        <div key={idx} className="flex flex-wrap items-center gap-3">
+          <select
+            value={entry.dayOfWeek}
+            onChange={(e) =>
+              updateEntry(idx, "dayOfWeek", parseInt(e.target.value))
+            }
+            className="rounded-md p-2 border dark:bg-gray-700 dark:text-white"
+          >
+            {daysOfWeekLabels.map((label, i) => (
+              <option key={i + 1} value={i + 1}>
+                {label}
+              </option>
+            ))}
+          </select>
+          <input
+            type="time"
+            value={entry.startTime}
+            onChange={(e) => updateEntry(idx, "startTime", e.target.value)}
+            className="rounded-md p-2 border dark:bg-gray-700 dark:text-white"
+          />
+          <span className="text-gray-600 dark:text-gray-300">à</span>
+          <input
+            type="time"
+            value={entry.endTime}
+            onChange={(e) => updateEntry(idx, "endTime", e.target.value)}
+            className="rounded-md p-2 border dark:bg-gray-700 dark:text-white"
+          />
+          <button
+            type="button"
+            onClick={() => removeEntry(idx)}
+            className="text-red-500 hover:text-red-700"
+            title="Supprimer"
+          >
+            ✕
+          </button>
+        </div>
+      ))}
+      <div className="flex gap-3 mt-4">
+        <button
+          type="button"
+          onClick={addEntry}
+          className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg"
+        >
+          Ajouter un créneau
+        </button>
+        <button
+          type="submit"
+          className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg"
+        >
+          Sauvegarder
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg"
+        >
+          Annuler
+        </button>
+      </div>
+    </form>
+  );
+};
+
+AvailabilityEditor.propTypes = {
+  initialAvailabilities: PropTypes.object,
+  onSave: PropTypes.func.isRequired,
+  onCancel: PropTypes.func.isRequired,
+  daysOfWeekLabels: PropTypes.arrayOf(PropTypes.string).isRequired,
 };
 
 export default VolunteersManager;

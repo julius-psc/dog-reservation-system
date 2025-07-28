@@ -1,4 +1,3 @@
-// components/dashboard/volunteer/AvailabilityDisplay.jsx
 import PropTypes from "prop-types";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faClock } from "@fortawesome/free-solid-svg-icons";
