@@ -2,9 +2,10 @@ import { Link } from "react-router-dom";
 import guideProm from "../../assets/landing-page/documents/guide_promeneur.pdf";
 import guideProprio from "../../assets/landing-page/documents/guide_proprio.pdf";
 import affiche from "../../assets/landing-page/documents/chiensencavale_affiche.pdf";
-import bio1 from '../../assets/landing-page/documents/tome1_bio.png';
-import bio2 from '../../assets/landing-page/documents/tome2_bio.png';
-import bio3 from '../../assets/landing-page/documents/tome3_bio.pdf';
+import regles from "../../assets/landing-page/documents/chiensencavale_regles.pdf";
+import bio1 from "../../assets/landing-page/documents/tome1_bio.png";
+import bio2 from "../../assets/landing-page/documents/tome2_bio.png";
+import bio3 from "../../assets/landing-page/documents/tome3_bio.pdf";
 
 const Docs = () => {
   const documentCategories = [
@@ -41,8 +42,7 @@ const Docs = () => {
     },
     {
       title: "Biodiversité 🌿",
-      description:
-        "Notre engagement en faveur de la biodiversité.",
+      description: "Notre engagement en faveur de la biodiversité.",
       documents: [
         {
           title: "Tome 1",
@@ -54,10 +54,22 @@ const Docs = () => {
           description: "Les espaces protégés.",
           file: bio2,
         },
-                {
+        {
           title: "Tome 3",
           description: "Climats changeants, chiens prudents!",
           file: bio3,
+        },
+      ],
+    },
+    {
+      title: "Règlementation 📜",
+      description: "Règles et directives pour assurer la sécurité de tous.",
+      documents: [
+        {
+          title: "Règlement Intérieur",
+          description:
+            "Les règles à suivre pour participer aux activités de Chiens en Cavale.",
+          file: regles,
         },
       ],
     },
