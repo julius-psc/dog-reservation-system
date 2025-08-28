@@ -13,6 +13,72 @@ const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
 const sharp = require("sharp");
 
+function computeVolunteerSubscriptionStatus(moment, row) {
+  const now = moment();
+  const year = now.year();
+
+  // Month is 0-based: 8 = September, 0 = January
+  const sept1 = moment({ year, month: 8, date: 1 }).startOf("day");
+  const jan1Next = moment({ year: year + 1, month: 0, date: 1 }).startOf("day");
+
+  const paid = !!row.subscription_paid;
+  const expiryDate = row.subscription_expiry_date
+    ? moment(row.subscription_expiry_date)
+    : null;
+  const everPaid = !!row.first_subscription_paid_at; // requires DB column
+
+  if (paid) {
+    return {
+      paid: true,
+      expiryDate, // moment or null
+      needsPayment: false,
+      nextDueDate: expiryDate, // informational
+      canUnlockCard: true,
+      hideSubscriptionUI: false,
+      reason: "active_subscription",
+    };
+  }
+
+  // Never paid
+  if (!everPaid) {
+    if (now.isSameOrAfter(sept1)) {
+      // After/on Sept 1: defer to Jan 1 next year, unlock card, hide payment
+      return {
+        paid: false,
+        expiryDate: null,
+        needsPayment: false,
+        nextDueDate: jan1Next,
+        canUnlockCard: true,
+        hideSubscriptionUI: true,
+        reason: "deferred_until_jan1",
+      };
+    }
+    // Before Sept 1: must pay now
+    return {
+      paid: false,
+      expiryDate: null,
+      needsPayment: true,
+      nextDueDate: null, // due now
+      canUnlockCard: false,
+      hideSubscriptionUI: false,
+      reason: "first_payment_due_now",
+    };
+  }
+
+  // Has paid in the past but currently unpaid/expired → renewal due
+  return {
+    paid: false,
+    expiryDate,
+    needsPayment: true,
+    nextDueDate: null,
+    canUnlockCard: false,
+    hideSubscriptionUI: false,
+    reason: "renewal_due",
+  };
+}
+
+module.exports = { computeVolunteerSubscriptionStatus };
+
 module.exports = (
   pool,
   authenticate,
@@ -31,20 +97,38 @@ module.exports = (
       try {
         const userId = req.user.userId;
         const user = await pool.query(
-          "SELECT username, personal_id, personal_id_set, subscription_paid, subscription_expiry_date, profile_picture_url, time_updated_at FROM users WHERE id = $1",
+          `
+          SELECT 
+            username,
+            personal_id,
+            personal_id_set,
+            subscription_paid,
+            subscription_expiry_date,
+            profile_picture_url,
+            time_updated_at,
+            first_subscription_paid_at
+          FROM users 
+          WHERE id = $1
+          `,
           [userId]
         );
+
         if (user.rows.length > 0) {
-          const personalIdSet = user.rows[0].personal_id !== null; // Derive personal_id_set
+          const row = user.rows[0];
+          const computed = computeVolunteerSubscriptionStatus(moment, row);
+
           res.json({
-            username: user.rows[0].username,
-            personalId: user.rows[0].personal_id,
-            subscriptionPaid: user.rows[0].subscription_paid || false,
-            subscriptionExpiryDate:
-              user.rows[0].subscription_expiry_date || null,
-            profilePictureUrl: user.rows[0].profile_picture_url || null,
-            time_updated_at: user.rows[0].time_updated_at || null,
-            personalIdSet: user.rows[0].personal_id_set, // Add this to the response
+            username: row.username,
+            personalId: row.personal_id,
+            subscriptionPaid: computed.paid, // computed
+            subscriptionExpiryDate: computed.expiryDate
+              ? computed.expiryDate.toISOString()
+              : null,
+            profilePictureUrl: row.profile_picture_url || null,
+            time_updated_at: row.time_updated_at || null,
+            personalIdSet: row.personal_id_set,
+            // NEW:
+            canUnlockCard: computed.canUnlockCard,
           });
         } else {
           res.status(404).json({ error: "User not found" });
@@ -65,7 +149,6 @@ module.exports = (
         const userId = req.user.userId;
 
         if (!req.files || !req.files.profilePicture) {
-          console.log("No file uploaded");
           return res
             .status(400)
             .json({ error: "Please upload a profile picture." });
@@ -79,6 +162,7 @@ module.exports = (
               process.env.AWS_REGION || "us-east-1"
             }.amazonaws.com`
           : `http://localhost:${process.env.PORT || 3001}`;
+
         const s3Client = isProduction
           ? new S3Client({
               region: process.env.AWS_REGION || "us-east-1",
@@ -89,55 +173,39 @@ module.exports = (
             })
           : null;
 
-        // Convert the uploaded file to PNG using sharp
+        // Convert to PNG via sharp
         const pngBuffer = await sharp(profilePictureFile.data).png().toBuffer();
-        console.log("File converted to PNG, size:", pngBuffer.length);
 
         let profilePictureUrl;
 
         if (isProduction) {
-          const uploadToS3 = async (buffer, key) => {
-            const params = {
-              Bucket: process.env.S3_BUCKET_NAME,
-              Key: `profile-pictures/${key}`,
-              Body: buffer,
-              ContentType: "image/png", // No ACL here
-            };
-            const command = new PutObjectCommand(params);
-            await s3Client.send(command);
-            return `https://${process.env.S3_BUCKET_NAME}.s3.${
-              process.env.AWS_REGION || "eu-north-1"
-            }.amazonaws.com/profile-pictures/${key}`;
+          const params = {
+            Bucket: process.env.S3_BUCKET_NAME,
+            Key: `profile-pictures/${profilePictureFilename}`,
+            Body: pngBuffer,
+            ContentType: "image/png",
           };
-
-          profilePictureUrl = await uploadToS3(
-            pngBuffer,
-            profilePictureFilename
-          );
-          console.log("Uploaded to S3:", profilePictureUrl);
+          const command = new PutObjectCommand(params);
+          await s3Client.send(command);
+          profilePictureUrl = `https://${process.env.S3_BUCKET_NAME}.s3.${
+            process.env.AWS_REGION || "eu-north-1"
+          }.amazonaws.com/profile-pictures/${profilePictureFilename}`;
         } else {
           const uploadDir = path.join(
             __dirname,
             "..",
             "uploads",
             "profile-pictures"
-          ); // Corrected to server/uploads
+          );
           await fs.mkdir(uploadDir, { recursive: true });
-
           profilePictureUrl = `${baseUrl}/uploads/profile-pictures/${profilePictureFilename}`;
           const fullPath = path.join(uploadDir, profilePictureFilename);
-
           await fs.writeFile(fullPath, pngBuffer);
-          console.log(`Profile picture saved to: ${fullPath}`);
         }
 
         const result = await pool.query(
           "UPDATE users SET profile_picture_url = $1 WHERE id = $2 RETURNING profile_picture_url",
           [profilePictureUrl, userId]
-        );
-        console.log(
-          "Database updated with URL:",
-          result.rows[0].profile_picture_url
         );
 
         res.json({
@@ -467,7 +535,6 @@ module.exports = (
     }
   });
 
-  // Updated endpoint: GET /volunteer/reservations with "completed" status logic
   router.get(
     "/volunteer/reservations",
     authenticate,
@@ -478,7 +545,6 @@ module.exports = (
         await client.query("BEGIN");
         const volunteerId = req.user.userId;
 
-        // Update past reservations
         await client.query(
           `
           UPDATE reservations
@@ -487,27 +553,28 @@ module.exports = (
             WHEN status = 'pending' AND (reservation_date + end_time::time) < NOW() THEN 'cancelled'
             ELSE status
           END
-          WHERE volunteer_id = $1 AND status IN ('accepted', 'pending')
-          AND (reservation_date + end_time::time) < NOW()
-        `,
+          WHERE volunteer_id = $1 
+            AND status IN ('accepted', 'pending')
+            AND (reservation_date + end_time::time) < NOW()
+          `,
           [volunteerId]
         );
 
         const reservations = await client.query(
           `
-            SELECT
-                r.id,
-                u.username AS client_name,
-                d.name AS dog_name,
-                r.reservation_date,
-                TO_CHAR(r.start_time, 'HH24:MI') as start_time,
-                TO_CHAR(r.end_time, 'HH24:MI') as end_time,
-                r.status
-            FROM reservations r
-            JOIN users u ON r.client_id = u.id
-            JOIN dogs d ON r.dog_id = d.id
-            WHERE r.volunteer_id = $1
-            ORDER BY r.reservation_date, r.start_time;
+          SELECT
+            r.id,
+            u.username AS client_name,
+            d.name AS dog_name,
+            r.reservation_date,
+            TO_CHAR(r.start_time, 'HH24:MI') as start_time,
+            TO_CHAR(r.end_time, 'HH24:MI') as end_time,
+            r.status
+          FROM reservations r
+          JOIN users u ON r.client_id = u.id
+          JOIN dogs d ON r.dog_id = d.id
+          WHERE r.volunteer_id = $1
+          ORDER BY r.reservation_date, r.start_time
           `,
           [volunteerId]
         );
@@ -1116,7 +1183,6 @@ module.exports = (
     }
   );
 
-  // Existing endpoint: GET /volunteer/subscription
   router.get(
     "/volunteer/subscription",
     authenticate,
@@ -1125,20 +1191,35 @@ module.exports = (
       try {
         const volunteerId = req.user.userId;
 
-        const subscription = await pool.query(
-          "SELECT subscription_paid, subscription_expiry_date FROM users WHERE id = $1 AND role = 'volunteer'",
+        const { rows } = await pool.query(
+          `
+          SELECT 
+            subscription_paid,
+            subscription_expiry_date,
+            first_subscription_paid_at
+          FROM users 
+          WHERE id = $1 AND role = 'volunteer'
+          `,
           [volunteerId]
         );
 
-        if (subscription.rows.length === 0) {
+        if (rows.length === 0) {
           return res.status(404).json({ error: "Volunteer not found" });
         }
 
-        const { subscription_paid, subscription_expiry_date } =
-          subscription.rows[0];
+        const computed = computeVolunteerSubscriptionStatus(moment, rows[0]);
         res.json({
-          subscription_paid: subscription_paid || false,
-          subscription_expiry_date: subscription_expiry_date || null,
+          paid: computed.paid,
+          expiryDate: computed.expiryDate
+            ? computed.expiryDate.toISOString()
+            : null,
+          needsPayment: computed.needsPayment,
+          nextDueDate: computed.nextDueDate
+            ? computed.nextDueDate.toISOString()
+            : null,
+          canUnlockCard: computed.canUnlockCard,
+          hideSubscriptionUI: computed.hideSubscriptionUI,
+          reason: computed.reason,
         });
       } catch (error) {
         console.error("Error fetching subscription status:", error);
@@ -1180,35 +1261,40 @@ module.exports = (
   );
 
   router.post(
-  "/volunteer/confirm-subscription",
-  authenticate,
-  authorizeVolunteer,
-  async (req, res) => {
-    try {
-      const { sessionId } = req.body;
-      if (!sessionId) {
-        return res.status(400).json({ error: "Missing sessionId" });
+    "/volunteer/confirm-subscription",
+    authenticate,
+    authorizeVolunteer,
+    async (req, res) => {
+      try {
+        const { sessionId } = req.body;
+        if (!sessionId) {
+          return res.status(400).json({ error: "Missing sessionId" });
+        }
+
+        const session = await stripe.checkout.sessions.retrieve(sessionId);
+        const subscription = await stripe.subscriptions.retrieve(
+          session.subscription
+        );
+
+        const expiryDate = new Date(subscription.current_period_end * 1000);
+        await pool.query(
+          `
+          UPDATE users 
+          SET stripe_subscription_id = $1,
+              subscription_paid = true,
+              subscription_expiry_date = $2,
+              first_subscription_paid_at = COALESCE(first_subscription_paid_at, NOW())
+          WHERE email = $3
+          `,
+          [subscription.id, expiryDate, session.customer_email]
+        );
+
+        res.json({ message: "Subscription confirmed." });
+      } catch (err) {
+        console.error("Error confirming subscription:", err);
+        res.status(500).json({ error: "Failed to confirm subscription" });
       }
-
-      const session = await stripe.checkout.sessions.retrieve(sessionId);
-      const subscription = await stripe.subscriptions.retrieve(session.subscription);
-
-      const expiryDate = new Date(subscription.current_period_end * 1000);
-      await pool.query(
-        `UPDATE users 
-         SET stripe_subscription_id = $1,
-             subscription_paid = true,
-             subscription_expiry_date = $2
-         WHERE email = $3`,
-        [subscription.id, expiryDate, session.customer_email]
-      );
-
-      res.json({ message: "Subscription confirmed." });
-    } catch (err) {
-      console.error("Error confirming subscription:", err);
-      res.status(500).json({ error: "Failed to confirm subscription" });
     }
-  }
-);
+  );
   return router;
 };

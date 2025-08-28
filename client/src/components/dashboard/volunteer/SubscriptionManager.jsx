@@ -9,60 +9,77 @@ import "moment/locale/fr";
 import toast from "react-hot-toast";
 
 moment.locale("fr");
-
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
-const getSubscriptionMessage = (subscriptionStatus) => {
-  if (subscriptionStatus.paid) return null;
-  if (!subscriptionStatus.expiryDate) {
-    return {
-      message: "ACQUITTEZ VOTRE COTISATION ANNUELLE (9 €)",
-      type: "error",
-      action: true,
-    };
-  }
-  const daysUntilExpiry = subscriptionStatus.expiryDate.diff(moment(), "days");
-  const gracePeriodEnd = subscriptionStatus.expiryDate.clone().add(14, "days");
-  const isGracePeriod =
-    moment().isAfter(subscriptionStatus.expiryDate) &&
-    moment().isBefore(gracePeriodEnd);
-
-  if (isGracePeriod) {
-    return {
-      message: `ABONNEMENT EXPIRÉ LE ${subscriptionStatus.expiryDate.format(
-        "DD/MM/YYYY"
-      )}. RENOUVELEZ DANS ${gracePeriodEnd.diff(moment(), "days")} JOURS.`,
-      type: "warning",
-      action: true,
-    };
-  }
-  if (daysUntilExpiry <= 30 && daysUntilExpiry > 0) {
-    return {
-      message: `ABONNEMENT EXPIRE DANS ${daysUntilExpiry} JOURS (${subscriptionStatus.expiryDate.format(
-        "DD/MM/YYYY"
-      )}).`,
-      type: daysUntilExpiry <= 7 ? "error" : "warning",
-      action: daysUntilExpiry <= 14,
-    };
-  }
-  return null;
-};
-
-const getSessionIdFromURL = () => {
-  const params = new URLSearchParams(window.location.search);
-  return params.get("session_id");
-};
+function parseDate(d) {
+  if (!d) return null;
+  const m = moment(d);
+  return m.isValid() ? m : null;
+}
 
 const SubscriptionManager = ({ subscriptionStatus, fetchSubscriptionStatus }) => {
   const [loading, setLoading] = useState(false);
-  const subscriptionMessage = getSubscriptionMessage(subscriptionStatus);
 
-  // 🔁 Confirm subscription manually if redirected from Stripe
+  // Normalize dates from API
+  const expiryMoment = parseDate(subscriptionStatus.expiryDate);
+  const nextDueMoment = parseDate(subscriptionStatus.nextDueDate);
+
+  // Build banner message
+  const subscriptionMessage = (() => {
+    if (subscriptionStatus.paid) return null;
+
+    if (subscriptionStatus.hideSubscriptionUI && nextDueMoment) {
+      return {
+        message: `Cotisation reportée au ${nextDueMoment.format("DD/MM/YYYY")}.`,
+        type: "success",
+        action: false,
+      };
+    }
+
+    if (expiryMoment) {
+      const daysUntilExpiry = expiryMoment.diff(moment(), "days");
+      const gracePeriodEnd = expiryMoment.clone().add(14, "days");
+      const isGracePeriod =
+        moment().isAfter(expiryMoment) && moment().isBefore(gracePeriodEnd);
+
+      if (isGracePeriod) {
+        return {
+          message: `ABONNEMENT EXPIRÉ LE ${expiryMoment.format(
+            "DD/MM/YYYY"
+          )}. RENOUVELEZ DANS ${gracePeriodEnd.diff(moment(), "days")} JOURS.`,
+          type: "warning",
+          action: true,
+        };
+      }
+      if (daysUntilExpiry <= 30 && daysUntilExpiry > 0) {
+        return {
+          message: `ABONNEMENT EXPIRE DANS ${daysUntilExpiry} JOURS (${expiryMoment.format(
+            "DD/MM/YYYY"
+          )}).`,
+          type: daysUntilExpiry <= 7 ? "error" : "warning",
+          action: daysUntilExpiry <= 14,
+        };
+      }
+    }
+
+    if (subscriptionStatus.needsPayment) {
+      return {
+        message: "ACQUITTEZ VOTRE COTISATION ANNUELLE (9 €)",
+        type: "error",
+        action: true,
+      };
+    }
+
+    return null;
+  })();
+
+  // Confirm subscription if redirected from Stripe
   useEffect(() => {
-    const sessionId = getSessionIdFromURL();
+    const params = new URLSearchParams(window.location.search);
+    const sessionId = params.get("session_id");
     if (!sessionId || subscriptionStatus.paid) return;
 
-    const confirmSubscription = async () => {
+    (async () => {
       try {
         const token = Cookies.get("token");
         const res = await fetch(
@@ -78,14 +95,12 @@ const SubscriptionManager = ({ subscriptionStatus, fetchSubscriptionStatus }) =>
         );
         if (!res.ok) throw new Error("Échec de la confirmation.");
         toast.success("Abonnement confirmé !");
-        fetchSubscriptionStatus(); // refresh UI
+        fetchSubscriptionStatus();
       } catch (err) {
         console.error("Confirmation error:", err);
         toast.error("Impossible de confirmer l'abonnement.");
       }
-    };
-
-    confirmSubscription();
+    })();
   }, [subscriptionStatus.paid, fetchSubscriptionStatus]);
 
   const handleCheckout = async () => {
@@ -112,7 +127,7 @@ const SubscriptionManager = ({ subscriptionStatus, fetchSubscriptionStatus }) =>
       });
       if (stripeError) throw stripeError;
     } catch (err) {
-      toast.error(err.message);
+      toast.error(err.message || "Erreur lors du paiement.");
     } finally {
       setLoading(false);
     }
@@ -134,7 +149,9 @@ const SubscriptionManager = ({ subscriptionStatus, fetchSubscriptionStatus }) =>
           {subscriptionMessage.message}
         </div>
       )}
-      {!subscriptionStatus.paid && (
+
+      {/* Hide CTA during deferred window */}
+      {!subscriptionStatus.paid && !subscriptionStatus.hideSubscriptionUI && (
         <button
           onClick={handleCheckout}
           disabled={loading}
@@ -150,7 +167,12 @@ const SubscriptionManager = ({ subscriptionStatus, fetchSubscriptionStatus }) =>
 SubscriptionManager.propTypes = {
   subscriptionStatus: PropTypes.shape({
     paid: PropTypes.bool.isRequired,
-    expiryDate: PropTypes.instanceOf(moment).nullable,
+    expiryDate: PropTypes.string,      // ISO or null
+    needsPayment: PropTypes.bool,
+    nextDueDate: PropTypes.string,
+    canUnlockCard: PropTypes.bool,
+    hideSubscriptionUI: PropTypes.bool,
+    reason: PropTypes.string,
   }).isRequired,
   fetchSubscriptionStatus: PropTypes.func.isRequired,
 };
