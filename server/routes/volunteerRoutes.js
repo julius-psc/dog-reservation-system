@@ -1148,85 +1148,85 @@ module.exports = (
     }
   );
 
-  router.post(
-    "/volunteer/create-checkout-session",
-    authenticate,
-    authorizeVolunteer,
-    async (req, res) => {
-      try {
-        const YOUR_PRICE_ID = "price_1R2rlyGBanlKTQUgFSi07o7J";
-        const domain = process.env.FRONTEND_URL;
+router.post(
+  "/volunteer/create-checkout-session",
+  authenticate,
+  authorizeVolunteer,
+  async (req, res) => {
+    try {
+      const YOUR_PRICE_ID = "price_1R2rlyGBanlKTQUgFSi07o7J"; // yearly recurring price
+      const domain = process.env.FRONTEND_URL;
 
-        const session = await stripe.checkout.sessions.create({
-          mode: "subscription",
-          payment_method_types: ["card"],
-          line_items: [
-            {
-              price: YOUR_PRICE_ID,
-              quantity: 1,
-            },
-          ],
-          success_url: `${domain}/subscription/success?session_id={CHECKOUT_SESSION_ID}`,
-          cancel_url: `${domain}/subscription/cancel`,
-          customer_email: req.user.email,
-        });
+      // If you store stripe_customer_id on users, fetch it here:
+      // const { rows } = await pool.query("SELECT stripe_customer_id FROM users WHERE id = $1", [req.user.userId]);
+      // const existingCustomerId = rows[0]?.stripe_customer_id || undefined;
 
-        console.log(
-          `✅ Created Checkout Session: ${session.id} for user ${req.user.email}`
-        );
+      const session = await stripe.checkout.sessions.create({
+        mode: "subscription",
+        payment_method_types: ["card"],
+        line_items: [{ price: YOUR_PRICE_ID, quantity: 1 }],
+        success_url: `${domain}/subscription/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${domain}/subscription/cancel`,
+        // Tie the session to the logged-in user deterministically:
+        client_reference_id: String(req.user.userId),
+        // If you have a saved customer id, prefer "customer", else fall back to customer_email:
+        // customer: existingCustomerId,
+        customer_email: req.user.email,
+      });
 
-        res.json({ sessionId: session.id });
-      } catch (err) {
-        console.error("❌ Error creating Checkout session:", err);
-        res.status(500).json({ error: "Failed to create session" });
-      }
+      console.log(`✅ Created Checkout Session: ${session.id} for userId ${req.user.userId}`);
+
+      res.json({ sessionId: session.id });
+    } catch (err) {
+      console.error("❌ Error creating Checkout session:", err);
+      res.status(500).json({ error: "Failed to create session" });
     }
-  );
+  }
+);
 
-  router.get(
-    "/volunteer/subscription",
-    authenticate,
-    authorizeVolunteer,
-    async (req, res) => {
+
+router.get(
+  "/volunteer/subscription",
+  authenticate,
+  authorizeVolunteer,
+  async (req, res) => {
+    try {
+      // Optional best-effort sync (ignore errors)
       try {
-        const volunteerId = req.user.userId;
-
-        const { rows } = await pool.query(
-          `
-          SELECT 
-            subscription_paid,
-            subscription_expiry_date,
-            first_subscription_paid_at
-          FROM users 
-          WHERE id = $1 AND role = 'volunteer'
-          `,
-          [volunteerId]
-        );
-
-        if (rows.length === 0) {
-          return res.status(404).json({ error: "Volunteer not found" });
-        }
-
-        const computed = computeVolunteerSubscriptionStatus(moment, rows[0]);
-        res.json({
-          paid: computed.paid,
-          expiryDate: computed.expiryDate
-            ? computed.expiryDate.toISOString()
-            : null,
-          needsPayment: computed.needsPayment,
-          nextDueDate: computed.nextDueDate
-            ? computed.nextDueDate.toISOString()
-            : null,
-          canUnlockCard: computed.canUnlockCard,
-          hideSubscriptionUI: computed.hideSubscriptionUI,
-          reason: computed.reason,
+        await fetch(`${process.env.API_BASE_URL}/volunteer/sync-subscription`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${req.headers.authorization?.split(" ")[1]}` }
         });
-      } catch (error) {
-        console.error("Error fetching subscription status:", error);
-        res.status(500).json({ error: "Failed to fetch subscription status" });
-      }
+      } catch (_) {}
+
+      const volunteerId = req.user.userId;
+      const { rows } = await pool.query(
+        `
+        SELECT subscription_paid, subscription_expiry_date, first_subscription_paid_at
+        FROM users WHERE id = $1 AND role = 'volunteer'
+        `,
+        [volunteerId]
+      );
+
+      if (!rows.length) return res.status(404).json({ error: "Volunteer not found" });
+
+      const computed = computeVolunteerSubscriptionStatus(moment, rows[0]);
+      res.json({
+        paid: computed.paid,
+        expiryDate: computed.expiryDate ? computed.expiryDate.toISOString() : null,
+        needsPayment: computed.needsPayment,
+        nextDueDate: computed.nextDueDate ? computed.nextDueDate.toISOString() : null,
+        canUnlockCard: computed.canUnlockCard,
+        hideSubscriptionUI: computed.hideSubscriptionUI,
+        reason: computed.reason,
+      });
+    } catch (error) {
+      console.error("Error fetching subscription status:", error);
+      res.status(500).json({ error: "Failed to fetch subscription status" });
     }
-  );
+  }
+);
+
 
   // CHECK DOCUMENT STATUS
   router.get(
@@ -1260,41 +1260,110 @@ module.exports = (
     }
   );
 
-  router.post(
-    "/volunteer/confirm-subscription",
-    authenticate,
-    authorizeVolunteer,
-    async (req, res) => {
-      try {
-        const { sessionId } = req.body;
-        if (!sessionId) {
-          return res.status(400).json({ error: "Missing sessionId" });
-        }
-
-        const session = await stripe.checkout.sessions.retrieve(sessionId);
-        const subscription = await stripe.subscriptions.retrieve(
-          session.subscription
-        );
-
-        const expiryDate = new Date(subscription.current_period_end * 1000);
-        await pool.query(
-          `
-          UPDATE users 
-          SET stripe_subscription_id = $1,
-              subscription_paid = true,
-              subscription_expiry_date = $2,
-              first_subscription_paid_at = COALESCE(first_subscription_paid_at, NOW())
-          WHERE email = $3
-          `,
-          [subscription.id, expiryDate, session.customer_email]
-        );
-
-        res.json({ message: "Subscription confirmed." });
-      } catch (err) {
-        console.error("Error confirming subscription:", err);
-        res.status(500).json({ error: "Failed to confirm subscription" });
+router.post(
+  "/volunteer/confirm-subscription",
+  authenticate,
+  authorizeVolunteer,
+  async (req, res) => {
+    try {
+      const { sessionId } = req.body;
+      if (!sessionId) {
+        return res.status(400).json({ error: "Missing sessionId" });
       }
+
+      // Expand subscription so we don’t need a second API call.
+      const session = await stripe.checkout.sessions.retrieve(sessionId, {
+        expand: ["subscription"],
+      });
+
+      // Verify this session is for the current user
+      const crid = session.client_reference_id;
+      if (!crid || String(crid) !== String(req.user.userId)) {
+        return res.status(403).json({ error: "Session does not belong to the current user." });
+      }
+
+      // Guard: ensure the payment actually went through
+      // For cards this is immediate, but it's still good practice.
+      const subscription = session.subscription;
+      if (!subscription) {
+        return res.status(400).json({ error: "No subscription found on session yet. Try again in a few seconds." });
+      }
+
+      // Accept active or trialing. (incomplete/incomplete_expired shouldn't flip paid)
+      if (!["active", "trialing"].includes(subscription.status)) {
+        return res.status(400).json({ error: `Subscription is ${subscription.status}, not active.` });
+      }
+
+      const expiryDate = new Date(subscription.current_period_end * 1000);
+
+      // Save Stripe IDs if you want to reuse customer later
+      // const customerId = session.customer; // may be string
+      // await pool.query(
+      //   `UPDATE users SET stripe_customer_id = COALESCE(stripe_customer_id, $1) WHERE id = $2`,
+      //   [customerId || null, req.user.userId]
+      // );
+
+      await pool.query(
+        `
+        UPDATE users 
+        SET 
+          stripe_subscription_id = $1,
+          subscription_paid = TRUE,
+          subscription_expiry_date = $2,
+          first_subscription_paid_at = COALESCE(first_subscription_paid_at, NOW())
+        WHERE id = $3
+        `,
+        [subscription.id, expiryDate, req.user.userId]
+      );
+
+      console.log(`✅ Marked userId ${req.user.userId} as paid until ${expiryDate.toISOString()}`);
+
+      res.json({ message: "Subscription confirmed.", expiryDate: expiryDate.toISOString() });
+    } catch (err) {
+      console.error("Error confirming subscription:", err);
+      res.status(500).json({ error: "Failed to confirm subscription" });
     }
-  );
+  }
+);
+
+// Add this endpoint
+router.post(
+  "/volunteer/sync-subscription",
+  authenticate,
+  authorizeVolunteer,
+  async (req, res) => {
+    try {
+      const { rows } = await pool.query(
+        "SELECT stripe_subscription_id FROM users WHERE id = $1",
+        [req.user.userId]
+      );
+      const subId = rows[0]?.stripe_subscription_id;
+      if (!subId) return res.json({ synced: false });
+
+      const sub = await stripe.subscriptions.retrieve(subId);
+      const active = ["active", "trialing"].includes(sub.status);
+      const expiryDate = sub.current_period_end
+        ? new Date(sub.current_period_end * 1000)
+        : null;
+
+      await pool.query(
+        `
+        UPDATE users
+        SET subscription_paid = $1,
+            subscription_expiry_date = $2
+        WHERE id = $3
+        `,
+        [active, expiryDate, req.user.userId]
+      );
+
+      res.json({ synced: true, status: sub.status, expiryDate });
+    } catch (e) {
+      console.error("sync-subscription error:", e);
+      res.status(500).json({ error: "Failed to sync subscription." });
+    }
+  }
+);
+
+
   return router;
 };

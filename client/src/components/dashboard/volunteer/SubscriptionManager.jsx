@@ -74,34 +74,75 @@ const SubscriptionManager = ({ subscriptionStatus, fetchSubscriptionStatus }) =>
   })();
 
   // Confirm subscription if redirected from Stripe
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const sessionId = params.get("session_id");
-    if (!sessionId || subscriptionStatus.paid) return;
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+  const sessionId = params.get("session_id");
+  if (!sessionId || subscriptionStatus.paid) return;
 
-    (async () => {
-      try {
-        const token = Cookies.get("token");
-        const res = await fetch(
-          `${import.meta.env.VITE_API_BASE_URL}/volunteer/confirm-subscription`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({ sessionId }),
-          }
-        );
-        if (!res.ok) throw new Error("Échec de la confirmation.");
+  let didRun = false;
+
+  (async () => {
+    if (didRun) return;
+    didRun = true;
+    try {
+      const token = Cookies.get("token");
+      const res = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL}/volunteer/confirm-subscription`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ sessionId }),
+        }
+      );
+
+      if (res.ok) {
         toast.success("Abonnement confirmé !");
+        // Clean the URL (remove ?session_id=...)
+        const url = new URL(window.location.href);
+        url.searchParams.delete("session_id");
+        window.history.replaceState({}, "", url.toString());
+        // Refresh status
         fetchSubscriptionStatus();
-      } catch (err) {
-        console.error("Confirmation error:", err);
-        toast.error("Impossible de confirmer l'abonnement.");
+      } else {
+        // Optional tiny retry if Stripe is still finalizing the session
+        const text = await res.text();
+        console.warn("First confirm failed:", text);
+        setTimeout(async () => {
+          try {
+            const retry = await fetch(
+              `${import.meta.env.VITE_API_BASE_URL}/volunteer/confirm-subscription`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ sessionId }),
+              }
+            );
+            if (retry.ok) {
+              toast.success("Abonnement confirmé !");
+              const url2 = new URL(window.location.href);
+              url2.searchParams.delete("session_id");
+              window.history.replaceState({}, "", url2.toString());
+              fetchSubscriptionStatus();
+              return;
+            }
+            toast.error("Impossible de confirmer l'abonnement.");
+          } catch (err) {
+            toast.error("Impossible de confirmer l'abonnement :", err);
+          }
+        }, 1500);
       }
-    })();
-  }, [subscriptionStatus.paid, fetchSubscriptionStatus]);
+    } catch (err) {
+      console.error("Confirmation error:", err);
+      toast.error("Impossible de confirmer l'abonnement.");
+    }
+  })();
+}, [subscriptionStatus.paid, fetchSubscriptionStatus]);
 
   const handleCheckout = async () => {
     setLoading(true);
