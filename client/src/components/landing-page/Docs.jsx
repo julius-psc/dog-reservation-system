@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import guideProm from "../../assets/landing-page/documents/guide_promeneur.pdf";
 import guideProprio from "../../assets/landing-page/documents/guide_proprio.pdf";
 import affiche from "../../assets/landing-page/documents/chiensencavale_affiche.pdf";
-import regles from "../../assets/landing-page/documents/chiensencavale_regles.pdf";
+// import regles from "../../assets/landing-page/documents/chiensencavale_regles.pdf";
 import bio1 from "../../assets/landing-page/documents/tome1_bio.png";
 import bio2 from "../../assets/landing-page/documents/tome2_bio.png";
 import bio3 from "../../assets/landing-page/documents/tome3_bio.pdf";
@@ -61,7 +61,7 @@ const Docs = () => {
         },
       ],
     },
-    {
+/*     {
       title: "Règlementation 📜",
       description: "Règles et directives pour assurer la sécurité de tous.",
       documents: [
@@ -72,7 +72,7 @@ const Docs = () => {
           file: regles,
         },
       ],
-    },
+    }, */
   ];
 
   return (
