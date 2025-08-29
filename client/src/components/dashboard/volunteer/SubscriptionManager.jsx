@@ -20,49 +20,40 @@ function parseDate(d) {
 const SubscriptionManager = ({ subscriptionStatus, fetchSubscriptionStatus }) => {
   const [loading, setLoading] = useState(false);
 
-  // Normalize dates from API
   const expiryMoment = parseDate(subscriptionStatus.expiryDate);
-  const nextDueMoment = parseDate(subscriptionStatus.nextDueDate);
 
-  // Build banner message
+  // Build simple banner
   const subscriptionMessage = (() => {
-    if (subscriptionStatus.paid) return null;
-
-    if (subscriptionStatus.hideSubscriptionUI && nextDueMoment) {
-      return {
-        message: `Cotisation reportée au ${nextDueMoment.format("DD/MM/YYYY")}.`,
-        type: "success",
-        action: false,
-      };
+    if (subscriptionStatus.paid) {
+      if (expiryMoment) {
+        const daysUntilExpiry = expiryMoment.diff(moment(), "days");
+        if (daysUntilExpiry <= 30 && daysUntilExpiry >= 0) {
+          return {
+            message: `ABONNEMENT EXPIRE DANS ${daysUntilExpiry} JOURS (${expiryMoment.format("DD/MM/YYYY")}).`,
+            type: daysUntilExpiry <= 7 ? "error" : "warning",
+            action: true,
+          };
+        }
+        if (expiryMoment.isBefore(moment())) {
+          return {
+            message: `ABONNEMENT EXPIRÉ LE ${expiryMoment.format("DD/MM/YYYY")}.`,
+            type: "error",
+            action: true,
+          };
+        }
+      }
+      return null;
     }
 
-    if (expiryMoment) {
-      const daysUntilExpiry = expiryMoment.diff(moment(), "days");
-      const gracePeriodEnd = expiryMoment.clone().add(14, "days");
-      const isGracePeriod =
-        moment().isAfter(expiryMoment) && moment().isBefore(gracePeriodEnd);
-
-      if (isGracePeriod) {
+    // Not paid
+    if (!subscriptionStatus.paid) {
+      if (expiryMoment && expiryMoment.isBefore(moment())) {
         return {
-          message: `ABONNEMENT EXPIRÉ LE ${expiryMoment.format(
-            "DD/MM/YYYY"
-          )}. RENOUVELEZ DANS ${gracePeriodEnd.diff(moment(), "days")} JOURS.`,
-          type: "warning",
+          message: `ABONNEMENT EXPIRÉ LE ${expiryMoment.format("DD/MM/YYYY")}.`,
+          type: "error",
           action: true,
         };
       }
-      if (daysUntilExpiry <= 30 && daysUntilExpiry > 0) {
-        return {
-          message: `ABONNEMENT EXPIRE DANS ${daysUntilExpiry} JOURS (${expiryMoment.format(
-            "DD/MM/YYYY"
-          )}).`,
-          type: daysUntilExpiry <= 7 ? "error" : "warning",
-          action: daysUntilExpiry <= 14,
-        };
-      }
-    }
-
-    if (subscriptionStatus.needsPayment) {
       return {
         message: "ACQUITTEZ VOTRE COTISATION ANNUELLE (9 €)",
         type: "error",
@@ -73,76 +64,73 @@ const SubscriptionManager = ({ subscriptionStatus, fetchSubscriptionStatus }) =>
     return null;
   })();
 
-  // Confirm subscription if redirected from Stripe
-useEffect(() => {
-  const params = new URLSearchParams(window.location.search);
-  const sessionId = params.get("session_id");
-  if (!sessionId || subscriptionStatus.paid) return;
+  // Confirm subscription after Stripe redirect
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const sessionId = params.get("session_id");
+    if (!sessionId || subscriptionStatus.paid) return;
 
-  let didRun = false;
+    let didRun = false;
 
-  (async () => {
-    if (didRun) return;
-    didRun = true;
-    try {
-      const token = Cookies.get("token");
-      const res = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL}/volunteer/confirm-subscription`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ sessionId }),
-        }
-      );
-
-      if (res.ok) {
-        toast.success("Abonnement confirmé !");
-        // Clean the URL (remove ?session_id=...)
-        const url = new URL(window.location.href);
-        url.searchParams.delete("session_id");
-        window.history.replaceState({}, "", url.toString());
-        // Refresh status
-        fetchSubscriptionStatus();
-      } else {
-        // Optional tiny retry if Stripe is still finalizing the session
-        const text = await res.text();
-        console.warn("First confirm failed:", text);
-        setTimeout(async () => {
-          try {
-            const retry = await fetch(
-              `${import.meta.env.VITE_API_BASE_URL}/volunteer/confirm-subscription`,
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({ sessionId }),
-              }
-            );
-            if (retry.ok) {
-              toast.success("Abonnement confirmé !");
-              const url2 = new URL(window.location.href);
-              url2.searchParams.delete("session_id");
-              window.history.replaceState({}, "", url2.toString());
-              fetchSubscriptionStatus();
-              return;
-            }
-            toast.error("Impossible de confirmer l'abonnement.");
-          } catch (err) {
-            toast.error("Impossible de confirmer l'abonnement :", err);
+    (async () => {
+      if (didRun) return;
+      didRun = true;
+      try {
+        const token = Cookies.get("token");
+        const res = await fetch(
+          `${import.meta.env.VITE_API_BASE_URL}/volunteer/confirm-subscription`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ sessionId }),
           }
-        }, 1500);
+        );
+
+        if (res.ok) {
+          toast.success("Abonnement confirmé !");
+          const url = new URL(window.location.href);
+          url.searchParams.delete("session_id");
+          window.history.replaceState({}, "", url.toString());
+          fetchSubscriptionStatus();
+        } else {
+          const text = await res.text();
+          console.warn("First confirm failed:", text);
+          setTimeout(async () => {
+            try {
+              const retry = await fetch(
+                `${import.meta.env.VITE_API_BASE_URL}/volunteer/confirm-subscription`,
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                  },
+                  body: JSON.stringify({ sessionId }),
+                }
+              );
+              if (retry.ok) {
+                toast.success("Abonnement confirmé !");
+                const url2 = new URL(window.location.href);
+                url2.searchParams.delete("session_id");
+                window.history.replaceState({}, "", url2.toString());
+                fetchSubscriptionStatus();
+                return;
+              }
+              toast.error("Impossible de confirmer l'abonnement.");
+            } catch (err) {
+              toast.error("Impossible de confirmer l'abonnement :", err);
+            }
+          }, 1500);
+        }
+      } catch (err) {
+        console.error("Confirmation error:", err);
+        toast.error("Impossible de confirmer l'abonnement.");
       }
-    } catch (err) {
-      console.error("Confirmation error:", err);
-      toast.error("Impossible de confirmer l'abonnement.");
-    }
-  })();
-}, [subscriptionStatus.paid, fetchSubscriptionStatus]);
+    })();
+  }, [subscriptionStatus.paid, fetchSubscriptionStatus]);
 
   const handleCheckout = async () => {
     setLoading(true);
@@ -191,8 +179,7 @@ useEffect(() => {
         </div>
       )}
 
-      {/* Hide CTA during deferred window */}
-      {!subscriptionStatus.paid && !subscriptionStatus.hideSubscriptionUI && (
+      {!subscriptionStatus.paid && (
         <button
           onClick={handleCheckout}
           disabled={loading}
@@ -208,12 +195,7 @@ useEffect(() => {
 SubscriptionManager.propTypes = {
   subscriptionStatus: PropTypes.shape({
     paid: PropTypes.bool.isRequired,
-    expiryDate: PropTypes.string,      // ISO or null
-    needsPayment: PropTypes.bool,
-    nextDueDate: PropTypes.string,
-    canUnlockCard: PropTypes.bool,
-    hideSubscriptionUI: PropTypes.bool,
-    reason: PropTypes.string,
+    expiryDate: PropTypes.string, // ISO or null
   }).isRequired,
   fetchSubscriptionStatus: PropTypes.func.isRequired,
 };

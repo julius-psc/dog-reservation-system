@@ -11,11 +11,11 @@ import heic2any from "heic2any";
 const VolunteerCard = () => {
   const [username, setUsername] = useState("");
   const [personalId, setPersonalId] = useState(null);
-  const [, setSubscriptionPaid] = useState(false); // kept for display if needed
+  const [, setSubscriptionPaid] = useState(false); // kept for potential future display
   const [subscriptionExpiryDate, setSubscriptionExpiryDate] = useState(null); // ISO
   const [profilePictureUrl, setProfilePictureUrl] = useState(null);
   const [personalIdSet, setPersonalIdSet] = useState(false);
-  const [canUnlockCard, setCanUnlockCard] = useState(false); // NEW
+  const [canUnlockCard, setCanUnlockCard] = useState(false); // TRUE only if paid & not expired
   const [selectedFile, setSelectedFile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -152,7 +152,7 @@ const VolunteerCard = () => {
     );
   }
 
-  // Gate on canUnlockCard (not on subscriptionPaid)
+  // Gate strictly on subscription validity
   if (!canUnlockCard) {
     return (
       <div className="my-8">
@@ -168,7 +168,7 @@ const VolunteerCard = () => {
                 Cotisation Requise
               </h2>
               <p className="text-sm text-gray-600 mt-2 text-center">
-                Vous devez payer votre cotisation pour obtenir votre carte de bénévole.
+                Vous devez payer votre cotisation annuelle pour obtenir votre carte.
               </p>
               <p className="text-xs text-gray-500 mt-2 text-center">
                 Rendez-vous à la section de paiement pour activer votre abonnement.
