@@ -28,8 +28,31 @@ function isValidTime(time) {
 
 const app = express();
 const port = process.env.PORT || 3001;
+const isProduction = process.env.NODE_ENV === "production";
 
-// CORS configuration
+// --- PostgreSQL connection ---
+const pool = new Pool({
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  host: process.env.DB_HOST,
+  database: process.env.DB_NAME,
+  port: process.env.DB_PORT,
+  ssl: isProduction ? { rejectUnauthorized: false } : false,
+});
+
+pool
+  .connect()
+  .then(() => console.log("Connected to PostgreSQL database"))
+  .catch((err) => console.error("Error connecting to PostgreSQL:", err));
+
+// Make pool accessible to routers via req.app.get("db")
+app.set("db", pool);
+
+// --- Mount Stripe webhook BEFORE any body parsers or CORS ---
+const stripeWebhook = require("./routes/stripeWebhook"); // exports an Express Router
+app.use("/webhooks/stripe", stripeWebhook); // final URL: POST /webhooks/stripe
+
+// --- CORS configuration ---
 const corsOptions = {
   origin: (origin, callback) => {
     const allowedOrigins = [
@@ -57,37 +80,18 @@ fs.mkdirSync(path.join(__dirname, "uploads", "member-images"), { recursive: true
 app.use("/charters", express.static(path.join(__dirname, "routes", "forms", "charters")));
 app.use("/insurance", express.static(path.join(__dirname, "routes", "forms", "insurance")));
 app.use("/client_charters", express.static(path.join(__dirname, "routes", "forms", "client_charters")));
-app.use(
-  "/uploads/profile-pictures",
-  express.static(path.join(__dirname, "uploads", "profile-pictures"))
-);
-app.use(
-  "/uploads/member-images",
-  express.static(path.join(__dirname, "uploads", "member-images"))
-);
+app.use("/uploads/profile-pictures", express.static(path.join(__dirname, "uploads", "profile-pictures")));
+app.use("/uploads/member-images", express.static(path.join(__dirname, "uploads", "member-images")));
 
-// Middleware for parsing
+// Middleware for parsing — AFTER webhook
 app.use(bodyParser.json());
 app.use(fileUpload());
 
-// PostgreSQL connection
-const pool = new Pool({
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  host: process.env.DB_HOST,
-  database: process.env.DB_NAME,
-  port: process.env.DB_PORT,
-  ssl: { rejectUnauthorized: false },
-});
-pool.connect()
-  .then(() => console.log("Connected to PostgreSQL database"))
-  .catch((err) => console.error("Error connecting to PostgreSQL:", err));
-
-// HTTP & WebSocket server
+// --- HTTP & WebSocket server ---
 const server = http.createServer(app);
-const isProduction = process.env.NODE_ENV === "production";
 const wss = new WebSocket.Server({ server });
 const connectedClients = new Set();
+
 wss.on("connection", (ws) => {
   console.log("Client connected to WebSocket server");
   ws.on("message", (message) => {
@@ -104,15 +108,15 @@ wss.on("connection", (ws) => {
   ws.on("close", () => connectedClients.delete(ws));
 });
 
-// Auth middleware
+// --- Auth middleware ---
 const authenticate = (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) return res.status(401).json({ error: "No token provided" });
   const token = authHeader.split(" ")[1];
   jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
     if (err) return res.status(403).json({ error: "Invalid token" });
-    pool.query("SELECT village, role FROM users WHERE id = $1", [user.userId], (err, result) => {
-      if (!err && result.rows.length) {
+    pool.query("SELECT village, role FROM users WHERE id = $1", [user.userId], (qErr, result) => {
+      if (!qErr && result.rows.length) {
         req.user = { ...user, village: result.rows[0].village, role: result.rows[0].role };
       } else {
         req.user = user;
@@ -130,20 +134,29 @@ const authorizeVolunteer = (req, res, next) => {
   next();
 };
 
-// Routes
+// --- Routes ---
 const authRoutes = require("./routes/authRoutes");
 const volunteerRoutes = require("./routes/volunteerRoutes");
 const clientRoutes = require("./routes/clientRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const miscRoutes = require("./routes/miscRoutes");
-const stripeWebhook = require("./routes/stripeWebhook")(pool);
 
 app.use("/", authRoutes(pool, bcrypt, jwt, sendPasswordResetEmail));
-app.use("/", volunteerRoutes(pool, authenticate, authorizeVolunteer, isValidTime, moment, connectedClients, WebSocket));
+app.use(
+  "/",
+  volunteerRoutes(
+    pool,
+    authenticate,
+    authorizeVolunteer,
+    isValidTime,
+    moment,
+    connectedClients,
+    WebSocket
+  )
+);
 app.use("/", clientRoutes(pool, authenticate, moment, connectedClients, WebSocket, isValidTime));
 app.use("/", adminRoutes(pool, authenticate, authorizeAdmin));
 app.use("/", miscRoutes(pool));
-app.use("/webhooks/stripe", stripeWebhook);
 
 // Fetch current user info
 app.get("/fetchUser", authenticate, async (req, res) => {
@@ -167,9 +180,10 @@ app.get("/member-images", async (req, res) => {
   }
 });
 
-
-// Start server
+// --- Start server ---
 server.listen(port, () => {
   console.log(`Server listening on port ${port}`);
-  console.log(`WebSocket server running on ${isProduction ? `wss://chiensencavale.com` : `ws://localhost:${port}`}`);
+  console.log(
+    `WebSocket server running on ${isProduction ? `wss://chiensencavale.com` : `ws://localhost:${port}`}`
+  );
 });

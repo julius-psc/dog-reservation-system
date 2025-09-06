@@ -1110,7 +1110,7 @@ module.exports = (
     authorizeVolunteer,
     async (req, res) => {
       try {
-        const YOUR_PRICE_ID = "price_1R2rlyGBanlKTQUgFSi07o7J"; // yearly recurring price
+        const YOUR_PRICE_ID = process.env.STRIPE_PRICE;
         const domain = process.env.FRONTEND_URL;
 
         // If you store stripe_customer_id on users, fetch it here:
