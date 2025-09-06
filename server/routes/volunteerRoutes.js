@@ -1113,9 +1113,7 @@ module.exports = (
         const YOUR_PRICE_ID = process.env.STRIPE_PRICE;
         const domain = process.env.FRONTEND_URL;
 
-        // If you store stripe_customer_id on users, fetch it here:
-        // const { rows } = await pool.query("SELECT stripe_customer_id FROM users WHERE id = $1", [req.user.userId]);
-        // const existingCustomerId = rows[0]?.stripe_customer_id || undefined;
+        console.log("Creating checkout session for userId:", req.user.userId); // Debug log
 
         const session = await stripe.checkout.sessions.create({
           mode: "subscription",
@@ -1123,11 +1121,14 @@ module.exports = (
           line_items: [{ price: YOUR_PRICE_ID, quantity: 1 }],
           success_url: `${domain}/subscription/success?session_id={CHECKOUT_SESSION_ID}`,
           cancel_url: `${domain}/subscription/cancel`,
-          // Tie the session to the logged-in user deterministically:
-          client_reference_id: String(req.user.userId),
-          // If you have a saved customer id, prefer "customer", else fall back to customer_email:
-          // customer: existingCustomerId,
+          // CRITICAL: Use the actual numeric user ID, not a UUID
+          client_reference_id: String(req.user.userId), // Ensure it's a string but contains the numeric ID
           customer_email: req.user.email,
+          // Add metadata as backup
+          metadata: {
+            user_id: String(req.user.userId),
+            user_email: req.user.email,
+          },
         });
 
         console.log(
@@ -1253,12 +1254,10 @@ module.exports = (
         if (mode === "subscription") {
           const subscription = session.subscription;
           if (!subscription) {
-            return res
-              .status(400)
-              .json({
-                error:
-                  "No subscription found on session yet. Try again in a few seconds.",
-              });
+            return res.status(400).json({
+              error:
+                "No subscription found on session yet. Try again in a few seconds.",
+            });
           }
           ok = ["active", "trialing"].includes(subscription.status);
         } else if (mode === "payment") {
