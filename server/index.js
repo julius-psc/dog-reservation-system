@@ -45,11 +45,11 @@ pool
   .then(() => console.log("Connected to PostgreSQL database"))
   .catch((err) => console.error("Error connecting to PostgreSQL:", err));
 
-// Make pool accessible to routers via req.app.get("db")
+// Expose pool to routers (used by webhook)
 app.set("db", pool);
 
 // --- Mount Stripe webhook BEFORE any body parsers or CORS ---
-const stripeWebhook = require("./routes/stripeWebhook"); // exports an Express Router
+const stripeWebhook = require("./routes/stripeWebhook"); // exports a Router
 app.use("/webhooks/stripe", stripeWebhook); // final URL: POST /webhooks/stripe
 
 // --- CORS configuration ---
@@ -66,11 +66,12 @@ const corsOptions = {
       callback(new Error("Not allowed by CORS"));
     }
   },
-  methods: ["GET", "POST", "PUT", "DELETE"],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true,
 };
 app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 
 // Ensure upload directories exist
 fs.mkdirSync(path.join(__dirname, "uploads", "profile-pictures"), { recursive: true });

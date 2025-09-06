@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
-// IMPORTANT: route path is "/" here; express.raw only on this route
+// IMPORTANT: path is "/" here; express.raw only on this route
 router.post(
   "/",
   express.raw({ type: "application/json" }),
@@ -22,7 +22,7 @@ router.post(
     }
 
     try {
-      console.log("➡️  Webhook received:", event.type, event.id); // TEMP log
+      console.log("➡️  Webhook received:", event.type, event.id);
 
       switch (event.type) {
         case "checkout.session.completed": {
