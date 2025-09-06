@@ -1,3 +1,10 @@
+console.log("WEBHOOK CALLED - Environment check:", {
+  hasWebhookSecret: !!process.env.STRIPE_WEBHOOK_SECRET,
+  webhookSecretPrefix: process.env.STRIPE_WEBHOOK_SECRET?.substring(0, 10),
+  hasDatabase: !!req.app.get("db")
+});
+
+
 const express = require("express");
 const router = express.Router();
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
