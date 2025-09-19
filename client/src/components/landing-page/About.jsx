@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import paws from "../../assets/landing-page/icons/paws-blue.svg";
 import status from "../../assets/landing-page/documents/chiensencavale_statut.pdf";
+import rules from "../../assets/landing-page/documents/chiensencavale_regles.pdf"
 
 const About = () => {
   const [stats, setStats] = useState({
@@ -67,6 +68,17 @@ const About = () => {
             <a
               className="text-primary-blue font-semibold"
               href={`${status}?v=${DOC_VERSION}`}
+              target="_blank"
+              rel="noopener"
+            >
+              ici
+            </a>
+          </p>
+          <p>
+            [Consulter notre règlement intérieur]{" "}
+            <a
+              className="text-primary-blue font-semibold"
+              href={`${rules}?v=${DOC_VERSION}`}
               target="_blank"
               rel="noopener"
             >
