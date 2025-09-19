@@ -13,7 +13,6 @@ import ReservationSlots from "./ReservationsSlots";
 import PersonalReservationsTable from "./PersonalReservationsTable";
 import useClientData from "./useClientData";
 import toast from 'react-hot-toast';
-import TemperatureWarning from "../recycled/HotWeatherWarningClient"; 
 
 moment.locale("fr");
 
@@ -194,7 +193,6 @@ const ClientDashboard = memo(({ handleLogout }) => {
           <LogoutButton handleLogout={handleLogout} />
         </div>
       </header>
-            <TemperatureWarning />
       <main className="container mx-auto mt-8 px-4 pb-8">
         <div className="grid grid-cols-1 gap-6">
           <DogProfilesManager
