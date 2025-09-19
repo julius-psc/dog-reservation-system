@@ -2,7 +2,11 @@ const express = require("express");
 const router = express.Router();
 const { sendApprovalEmail } = require("../email/emailService.js");
 const moment = require("moment");
-const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
+const {
+  S3Client,
+  PutObjectCommand,
+  DeleteObjectCommand,
+} = require("@aws-sdk/client-s3");
 const fs = require("fs");
 const path = require("path");
 const sharp = require("sharp");
@@ -112,41 +116,44 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
   );
 
   // Fetch all users
-router.get(
-  "/admin/all-users",
-  authenticate,
-  authorizeAdmin,
-  async (req, res) => {
-    try {
-      const search = req.query.search || "";
-      const role = req.query.role;
-      const village = req.query.village;
-      const limit = parseInt(req.query.limit || "10", 10);
-      const offset = parseInt(req.query.offset || "0", 10);
+  router.get(
+    "/admin/all-users",
+    authenticate,
+    authorizeAdmin,
+    async (req, res) => {
+      try {
+        const search = req.query.search || "";
+        const role = req.query.role;
+        const village = req.query.village;
+        const limit = parseInt(req.query.limit || "10", 10);
+        const offset = parseInt(req.query.offset || "0", 10);
 
-      const conditions = [];
-      const params = [];
+        const conditions = [];
+        const params = [];
 
-      if (search) {
-        conditions.push(`username ILIKE $${params.length + 1}`);
-        params.push(`%${search}%`);
-      }
+        if (search) {
+          conditions.push(`username ILIKE $${params.length + 1}`);
+          params.push(`%${search}%`);
+        }
 
-      if (role && role !== "all") {
-        conditions.push(`role = $${params.length + 1}`);
-        params.push(role);
-      }
+        if (role && role !== "all") {
+          conditions.push(`role = $${params.length + 1}`);
+          params.push(role);
+        }
 
-      if (village) {
-        const idx1 = params.length + 1;
-        const idx2 = params.length + 2;
-        params.push(village, JSON.stringify([village]));
-        conditions.push(`(village = $${idx1} OR villages_covered @> $${idx2}::jsonb)`);
-      }
+        if (village) {
+          const idx1 = params.length + 1;
+          const idx2 = params.length + 2;
+          params.push(village, JSON.stringify([village]));
+          conditions.push(
+            `(village = $${idx1} OR villages_covered @> $${idx2}::jsonb)`
+          );
+        }
 
-      const whereClause = conditions.length > 0 ? "WHERE " + conditions.join(" AND ") : "";
+        const whereClause =
+          conditions.length > 0 ? "WHERE " + conditions.join(" AND ") : "";
 
-      const query = `
+        const query = `
         SELECT id, username, email, role, village, no_risk_confirmed, unable_to_walk_confirmed, photo_permission
         FROM users
         ${whereClause}
@@ -154,54 +161,54 @@ router.get(
         LIMIT $${params.length + 1} OFFSET $${params.length + 2}
       `;
 
-      params.push(limit, offset);
+        params.push(limit, offset);
 
-      const users = await pool.query(query, params);
-      res.json(users.rows);
-    } catch (err) {
-      console.error("Error fetching users:", err);
-      res.status(500).json({ error: "Failed to fetch users" });
-    }
-  }
-);
-
-// Fetch users count only
-router.get(
-  "/admin/users/count",
-  authenticate,
-  authorizeAdmin,
-  async (req, res) => {
-    try {
-      const search = req.query.search || "";
-      const role = req.query.role;
-
-      const conditions = [];
-      const params = [];
-
-      if (search) {
-        conditions.push(`username ILIKE $${params.length + 1}`);
-        params.push(`%${search}%`);
+        const users = await pool.query(query, params);
+        res.json(users.rows);
+      } catch (err) {
+        console.error("Error fetching users:", err);
+        res.status(500).json({ error: "Failed to fetch users" });
       }
-      if (role && role !== "all") {
-        conditions.push(`role = $${params.length + 1}`);
-        params.push(role);
-      }
-      const whereClause = conditions.length
-        ? "WHERE " + conditions.join(" AND ")
-        : "";
-
-      const result = await pool.query(
-        `SELECT COUNT(*) AS count FROM users ${whereClause}`,
-        params
-      );
-
-      res.json({ count: parseInt(result.rows[0].count, 10) });
-    } catch (err) {
-      console.error("Error fetching users count:", err);
-      res.status(500).json({ error: "Failed to fetch users count" });
     }
-  }
-);
+  );
+
+  // Fetch users count only
+  router.get(
+    "/admin/users/count",
+    authenticate,
+    authorizeAdmin,
+    async (req, res) => {
+      try {
+        const search = req.query.search || "";
+        const role = req.query.role;
+
+        const conditions = [];
+        const params = [];
+
+        if (search) {
+          conditions.push(`username ILIKE $${params.length + 1}`);
+          params.push(`%${search}%`);
+        }
+        if (role && role !== "all") {
+          conditions.push(`role = $${params.length + 1}`);
+          params.push(role);
+        }
+        const whereClause = conditions.length
+          ? "WHERE " + conditions.join(" AND ")
+          : "";
+
+        const result = await pool.query(
+          `SELECT COUNT(*) AS count FROM users ${whereClause}`,
+          params
+        );
+
+        res.json({ count: parseInt(result.rows[0].count, 10) });
+      } catch (err) {
+        console.error("Error fetching users count:", err);
+        res.status(500).json({ error: "Failed to fetch users count" });
+      }
+    }
+  );
 
   router.get(
     "/admin/volunteers/count",
@@ -268,17 +275,17 @@ router.get(
     }
   );
 
-// Fetch all reservations (admin)
-router.get(
-  "/admin/reservations",
-  authenticate,
-  authorizeAdmin,
-  async (req, res) => {
-    const client = await pool.connect();
-    try {
-      await client.query("BEGIN");
+  // Fetch all reservations (admin)
+  router.get(
+    "/admin/reservations",
+    authenticate,
+    authorizeAdmin,
+    async (req, res) => {
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
 
-      await client.query(`
+        await client.query(`
         UPDATE reservations
         SET status = CASE
           WHEN status='accepted' AND (reservation_date+end_time::time)<NOW() THEN 'completed'
@@ -288,25 +295,27 @@ router.get(
         WHERE status IN ('accepted','pending') AND (reservation_date+end_time::time)<NOW()
       `);
 
-      // Get optional filters
-      const from = req.query.from; // YYYY-MM-DD
-      const to = req.query.to;     // YYYY-MM-DD
-      const conditions = [];
-      const params = [];
+        // Get optional filters
+        const from = req.query.from; // YYYY-MM-DD
+        const to = req.query.to; // YYYY-MM-DD
+        const conditions = [];
+        const params = [];
 
-      if (from) {
-        params.push(from);
-        conditions.push(`r.reservation_date >= $${params.length}`);
-      }
+        if (from) {
+          params.push(from);
+          conditions.push(`r.reservation_date >= $${params.length}`);
+        }
 
-      if (to) {
-        params.push(to);
-        conditions.push(`r.reservation_date <= $${params.length}`);
-      }
+        if (to) {
+          params.push(to);
+          conditions.push(`r.reservation_date <= $${params.length}`);
+        }
 
-      const whereClause = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+        const whereClause = conditions.length
+          ? `WHERE ${conditions.join(" AND ")}`
+          : "";
 
-      const query = `
+        const query = `
         SELECT r.id, 
                u.username AS client_name, 
                v.username AS volunteer_name, 
@@ -324,20 +333,19 @@ router.get(
         ORDER BY r.reservation_date DESC, r.start_time DESC
       `;
 
-      const result = await client.query(query, params);
+        const result = await client.query(query, params);
 
-      await client.query("COMMIT");
-      res.json(result.rows);
-    } catch (err) {
-      await client.query("ROLLBACK");
-      console.error("Error fetching reservations:", err);
-      res.status(500).json({ error: "Failed to fetch reservations" });
-    } finally {
-      client.release();
+        await client.query("COMMIT");
+        res.json(result.rows);
+      } catch (err) {
+        await client.query("ROLLBACK");
+        console.error("Error fetching reservations:", err);
+        res.status(500).json({ error: "Failed to fetch reservations" });
+      } finally {
+        client.release();
+      }
     }
-  }
-);
-
+  );
 
   // Fetch reservation stats
   router.get(
@@ -654,6 +662,42 @@ router.get(
     }
   );
 
+// GET /admin/member-images with pagination
+router.get(
+  "/admin/member-images",
+  authenticate,
+  authorizeAdmin,
+  async (req, res) => {
+    try {
+      const limit = Math.min(parseInt(req.query.limit || "24", 10), 100); // cap to 100
+      const offset = Math.max(parseInt(req.query.offset || "0", 10), 0);
+
+      // total count
+      const totalRes = await pool.query("SELECT COUNT(*)::int AS total FROM member_images");
+      const total = totalRes.rows[0].total || 0;
+
+      // page
+      const result = await pool.query(
+        "SELECT id, url FROM member_images ORDER BY id DESC LIMIT $1 OFFSET $2",
+        [limit, offset]
+      );
+
+      const nextOffset = offset + result.rows.length < total ? offset + result.rows.length : null;
+
+      res.json({
+        items: result.rows,
+        total,
+        nextOffset,
+      });
+    } catch (err) {
+      console.error("Error fetching member images:", err);
+      res.status(500).json({ error: "Failed to fetch member images" });
+    }
+  }
+);
+
+
+  // ♻️ UPDATED: Delete member image (DB + S3/local file)
   router.delete(
     "/admin/member-images/:id",
     authenticate,
@@ -661,15 +705,58 @@ router.get(
     async (req, res) => {
       try {
         const { id } = req.params;
-        const result = await pool.query(
-          "DELETE FROM member_images WHERE id=$1 RETURNING url",
+
+        // 1) Find the row to know which file to delete
+        const found = await pool.query(
+          "SELECT url FROM member_images WHERE id = $1",
           [id]
         );
-        if (!result.rows.length)
+        if (found.rowCount === 0) {
           return res.status(404).json({ error: "Not found" });
+        }
+
+        const fileUrl = found.rows[0].url;
+
+        // 2) Delete the underlying object (S3 in prod, filesystem in dev)
+        if (isProduction) {
+          try {
+            const u = new URL(fileUrl);
+            // pathname looks like: "/member-images/filename.png"
+            const key = u.pathname.replace(/^\/+/, ""); // "member-images/filename.png"
+
+            await s3Client.send(
+              new DeleteObjectCommand({
+                Bucket: process.env.S3_BUCKET_NAME,
+                Key: key,
+              })
+            );
+          } catch (storageErr) {
+            // If the object is already gone, we still want to remove the DB row.
+            console.warn("Warning deleting S3 object:", storageErr);
+          }
+        } else {
+          try {
+            // fileUrl is like: "/uploads/member-images/filename.png"
+            const relative = fileUrl.startsWith("/")
+              ? fileUrl.slice(1)
+              : fileUrl;
+            const localPath = path.join(__dirname, "..", relative);
+            // Best-effort delete
+            await fs.promises.unlink(localPath).catch((e) => {
+              // Ignore if file doesn't exist
+              if (e && e.code !== "ENOENT") throw e;
+            });
+          } catch (storageErr) {
+            console.warn("Warning deleting local file:", storageErr);
+          }
+        }
+
+        // 3) Remove DB row
+        await pool.query("DELETE FROM member_images WHERE id = $1", [id]);
+
         res.json({ message: "Deleted" });
       } catch (err) {
-        console.error(err);
+        console.error("Error deleting member image:", err);
         res.status(500).json({ error: "Failed to delete image" });
       }
     }
@@ -677,72 +764,74 @@ router.get(
 
   // Set volunteer availabilities
   router.put(
-  "/admin/volunteers/:volunteerId/availabilities",
-  authenticate,
-  authorizeAdmin,
-  async (req, res) => {
-    try {
-      const { volunteerId } = req.params;
-      const availabilities = req.body;
+    "/admin/volunteers/:volunteerId/availabilities",
+    authenticate,
+    authorizeAdmin,
+    async (req, res) => {
+      try {
+        const { volunteerId } = req.params;
+        const availabilities = req.body;
 
-      if (!Array.isArray(availabilities)) {
-        return res.status(400).json({ error: "Invalid availabilities format" });
-      }
-
-      await pool.query("DELETE FROM availabilities WHERE user_id = $1", [
-        volunteerId,
-      ]);
-
-      for (const { dayOfWeek, startTime, endTime } of availabilities) {
-        if (
-          typeof dayOfWeek !== "number" ||
-          dayOfWeek < 1 ||
-          dayOfWeek > 7 ||
-          typeof startTime !== "string" ||
-          typeof endTime !== "string"
-        ) {
-          return res.status(400).json({ error: "Invalid availability data" });
+        if (!Array.isArray(availabilities)) {
+          return res
+            .status(400)
+            .json({ error: "Invalid availabilities format" });
         }
 
-        await pool.query(
-          "INSERT INTO availabilities (user_id, day_of_week, start_time, end_time, recurring) VALUES ($1, $2, $3, $4, $5)",
-          [volunteerId, dayOfWeek, startTime, endTime, true]
-        );
+        await pool.query("DELETE FROM availabilities WHERE user_id = $1", [
+          volunteerId,
+        ]);
+
+        for (const { dayOfWeek, startTime, endTime } of availabilities) {
+          if (
+            typeof dayOfWeek !== "number" ||
+            dayOfWeek < 1 ||
+            dayOfWeek > 7 ||
+            typeof startTime !== "string" ||
+            typeof endTime !== "string"
+          ) {
+            return res.status(400).json({ error: "Invalid availability data" });
+          }
+
+          await pool.query(
+            "INSERT INTO availabilities (user_id, day_of_week, start_time, end_time, recurring) VALUES ($1, $2, $3, $4, $5)",
+            [volunteerId, dayOfWeek, startTime, endTime, true]
+          );
+        }
+
+        res.json({ message: "Availabilities updated successfully" });
+      } catch (err) {
+        console.error("Admin update availabilities error:", err);
+        res.status(500).json({ error: "Failed to update availabilities" });
       }
-
-      res.json({ message: "Availabilities updated successfully" });
-    } catch (err) {
-      console.error("Admin update availabilities error:", err);
-      res.status(500).json({ error: "Failed to update availabilities" });
     }
-  }
-);
+  );
 
-// Get volunteer reservation count
-router.get(
-  "/admin/volunteer/reservations-count",
-  authenticate,
-  authorizeAdmin,
-  async (req, res) => {
-    try {
-      const result = await pool.query(`
+  // Get volunteer reservation count
+  router.get(
+    "/admin/volunteer/reservations-count",
+    authenticate,
+    authorizeAdmin,
+    async (req, res) => {
+      try {
+        const result = await pool.query(`
         SELECT volunteer_id, COUNT(*) AS count
         FROM reservations
         WHERE status = 'completed' AND volunteer_id IS NOT NULL
         GROUP BY volunteer_id
       `);
 
-      const counts = {};
-      result.rows.forEach(({ volunteer_id, count }) => {
-        counts[volunteer_id] = parseInt(count, 10);
-      });
+        const counts = {};
+        result.rows.forEach(({ volunteer_id, count }) => {
+          counts[volunteer_id] = parseInt(count, 10);
+        });
 
-      res.json(counts);
-    } catch (err) {
-      console.error("Error fetching volunteer reservation counts:", err);
-      res.status(500).json({ error: "Failed to fetch reservation counts" });
+        res.json(counts);
+      } catch (err) {
+        console.error("Error fetching volunteer reservation counts:", err);
+        res.status(500).json({ error: "Failed to fetch reservation counts" });
+      }
     }
-  }
-);
+  );
   return router;
 };
