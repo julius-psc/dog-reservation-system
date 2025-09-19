@@ -171,16 +171,6 @@ app.get("/fetchUser", authenticate, async (req, res) => {
   }
 });
 
-app.get("/member-images", async (req, res) => {
-  try {
-    const result = await pool.query("SELECT id, url FROM member_images ORDER BY uploaded_at DESC");
-    res.json(result.rows);
-  } catch (err) {
-    console.error("Error fetching member images:", err);
-    res.status(500).json({ error: "Failed to fetch member images" });
-  }
-});
-
 // --- Start server ---
 server.listen(port, () => {
   console.log(`Server listening on port ${port}`);
