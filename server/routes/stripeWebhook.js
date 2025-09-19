@@ -1,21 +1,29 @@
-console.log("WEBHOOK CALLED - Environment check:", {
-  hasWebhookSecret: !!process.env.STRIPE_WEBHOOK_SECRET,
-  webhookSecretPrefix: process.env.STRIPE_WEBHOOK_SECRET?.substring(0, 10),
-  hasDatabase: !!req.app.get("db")
-});
-
-
 const express = require("express");
 const router = express.Router();
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
+// POST /webhooks/stripe
 router.post(
   "/",
+  // Stripe needs the raw body to verify the signature
   express.raw({ type: "application/json" }),
   async (req, res) => {
+    // Safe to access req/app now (req exists only inside handler)
+    try {
+      console.log("WEBHOOK CALLED - Environment check:", {
+        hasWebhookSecret: !!process.env.STRIPE_WEBHOOK_SECRET,
+        webhookSecretPrefix: process.env.STRIPE_WEBHOOK_SECRET?.substring(0, 10),
+        hasDatabase: !!req.app.get("db"),
+      });
+    } catch (e) {
+      // Non-fatal logging guard
+      console.warn("Unable to log environment check:", e?.message);
+    }
+
     const sig = req.headers["stripe-signature"];
     let event;
-    
+
+    // Verify signature
     try {
       event = stripe.webhooks.constructEvent(
         req.body,
@@ -29,7 +37,7 @@ router.post(
 
     try {
       console.log("➡️ Webhook received:", event.type, event.id);
-      
+
       const db = req.app.get("db");
       if (!db) {
         console.error("❌ Database connection not available");
@@ -46,7 +54,7 @@ router.post(
             customer: session.customer,
             subscription: session.subscription,
             payment_status: session.payment_status,
-            metadata: session.metadata
+            metadata: session.metadata,
           });
 
           if (session.mode === "subscription") {
@@ -65,14 +73,26 @@ router.post(
             }
 
             if (!subscriptionId) {
-              console.error("❌ Missing subscription ID in session - retrying in 10 seconds");
+              console.error(
+                "❌ Missing subscription ID in session - retrying in 10 seconds"
+              );
               // Sometimes Stripe doesn't include subscription immediately, let's wait
               setTimeout(async () => {
                 try {
-                  const updatedSession = await stripe.checkout.sessions.retrieve(session.id);
+                  const updatedSession = await stripe.checkout.sessions.retrieve(
+                    session.id
+                  );
                   if (updatedSession.subscription) {
-                    console.log("✅ Found subscription on retry:", updatedSession.subscription);
-                    await processSubscription(db, userId, updatedSession.subscription, customerId);
+                    console.log(
+                      "✅ Found subscription on retry:",
+                      updatedSession.subscription
+                    );
+                    await processSubscription(
+                      db,
+                      userId,
+                      updatedSession.subscription,
+                      customerId
+                    );
                   }
                 } catch (retryErr) {
                   console.error("❌ Retry failed:", retryErr);
@@ -91,10 +111,13 @@ router.post(
         case "customer.subscription.updated":
         case "customer.subscription.created":
         case "invoice.paid": {
-          const sub = event.type === "invoice.paid"
-            ? await stripe.subscriptions.retrieve(event.data.object.subscription)
-            : event.data.object;
-            
+          const sub =
+            event.type === "invoice.paid"
+              ? await stripe.subscriptions.retrieve(
+                  event.data.object.subscription
+                )
+              : event.data.object;
+
           const subscriptionId = sub.id;
           const customerId = sub.customer;
           const active = ["active", "trialing"].includes(sub.status);
@@ -107,7 +130,7 @@ router.post(
             customerId,
             status: sub.status,
             active,
-            expiry: expiry?.toISOString()
+            expiry: expiry?.toISOString(),
           });
 
           const updateResult = await db.query(
@@ -125,7 +148,7 @@ router.post(
 
           console.log("✅ Subscription update result:", {
             rowsAffected: updateResult.rowCount,
-            updatedUsers: updateResult.rows
+            updatedUsers: updateResult.rows,
           });
           break;
         }
@@ -147,7 +170,7 @@ router.post(
 
           console.log("✅ Subscription deletion result:", {
             rowsAffected: updateResult.rowCount,
-            updatedUsers: updateResult.rows
+            updatedUsers: updateResult.rows,
           });
           break;
         }
@@ -169,8 +192,14 @@ router.post(
 async function processSubscription(db, userId, subscriptionId, customerId) {
   try {
     // Verify user exists
-    const userCheck = await db.query("SELECT id, username FROM users WHERE id = $1", [userId]);
-    console.log("🔍 User found:", userCheck.rows.length > 0 ? userCheck.rows[0] : "NONE");
+    const userCheck = await db.query(
+      "SELECT id, username FROM users WHERE id = $1",
+      [userId]
+    );
+    console.log(
+      "🔍 User found:",
+      userCheck.rows.length > 0 ? userCheck.rows[0] : "NONE"
+    );
 
     if (userCheck.rows.length === 0) {
       console.error("❌ User not found with ID:", userId);
@@ -187,7 +216,7 @@ async function processSubscription(db, userId, subscriptionId, customerId) {
       subscriptionId,
       status: sub.status,
       active,
-      expiry: expiry?.toISOString()
+      expiry: expiry?.toISOString(),
     });
 
     const updateResult = await db.query(
@@ -206,7 +235,7 @@ async function processSubscription(db, userId, subscriptionId, customerId) {
 
     console.log("✅ Database update result:", {
       rowsAffected: updateResult.rowCount,
-      updatedUser: updateResult.rows[0]
+      updatedUser: updateResult.rows[0],
     });
 
     if (updateResult.rowCount === 0) {
