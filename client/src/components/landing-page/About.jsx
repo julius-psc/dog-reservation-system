@@ -1,21 +1,25 @@
 import { useState, useEffect } from "react";
 import paws from "../../assets/landing-page/icons/paws-blue.svg";
-import status from '../../assets/landing-page/documents/chiensencavale_statut.pdf';
+import status from "../../assets/landing-page/documents/chiensencavale_statut.pdf";
 
 const About = () => {
   const [stats, setStats] = useState({
     volunteers: 20, // Default values while loading
-    villages: 30
+    villages: 30,
   });
+
+  const DOC_VERSION = import.meta.env.VITE_DOC_VERSION || "1";
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/stats`); // Use environment variable
+        const response = await fetch(
+          `${import.meta.env.VITE_API_BASE_URL}/stats`
+        ); // Use environment variable
         const data = await response.json();
         setStats({
           volunteers: data.volunteers,
-          villages: data.villages
+          villages: data.villages,
         });
       } catch (error) {
         console.error("Error fetching stats:", error);
@@ -29,7 +33,7 @@ const About = () => {
   return (
     <section className="bg-secondary-blue w-screen py-16 lg:py-40 relative overflow-hidden text-primary-black">
       <img
-        className="absolute -top-30 left-40 z-0 hidden md:block" 
+        className="absolute -top-30 left-40 z-0 hidden md:block"
         src={paws}
         alt="Paws background pattern"
       />
@@ -43,8 +47,8 @@ const About = () => {
         <div className="bg-white z-8 w-full md:w-2/3 mb-6 md:mb-0 md:mr-8 pt-6 pb-10 lg:pt-10 px-6 lg:px-16 min-h-[18.5rem] flex flex-col rounded-tr-4xl rounded-br-4xl shadow-[0_3px_4px_rgba(0,0,0,0.25)]">
           <p className="text-md lg:text-2xl flex-grow overflow-hidden">
             <span className="text-primary-blue font-semibold">
-              Depuis 2024, notre association offre des promenades aux chiens dont
-              les propriétaires ne peuvent plus les sortir, que ce soit
+              Depuis 2024, notre association offre des promenades aux chiens
+              dont les propriétaires ne peuvent plus les sortir, que ce soit
               temporairement ou durablement.
             </span>{" "}
             Nos bénévoles, répartis sur tout le territoire, adaptent chaque
@@ -55,10 +59,20 @@ const About = () => {
             <span className="text-primary-blue font-semibold">
               Bien plus qu’un simple coup de main, Chiens en Cavale crée du lien
               en réunissant passionnés d’animaux et personnes en difficulté
-            </span>.
+            </span>
+            .
           </p>
-          <p>[Consulter les statuts de l&#39;association]</p>
-          <a className="text-primary-blue font-semibold" href={status}>ici</a>
+          <p>
+            [Consulter les statuts de l&#39;association]{" "}
+            <a
+              className="text-primary-blue font-semibold"
+              href={`${status}?v=${DOC_VERSION}`}
+              target="_blank"
+              rel="noopener"
+            >
+              ici
+            </a>
+          </p>
         </div>
 
         {/* Stats Section */}
