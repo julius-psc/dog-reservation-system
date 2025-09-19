@@ -10,7 +10,7 @@ import heic2any from "heic2any";
 
 const VolunteerCard = () => {
   const [username, setUsername] = useState("");
-  const [displayName, setDisplayName] = useState(""); // editable name
+  const [displayName, setDisplayName] = useState(""); // NEW: editable display name
   const [personalId, setPersonalId] = useState(null);
   const [, setSubscriptionPaid] = useState(false); // kept for potential future display
   const [subscriptionExpiryDate, setSubscriptionExpiryDate] = useState(null); // ISO
@@ -43,7 +43,7 @@ const VolunteerCard = () => {
           throw new Error("Échec du chargement des données du bénévole");
         const data = await response.json();
         setUsername(data.username);
-        setDisplayName(data.username || ""); // default input to username
+        setDisplayName(data.username || ""); // NEW: default to username
         setPersonalId(data.personalId);
         setSubscriptionPaid(data.subscriptionPaid);
         setSubscriptionExpiryDate(data.subscriptionExpiryDate);
@@ -123,32 +123,25 @@ const VolunteerCard = () => {
       const node = cardRef.current;
       const liveW = node.offsetWidth || TARGET_WIDTH;
       const liveH = node.offsetHeight || TARGET_HEIGHT;
-
-      // Cover: fill the target without any whitespace/bars
       const scaleX = TARGET_WIDTH / liveW;
       const scaleY = TARGET_HEIGHT / liveH;
-      const scale = Math.max(scaleX, scaleY); // cover (no whitespace)
-      const offsetX = (TARGET_WIDTH - liveW * scale) / 2;
-      const offsetY = (TARGET_HEIGHT - liveH * scale) / 2;
+      const scale = Math.min(scaleX, scaleY);
 
       const dataUrl = await toPng(node, {
         width: TARGET_WIDTH,
         height: TARGET_HEIGHT,
         pixelRatio: 1,
         quality: 1,
-        backgroundColor: null,  // no extra background
+        backgroundColor: "#ffffff",
         cacheBust: true,
         skipAutoScale: true,
         skipFonts: true,
         style: {
           fontFamily: forcedFontFamily,
-          // center & scale inside fixed canvas so edges are flush (no margins)
-          transform: `translate(${offsetX}px, ${offsetY}px) scale(${scale})`,
+          transform: `scale(${scale})`,
           transformOrigin: "top left",
           width: `${liveW}px`,
           height: `${liveH}px`,
-          margin: "0",
-          padding: "0",
         },
       });
 
@@ -222,23 +215,24 @@ const VolunteerCard = () => {
 
   return (
     <div className="my-8">
-      <div className="w-full max-w-md space-y-3">
-        {/* Editable name input (uses displayName on the card) */}
-        <div className="flex items-center gap-2">
+      <div className="w-full max-w-md">
+        {/* NEW: Name input (defaults to username, max 20 chars) */}
+        <div className="flex items-center gap-2 mb-4">
           <label className="text-sm font-medium text-gray-700 whitespace-nowrap">
             Nom à afficher :
           </label>
           <input
             type="text"
             value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
+            onChange={(e) => setDisplayName(e.target.value.slice(0, 20))}
             placeholder={username || "Nom Prénom"}
+            maxLength={20}
             className="flex-1 rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#F7749D]"
           />
         </div>
 
         {/* Profile Picture Upload Section */}
-        <div className="flex gap-2">
+        <div className="flex gap-2 mb-4">
           <label
             className={`flex-1 p-2 text-white text-center rounded cursor-pointer transition-colors ${
               personalIdSet
@@ -274,10 +268,8 @@ const VolunteerCard = () => {
         <div
           ref={cardRef}
           style={{
-            // Force safe font. NO padding or margins so there’s zero whitespace.
-            fontFamily: "system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial",
-            margin: 0,
-            padding: 0,
+            fontFamily:
+              "system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial",
           }}
           className={`relative rounded-lg shadow-md overflow-hidden transition-all duration-300 flex flex-row h-[230px] bg-transparent ${
             !personalIdSet ? "opacity-50 pointer-events-none bg-gray-200" : ""
@@ -295,7 +287,7 @@ const VolunteerCard = () => {
                   Ma Carte Promeneur
                 </h2>
                 <p className="text-base font-semibold text-gray-700 mt-1.5">
-                  {displayName || username /* show typed name, fallback to username */}
+                  {displayName || username}
                 </p>
                 <p className="text-sm text-gray-600 mt-1">
                   NP {personalId ?? "Non défini"}
@@ -320,13 +312,20 @@ const VolunteerCard = () => {
                   className="w-20 h-20 object-cover rounded-full border-2 border-[#F7749D]"
                   crossOrigin="anonymous"
                   onError={(e) => {
-                    console.error("Image failed to load:", fullProfilePictureUrl, e);
+                    console.error(
+                      "Image failed to load:",
+                      fullProfilePictureUrl,
+                      e
+                    );
                     e.currentTarget.src = "/default-profile.png";
                   }}
                 />
               ) : (
                 <div className="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center">
-                  <FontAwesomeIcon icon={faPaw} className="text-gray-600 text-3xl" />
+                  <FontAwesomeIcon
+                    icon={faPaw}
+                    className="text-gray-600 text-3xl"
+                  />
                 </div>
               )}
             </div>
@@ -336,8 +335,10 @@ const VolunteerCard = () => {
         <button
           onClick={handleDownload}
           disabled={!personalIdSet}
-          className={`w-full text-white py-2 px-3 rounded-lg font-semibold text-sm flex items-center justify-center transition-colors ${
-            personalIdSet ? "bg-[#F7749D] hover:bg-[#db7595]" : "bg-gray-300 cursor-not-allowed"
+          className={`mt-4 w-full text-white py-2 px-3 rounded-lg font-semibold text-sm flex items-center justify-center transition-colors ${
+            personalIdSet
+              ? "bg-[#F7749D] hover:bg-[#db7595]"
+              : "bg-gray-300 cursor-not-allowed"
           }`}
         >
           <FontAwesomeIcon icon={faDownload} className="mr-2" />
