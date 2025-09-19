@@ -23,7 +23,6 @@ const SubscriptionManager = ({ subscriptionStatus, fetchSubscriptionStatus }) =>
   const [loading, setLoading] = useState(false);
   const expiryMoment = parseDate(subscriptionStatus.expiryDate);
 
-  // Banner logic
   const subscriptionMessage = (() => {
     if (subscriptionStatus.paid) {
       if (expiryMoment) {
@@ -48,7 +47,6 @@ const SubscriptionManager = ({ subscriptionStatus, fetchSubscriptionStatus }) =>
       return null;
     }
 
-    // Not paid
     if (!subscriptionStatus.paid) {
       if (expiryMoment && expiryMoment.isBefore(moment())) {
         return {
@@ -67,7 +65,6 @@ const SubscriptionManager = ({ subscriptionStatus, fetchSubscriptionStatus }) =>
     return null;
   })();
 
-  // Success page confirm (UX sugar; webhook is source of truth)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const sessionId = params.get("session_id");
@@ -94,7 +91,7 @@ const SubscriptionManager = ({ subscriptionStatus, fetchSubscriptionStatus }) =>
           body: JSON.stringify({ sessionId }),
         });
       } catch {
-        // ignore; webhook will update DB
+        // Intentionally left blank: error handled in finally
       } finally {
         if (!cancelled) {
           const url = new URL(window.location.href);

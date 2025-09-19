@@ -1,4 +1,3 @@
-// components/dashboard/volunteer/useVolunteerData.js
 import { useState, useEffect, useCallback } from "react";
 import Cookies from "js-cookie";
 import moment from "moment";
@@ -26,7 +25,7 @@ const useVolunteerData = () => {
   const [errorVolunteerInfo, setErrorVolunteerInfo] = useState(null);
   const [subscriptionStatus, setSubscriptionStatus] = useState({
     paid: false,
-    expiryDate: null,
+    expiryDate: null, // keep as string (ISO) or null
   });
   const [loadingSubscription, setLoadingSubscription] = useState(true);
   const [errorSubscription, setErrorSubscription] = useState(null);
@@ -80,11 +79,11 @@ const useVolunteerData = () => {
       if (!response.ok)
         throw new Error("Échec du chargement du statut d’abonnement");
       const data = await response.json();
+
+      // ✅ Server returns { paid, expiryDate }, NOT subscription_paid / subscription_expiry_date
       setSubscriptionStatus({
-        paid: data.subscription_paid,
-        expiryDate: data.subscription_expiry_date
-          ? moment(data.subscription_expiry_date)
-          : null,
+        paid: !!data.paid,
+        expiryDate: data.expiryDate || null, // keep as ISO string or null
       });
     } catch (err) {
       setErrorSubscription(err.message);
