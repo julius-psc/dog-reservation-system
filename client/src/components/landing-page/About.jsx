@@ -57,7 +57,8 @@ const About = () => {
               en réunissant passionnés d’animaux et personnes en difficulté
             </span>.
           </p>
-          <p>[Consulter les statuts de l&#39;association <a className="text-primary-blue font-semibold" href={status}>ici</a>]</p>
+          <p>[Consulter les statuts de l&#39;association]</p>
+          <a className="text-primary-blue font-semibold" href={status}>ici</a>
         </div>
 
         {/* Stats Section */}
