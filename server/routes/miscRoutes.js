@@ -34,5 +34,19 @@ router.get("/stats", async (req, res) => {
     }
   });
 
+  router.get("/member-images", async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit || "30", 10), 100);
+    const result = await pool.query(
+      "SELECT id, url FROM member_images ORDER BY id DESC LIMIT $1",
+      [limit]
+    );
+    res.json({ items: result.rows });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "Failed to fetch member images" });
+  }
+});
+
   return router;
 };

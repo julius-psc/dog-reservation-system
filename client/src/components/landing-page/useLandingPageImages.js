@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import Cookies from "js-cookie";
 
 const useLandingPageImages = () => {
   const [memberImages, setMemberImages] = useState([]);
@@ -11,20 +12,26 @@ const useLandingPageImages = () => {
   useEffect(() => {
     const fetchImages = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/member-images`);
-        if (!res.ok) throw new Error("Failed to fetch member images");
+        const token = Cookies.get("token");
+        const res = await fetch(`${API_BASE_URL}/member-images?limit=30`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error(`Failed to fetch member images (${res.status})`);
         const data = await res.json();
 
-        // Map the relative URL from DB to full URL
-        const fullUrls = data.map((img) => {
-          // If img.url already includes full URL, return it as is, else prepend API_BASE_URL
-          if (img.url.startsWith("http")) return img.url;
-          return `${API_BASE_URL}/${img.url.replace(/^\/?/, "")}`; // removes leading slash if any
+        const items = Array.isArray(data?.items) ? data.items : [];
+
+        const fullUrls = items.map((img) => {
+          const u = img.url || "";
+          return u.startsWith("http")
+            ? u
+            : `${API_BASE_URL}/${u.replace(/^\/?/, "")}`;
         });
 
         setMemberImages(fullUrls);
       } catch (err) {
-        setError(err.message);
+        console.error(err);
+        setError(err.message || "Unknown error");
       } finally {
         setLoading(false);
       }

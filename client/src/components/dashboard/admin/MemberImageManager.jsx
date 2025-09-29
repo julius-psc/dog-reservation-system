@@ -34,7 +34,7 @@ const MemberImageManager = () => {
 
       setLoadingList(true);
       try {
-        const url = new URL(`${API_BASE}/admin/member-images`);
+        const url = new URL(`${API_BASE}/member-images`);
         url.searchParams.set("limit", String(limit));
         url.searchParams.set("offset", String(offset));
 
