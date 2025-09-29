@@ -18,13 +18,13 @@ const MemberImageManager = () => {
   const [nextOffset, setNextOffset] = useState(0);
   const [total, setTotal] = useState(0);
 
-  const token = Cookies.get("token");
+  const token = Cookies.get("token") || "";
 
   const fetchImages = useCallback(
     async (opts = { reset: false }) => {
       const reset = opts.reset ?? false;
       const limit = PAGE_SIZE;
-      const offset = reset ? 0 : nextOffset;
+      const offset = reset ? 0 : nextOffset ?? 0;
 
       if (reset) {
         setImages([]);
@@ -34,7 +34,8 @@ const MemberImageManager = () => {
 
       setLoadingList(true);
       try {
-        const url = new URL(`${API_BASE}/member-images`);
+        // ⬇️ use the admin endpoint that returns { items, total, nextOffset }
+        const url = new URL(`${API_BASE}/admin/member-images`);
         url.searchParams.set("limit", String(limit));
         url.searchParams.set("offset", String(offset));
 
@@ -97,10 +98,6 @@ const MemberImageManager = () => {
       // Prepend to current list, keep counts in sync
       setImages((prev) => [created, ...prev]);
       setTotal((t) => t + 1);
-
-      // If we had paginated results, keep nextOffset consistent:
-      // In prepend case, nextOffset doesn't need to change for offset pagination,
-      // but if you prefer strict offset semantics, you can increment nextOffset by 1 when it's not null.
     } catch (err) {
       console.error(err);
       toast.error("Échec du téléchargement de l'image.");

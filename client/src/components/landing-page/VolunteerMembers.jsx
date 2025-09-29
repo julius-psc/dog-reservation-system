@@ -46,8 +46,11 @@ const VolunteerMembers = () => {
     return <p>Erreur lors du chargement des images.</p>;
   }
 
-  // Combine static and dynamic URLs
-  const avatars = [...staticAvatars, ...memberImages];
+  // Combine static and dynamic URLs with a hard guard
+  const avatars = [
+    ...staticAvatars,
+    ...(Array.isArray(memberImages) ? memberImages : []),
+  ];
 
   return (
     <div className="pb-4">

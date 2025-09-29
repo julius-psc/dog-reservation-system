@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 
 const useLandingPageImages = () => {
-  const [memberImages, setMemberImages] = useState([]); // array of URL strings
+  const [memberImages, setMemberImages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -11,9 +11,7 @@ const useLandingPageImages = () => {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/member-images?limit=30`, {
-          // public endpoint — no auth header
-        });
+        const res = await fetch(`${API_BASE_URL}/member-images?limit=30`);
         if (!res.ok) {
           const txt = await res.text().catch(() => "");
           throw new Error(`HTTP ${res.status}: ${txt || res.statusText}`);
@@ -39,10 +37,12 @@ const useLandingPageImages = () => {
               : `${API_BASE_URL}/${u.replace(/^\/?/, "")}`
           );
 
-        setMemberImages(urls);
+        // 👇 Final hard guard
+        setMemberImages(Array.isArray(urls) ? urls : []);
       } catch (e) {
         console.error("Landing images fetch error:", e);
-        setError(e.message || "Unknown error");
+        setError(e?.message || "Unknown error");
+        setMemberImages([]); // ensure array on failure
       } finally {
         setLoading(false);
       }
