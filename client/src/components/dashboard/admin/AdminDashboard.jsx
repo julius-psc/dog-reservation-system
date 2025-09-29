@@ -13,44 +13,39 @@ import VolunteersManager from "./VolunteersManager";
 import ReservationsManager from "./ReservationsManager";
 import UsersManager from "./UsersManager";
 import OtherVillageRequestsManager from "./OtherVillageRequestsManager";
-import MemberImageManager from './MemberImageManager';
+import MemberImageManager from "./MemberImageManager";
 import ReservationStats from "./ReservationStats";
 import useAdminData from "./useAdminData";
 
-
 const AdminDashboard = ({ handleLogout }) => {
   const {
+    // Données principales
     volunteerCount,
-    volunteerCountLoading,
-    volunteerCountError,
-    loading,
-    error,
     allReservations,
-    reservationsLoading,
-    reservationsError,
     allUsers,
-    usersCount,
     setAllUsers,
-    usersLoading,
-    usersError,
+    usersCount,
     otherVillageRequests,
     setOtherVillageRequests,
-    otherVillageLoading,
-    otherVillageError,
+
+    // Données et setters pour les images
+    memberImages,
+    setMemberImages,
+    memberImagesTotal,
+    setMemberImagesTotal,
+    memberImagesNextOffset,
+    setMemberImagesNextOffset,
+
+    // États globaux
+    isDashboardLoading,
+    error,
+
+    // Fonctions
     fetchVolunteerDetails,
   } = useAdminData();
 
-  const isLoading =
-    loading ||
-    reservationsLoading ||
-    usersLoading ||
-    otherVillageLoading ||
-    volunteerCountLoading;
-
-  const isError =
-    error || reservationsError || usersError || otherVillageError || volunteerCountError;
-
-  if (isLoading) {
+  // Le chargement est maintenant géré par un seul état
+  if (isDashboardLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 to-gray-200 dark:from-gray-900 dark:to-gray-800">
         <ClipLoader color="#3b82f6" size={50} />
@@ -58,16 +53,19 @@ const AdminDashboard = ({ handleLogout }) => {
     );
   }
 
-  if (isError) {
+  // L'erreur est aussi gérée par un seul état
+  if (error) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-200 dark:from-gray-900 dark:to-gray-800 p-6">
         <div className="max-w-2xl mx-auto bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
-          <FontAwesomeIcon icon={faTimesCircle} className="text-red-500 text-4xl mb-4" />
-          {error && <p className="text-red-600 dark:text-red-400 mb-2">Erreur: {error}</p>}
-          {reservationsError && <p className="text-red-600 dark:text-red-400 mb-2">Erreur Réservations: {reservationsError}</p>}
-          {usersError && <p className="text-red-600 dark:text-red-400 mb-2">Erreur Utilisateurs: {usersError}</p>}
-          {otherVillageError && <p className="text-red-600 dark:text-red-400 mb-2">Erreur Autres Villages: {otherVillageError}</p>}
-          {volunteerCountError && <p className="text-red-600 dark:text-red-400 mb-2">Erreur Nombre Bénévoles: {volunteerCountError}</p>}
+          <FontAwesomeIcon
+            icon={faTimesCircle}
+            className="text-red-500 text-4xl mb-4"
+          />
+          <p className="text-red-600 dark:text-red-400 mb-2">
+            Erreur lors du chargement du tableau de bord:
+          </p>
+          <p className="text-sm text-gray-500">{error}</p>
         </div>
       </div>
     );
@@ -79,7 +77,10 @@ const AdminDashboard = ({ handleLogout }) => {
       <header className="bg-white dark:bg-gray-800 shadow-lg">
         <div className="max-w-7xl mx-auto px-4 py-6 flex justify-between items-center">
           <h1 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center">
-            <FontAwesomeIcon icon={faUserShield} className="mr-2 text-blue-500" />
+            <FontAwesomeIcon
+              icon={faUserShield}
+              className="mr-2 text-blue-500"
+            />
             Tableau de Bord Administrateur
           </h1>
           <LogoutButton handleLogout={handleLogout} />
@@ -113,20 +114,43 @@ const AdminDashboard = ({ handleLogout }) => {
               className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 flex items-center justify-between transform hover:scale-105 transition-transform"
             >
               <div>
-                <h3 className="text-gray-600 dark:text-gray-300 font-medium">{stat.title}</h3>
-                <p className="text-3xl font-bold text-gray-900 dark:text-white">{stat.count}</p>
+                <h3 className="text-gray-600 dark:text-gray-300 font-medium">
+                  {stat.title}
+                </h3>
+                <p className="text-3xl font-bold text-gray-900 dark:text-white">
+                  {stat.count}
+                </p>
               </div>
-              <FontAwesomeIcon icon={stat.icon} className={`text-${stat.color} text-3xl`} />
+              <FontAwesomeIcon
+                icon={stat.icon}
+                className={`text-${stat.color} text-3xl`}
+              />
             </div>
           ))}
         </div>
         <ReservationStats />
 
-        <VolunteersManager setAllUsers={setAllUsers} fetchVolunteerDetails={fetchVolunteerDetails} />
+        <VolunteersManager
+          setAllUsers={setAllUsers}
+          fetchVolunteerDetails={fetchVolunteerDetails}
+        />
         <ReservationsManager allReservations={allReservations} />
         <UsersManager allUsers={allUsers} setAllUsers={setAllUsers} />
-        <MemberImageManager />
-        <OtherVillageRequestsManager setOtherVillageRequests={setOtherVillageRequests} otherVillageRequests={otherVillageRequests} />
+
+        {/* On passe les données et les setters au composant enfant */}
+        <MemberImageManager
+          images={memberImages}
+          setImages={setMemberImages}
+          total={memberImagesTotal}
+          setTotal={setMemberImagesTotal}
+          nextOffset={memberImagesNextOffset}
+          setNextOffset={setMemberImagesNextOffset}
+        />
+
+        <OtherVillageRequestsManager
+          setOtherVillageRequests={setOtherVillageRequests}
+          otherVillageRequests={otherVillageRequests}
+        />
       </main>
     </div>
   );
@@ -137,4 +161,3 @@ AdminDashboard.propTypes = {
 };
 
 export default AdminDashboard;
-

@@ -2,26 +2,22 @@ import { useState, useEffect } from "react";
 import Cookies from "js-cookie";
 
 const useAdminData = () => {
+  // --- États pour les données ---
   const [volunteers, setVolunteers] = useState([]);
   const [volunteerCount, setVolunteerCount] = useState(0);
-  const [volunteerCountLoading, setVolunteerCountLoading] = useState(true);
-  const [volunteerCountError, setVolunteerCountError] = useState(null);
-
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
   const [allReservations, setAllReservations] = useState([]);
-  const [reservationsLoading, setReservationsLoading] = useState(true);
-  const [reservationsError, setReservationsError] = useState(null);
-
   const [allUsers, setAllUsers] = useState([]);
   const [usersCount, setUsersCount] = useState(0);
-  const [usersLoading, setUsersLoading] = useState(true);
-  const [usersError, setUsersError] = useState(null);
-
   const [otherVillageRequests, setOtherVillageRequests] = useState([]);
-  const [otherVillageLoading, setOtherVillageLoading] = useState(true);
-  const [otherVillageError, setOtherVillageError] = useState(null);
+
+  // --- États pour les images (gérés ici maintenant) ---
+  const [memberImages, setMemberImages] = useState([]);
+  const [memberImagesTotal, setMemberImagesTotal] = useState(0);
+  const [memberImagesNextOffset, setMemberImagesNextOffset] = useState(null);
+
+  // --- États de chargement et d'erreur unifiés ---
+  const [isDashboardLoading, setIsDashboardLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const API_BASE_URL =
     import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
@@ -31,15 +27,11 @@ const useAdminData = () => {
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
     const fetchAllData = async () => {
-      // Mettre tous les états de chargement à true au début
-      setLoading(true);
-      setVolunteerCountLoading(true);
-      setReservationsLoading(true);
-      setUsersLoading(true);
-      setOtherVillageLoading(true);
+      setIsDashboardLoading(true);
+      setError(null);
 
       try {
-        // Préparer toutes les requêtes
+        // Toutes les requêtes sont lancées en parallèle
         const requests = [
           fetch(`${API_BASE_URL}/admins/volunteers/minimal`, { headers }),
           fetch(`${API_BASE_URL}/admin/volunteers/count`, { headers }),
@@ -47,21 +39,24 @@ const useAdminData = () => {
           fetch(`${API_BASE_URL}/admin/all-users`, { headers }),
           fetch(`${API_BASE_URL}/admin/users/count`, { headers }),
           fetch(`${API_BASE_URL}/admin/other-village-requests`, { headers }),
+          // On ajoute la requête pour la première page des images
+          fetch(`${API_BASE_URL}/admin/member-images?limit=24&offset=0`, {
+            headers,
+          }),
         ];
 
-        // Attendre que toutes les requêtes soient terminées
         const responses = await Promise.all(requests);
 
-        // Vérifier que toutes les réponses sont OK
+        // On vérifie que toutes les requêtes ont réussi
         for (const res of responses) {
           if (!res.ok) {
             throw new Error(
-              `Échec de la récupération des données : ${res.statusText}`
+              `Échec de la récupération des données : ${res.status} ${res.statusText}`
             );
           }
         }
 
-        // Extraire les données JSON de toutes les réponses
+        // On extrait le JSON de toutes les réponses
         const [
           volunteersData,
           volunteerCountData,
@@ -69,35 +64,32 @@ const useAdminData = () => {
           usersData,
           usersCountData,
           otherVillageData,
+          memberImagesData, // On récupère les données des images
         ] = await Promise.all(responses.map((res) => res.json()));
 
-        // Mettre à jour tous les états en une seule fois
+        // On met à jour tous les états en une seule fois
         setVolunteers(volunteersData);
         setVolunteerCount(volunteerCountData.count);
         setAllReservations(reservationsData);
         setAllUsers(usersData);
         setUsersCount(usersCountData.count);
         setOtherVillageRequests(otherVillageData);
+
+        // On met à jour les états pour les images
+        setMemberImages(memberImagesData.items || []);
+        setMemberImagesTotal(memberImagesData.total || 0);
+        setMemberImagesNextOffset(memberImagesData.nextOffset);
       } catch (err) {
         console.error("Erreur lors de la récupération des données admin:", err);
-        // Mettre à jour les états d'erreur
         setError(err.message);
-        setVolunteerCountError(err.message);
-        setReservationsError(err.message);
-        setUsersError(err.message);
-        setOtherVillageError(err.message);
       } finally {
-        // Mettre tous les états de chargement à false à la fin
-        setLoading(false);
-        setVolunteerCountLoading(false);
-        setReservationsLoading(false);
-        setUsersLoading(false);
-        setOtherVillageLoading(false);
+        // Le chargement est terminé, qu'il ait réussi ou non
+        setIsDashboardLoading(false);
       }
     };
 
     fetchAllData();
-  }, [API_BASE_URL]); // La dépendance est correcte
+  }, [API_BASE_URL]);
 
   const fetchVolunteerDetails = async (volunteerId) => {
     const token = Cookies.get("token");
@@ -111,24 +103,29 @@ const useAdminData = () => {
   };
 
   return {
+    // Données
     volunteers,
     volunteerCount,
-    volunteerCountLoading,
-    volunteerCountError,
-    loading,
-    error,
     allReservations,
-    reservationsLoading,
-    reservationsError,
     allUsers,
-    usersCount,
     setAllUsers,
-    usersLoading,
-    usersError,
+    usersCount,
     otherVillageRequests,
     setOtherVillageRequests,
-    otherVillageLoading,
-    otherVillageError,
+
+    // Données et setters pour les images
+    memberImages,
+    setMemberImages,
+    memberImagesTotal,
+    setMemberImagesTotal,
+    memberImagesNextOffset,
+    setMemberImagesNextOffset,
+
+    // États globaux
+    isDashboardLoading,
+    error,
+
+    // Fonctions
     fetchVolunteerDetails,
   };
 };

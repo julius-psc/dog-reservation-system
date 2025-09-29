@@ -1,42 +1,38 @@
-import { useEffect, useState, useCallback } from "react";
+import { useState, useCallback } from "react";
 import Cookies from "js-cookie";
 import { toast } from "react-hot-toast";
+import PropTypes from "prop-types";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
-const PAGE_SIZE = 24; // tweak as you like
+const PAGE_SIZE = 24;
 
-const MemberImageManager = () => {
+const MemberImageManager = ({
+  images,
+  setImages,
+  total,
+  setTotal,
+  nextOffset,
+  setNextOffset,
+}) => {
   const [file, setFile] = useState(null);
   const [loadingUpload, setLoadingUpload] = useState(false);
-
-  const [images, setImages] = useState([]);
-  const [loadingList, setLoadingList] = useState(false);
-  const [initialLoaded, setInitialLoaded] = useState(false);
-
+  const [loadingList, setLoadingList] = useState(false); // Conservé pour "Voir plus" / "Rafraîchir"
   const [deletingIds, setDeletingIds] = useState(new Set());
-
-  const [nextOffset, setNextOffset] = useState(0);
-  const [total, setTotal] = useState(0);
 
   const token = Cookies.get("token") || "";
 
   const fetchImages = useCallback(
     async (opts = { reset: false }) => {
       const reset = opts.reset ?? false;
-      const limit = PAGE_SIZE;
       const offset = reset ? 0 : nextOffset ?? 0;
 
-      if (reset) {
-        setImages([]);
-        setNextOffset(0);
-        setTotal(0);
-      }
+      // Ne pas re-chercher si on charge déjà ou si on est à la fin (sauf si c'est un reset)
+      if (loadingList || (!reset && nextOffset === null)) return;
 
       setLoadingList(true);
       try {
-        // ⬇️ use the admin endpoint that returns { items, total, nextOffset }
         const url = new URL(`${API_BASE}/admin/member-images`);
-        url.searchParams.set("limit", String(limit));
+        url.searchParams.set("limit", String(PAGE_SIZE));
         url.searchParams.set("offset", String(offset));
 
         const res = await fetch(url.toString(), {
@@ -51,7 +47,6 @@ const MemberImageManager = () => {
         setNextOffset(
           typeof data?.nextOffset === "number" ? data.nextOffset : null
         );
-        setInitialLoaded(true);
       } catch (err) {
         console.error("Error fetching member images:", err);
         toast.error("Impossible de récupérer les images.");
@@ -59,43 +54,29 @@ const MemberImageManager = () => {
         setLoadingList(false);
       }
     },
-    [token, nextOffset]
+    [token, nextOffset, loadingList, setImages, setTotal, setNextOffset]
   );
 
-  useEffect(() => {
-    // initial load
-    fetchImages({ reset: true });
-  }, [fetchImages]);
-
-  const handleFileChange = (e) => {
-    setFile(e.target.files?.[0] || null);
-  };
+  const handleFileChange = (e) => setFile(e.target.files?.[0] || null);
 
   const handleUpload = async () => {
     if (!file) return toast.error("Veuillez sélectionner un fichier.");
     setLoadingUpload(true);
-
     try {
       const formData = new FormData();
       formData.append("image", file);
-
       const res = await fetch(`${API_BASE}/admin/member-images`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
 
-      if (!res.ok) {
-        const errorText = await res.text();
-        console.error("Erreur backend AWS:", errorText);
-        throw new Error("Échec du téléchargement");
-      }
+      if (!res.ok) throw new Error("Échec du téléchargement");
 
       const created = await res.json();
       toast.success("Image téléchargée !");
       setFile(null);
 
-      // Prepend to current list, keep counts in sync
       setImages((prev) => [created, ...prev]);
       setTotal((t) => t + 1);
     } catch (err) {
@@ -108,8 +89,9 @@ const MemberImageManager = () => {
 
   const handleDelete = async (id) => {
     if (!id) return;
-    const previous = images;
-    setDeletingIds((s) => new Set([...s, id]));
+    const previousImages = images;
+    setDeletingIds((s) => new Set(s).add(id));
+
     setImages((prev) => prev.filter((img) => img.id !== id));
     setTotal((t) => Math.max(0, t - 1));
 
@@ -118,22 +100,18 @@ const MemberImageManager = () => {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) {
-        const msg = await res.text();
-        throw new Error(msg || "Delete failed");
-      }
+      if (!res.ok) throw new Error("Delete failed");
       toast.success("Image supprimée.");
     } catch (err) {
       console.error("Delete error:", err);
       toast.error("Échec de la suppression.");
-      // revert
-      setImages(previous);
+      setImages(previousImages);
       setTotal((t) => t + 1);
     } finally {
       setDeletingIds((s) => {
-        const copy = new Set(s);
-        copy.delete(id);
-        return copy;
+        const newSet = new Set(s);
+        newSet.delete(id);
+        return newSet;
       });
     }
   };
@@ -164,12 +142,11 @@ const MemberImageManager = () => {
             disabled={loadingList}
             className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-100 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50"
           >
-            {loadingList && !initialLoaded ? "Chargement..." : "Rafraîchir"}
+            {loadingList ? "Chargement..." : "Rafraîchir"}
           </button>
         </div>
       </div>
 
-      {/* Upload */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
         <input
           type="file"
@@ -191,13 +168,8 @@ const MemberImageManager = () => {
         )}
       </div>
 
-      {/* Grid */}
       <div>
-        {loadingList && !initialLoaded ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Chargement des images…
-          </p>
-        ) : images.length === 0 ? (
+        {images.length === 0 ? (
           <p className="text-sm text-gray-500 dark:text-gray-400">
             Aucune image pour l’instant.
           </p>
@@ -224,7 +196,6 @@ const MemberImageManager = () => {
                         </div>
                       )}
                     </div>
-
                     <div className="p-3 flex items-center justify-between gap-2">
                       <button
                         onClick={() => copyUrl(img.url)}
@@ -255,7 +226,6 @@ const MemberImageManager = () => {
               })}
             </ul>
 
-            {/* Voir plus */}
             <div className="mt-6 flex justify-center">
               {canLoadMore ? (
                 <button
@@ -276,6 +246,15 @@ const MemberImageManager = () => {
       </div>
     </div>
   );
+};
+
+MemberImageManager.propTypes = {
+  images: PropTypes.array.isRequired,
+  setImages: PropTypes.func.isRequired,
+  total: PropTypes.number.isRequired,
+  setTotal: PropTypes.func.isRequired,
+  nextOffset: PropTypes.number,
+  setNextOffset: PropTypes.func.isRequired,
 };
 
 export default MemberImageManager;
