@@ -26,7 +26,6 @@ const VolunteersManager = ({ setAllUsers, fetchVolunteerDetails }) => {
 
   const API_BASE_URL =
     import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
-  const isProduction = import.meta.env.MODE === "production";
 
   const daysOfWeekLabels = [
     "Lundi",
@@ -42,7 +41,6 @@ const VolunteersManager = ({ setAllUsers, fetchVolunteerDetails }) => {
     setSearchLoading(true);
     try {
       const token = Cookies.get("token");
-      // If there's a search filter, fetch all statuses; otherwise, fetch only pending
       const url = volunteerFilter.trim()
         ? `${API_BASE_URL}/admins/volunteers/minimal?search=${encodeURIComponent(
             volunteerFilter
@@ -62,15 +60,12 @@ const VolunteersManager = ({ setAllUsers, fetchVolunteerDetails }) => {
     }
   }, [volunteerFilter, API_BASE_URL]);
 
-  // Fetch pending volunteers on mount and debounce search
   useEffect(() => {
-    fetchVolunteers(); // Fetch pending volunteers initially or on filter change
-    const delayDebounceFn = setTimeout(() => {
-      if (volunteerFilter.trim()) {
-        fetchVolunteers(); // Fetch all volunteers matching search
-      }
+    fetchVolunteers();
+    const t = setTimeout(() => {
+      if (volunteerFilter.trim()) fetchVolunteers();
     }, 500);
-    return () => clearTimeout(delayDebounceFn);
+    return () => clearTimeout(t);
   }, [volunteerFilter, fetchVolunteers]);
 
   const handleVolunteerRowClick = async (volunteerId) => {
@@ -96,11 +91,9 @@ const VolunteersManager = ({ setAllUsers, fetchVolunteerDetails }) => {
   const handleVolunteerStatusChange = async (volunteerId, newStatus) => {
     try {
       const token = Cookies.get("token");
-
-      // Find the volunteer in the local state
       const volunteer = volunteers
         .filter(Boolean)
-        .find((vol) => vol?.id === volunteerId);
+        .find((v) => v?.id === volunteerId);
 
       const response = await fetch(
         `${API_BASE_URL}/admin/volunteers/${volunteerId}/status`,
@@ -144,7 +137,6 @@ const VolunteersManager = ({ setAllUsers, fetchVolunteerDetails }) => {
       }
 
       if (newStatus === "approved") {
-        // Use the username from the response or volunteer details as fallback
         const username =
           updatedVolunteer.volunteer?.username ||
           volunteer?.username ||
@@ -159,12 +151,32 @@ const VolunteersManager = ({ setAllUsers, fetchVolunteerDetails }) => {
           },
           body: JSON.stringify({
             email: updatedVolunteer.volunteer.email,
-            username: username,
+            username,
           }),
         });
       }
     } catch (error) {
       toast.error(`Échec de la mise à jour du statut: ${error.message}`);
+    }
+  };
+
+  // NEW: presigned insurance link
+  const openInsurance = async (volunteerId) => {
+    try {
+      const token = Cookies.get("token");
+      const res = await fetch(
+        `${API_BASE_URL}/admin/volunteers/${volunteerId}/insurance-link`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (!res.ok) {
+        const txt = await res.text().catch(() => "");
+        throw new Error(txt || "Impossible de récupérer le lien");
+      }
+      const { url } = await res.json();
+      if (!url) throw new Error("Lien indisponible");
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (e) {
+      toast.error(e.message || "Échec d’ouverture du fichier d’assurance");
     }
   };
 
@@ -187,7 +199,7 @@ const VolunteersManager = ({ setAllUsers, fetchVolunteerDetails }) => {
         }
       );
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({}));
         throw new Error(
           errorData.error || "Échec de la définition du numéro promeneur"
         );
@@ -254,6 +266,8 @@ const VolunteersManager = ({ setAllUsers, fetchVolunteerDetails }) => {
             <FontAwesomeIcon icon={faUsers} className="mr-2 text-blue-500" />
             Gestion des Bénévoles
           </h2>
+        </div>
+        <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
           <input
             type="text"
             placeholder="Rechercher des bénévoles..."
@@ -291,7 +305,6 @@ const VolunteersManager = ({ setAllUsers, fetchVolunteerDetails }) => {
               </thead>
               <tbody>
                 {volunteers.map((volunteer) => {
-                  // Add safety check for volunteer
                   if (!volunteer) return null;
 
                   const details = volunteerDetails[volunteer.id] || {};
@@ -479,6 +492,7 @@ const VolunteersManager = ({ setAllUsers, fetchVolunteerDetails }) => {
                                   </span>{" "}
                                   {details.address || "Non spécifiée"}
                                 </p>
+
                                 <div>
                                   <span className="font-semibold">
                                     Communes de promenade:
@@ -491,9 +505,82 @@ const VolunteersManager = ({ setAllUsers, fetchVolunteerDetails }) => {
                                     )}
                                   </ul>
                                 </div>
+
                                 <div>
-                                  {showAvailabilityForm &&
-                                  availabilityEditingId === volunteer.id ? (
+                                  <span className="font-semibold">
+                                    Responsabilité Civile:
+                                  </span>{" "}
+                                  {details.insurance_file_path ? (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        openInsurance(volunteer.id);
+                                      }}
+                                      className="text-blue-600 hover:underline dark:text-blue-500 ml-2 inline-flex items-center"
+                                      title="Voir / Télécharger le fichier d’assurance"
+                                    >
+                                      <FontAwesomeIcon
+                                        icon={faFileDownload}
+                                        className="mr-1"
+                                      />
+                                      Voir / Télécharger
+                                    </button>
+                                  ) : (
+                                    <span className="ml-2 text-gray-500">
+                                      Aucune assurance téléversée
+                                    </span>
+                                  )}
+                                </div>
+
+                                <div>
+                                  <div className="flex justify-between items-center mt-2">
+                                    <span className="font-semibold">
+                                      Disponibilités:
+                                    </span>
+                                    <button
+                                      onClick={() => {
+                                        setShowAvailabilityForm(true);
+                                        setAvailabilityEditingId(volunteer.id);
+                                      }}
+                                      className="ml-4 bg-blue-500 text-white px-3 py-1 rounded-lg hover:bg-blue-600"
+                                    >
+                                      Modifier
+                                    </button>
+                                  </div>
+                                  {(details.availabilities || []).length ===
+                                  0 ? (
+                                    <p className="mt-2 text-gray-500">
+                                      Aucune disponibilité définie
+                                    </p>
+                                  ) : (
+                                    <ul className="list-disc pl-4 mt-2">
+                                      {daysOfWeekLabels.map(
+                                        (dayLabel, index) => {
+                                          const dayOfWeek = index + 1;
+                                          const slots =
+                                            groupedAvailabilities[dayOfWeek] ||
+                                            [];
+                                          return slots.length > 0 ? (
+                                            <li key={dayOfWeek}>
+                                              {dayLabel}:{" "}
+                                              {slots.map((slot, idx) => (
+                                                <span key={idx}>
+                                                  {slot.startTime} -{" "}
+                                                  {slot.endTime}
+                                                  {idx < slots.length - 1 &&
+                                                    ", "}
+                                                </span>
+                                              ))}
+                                            </li>
+                                          ) : null;
+                                        }
+                                      )}
+                                    </ul>
+                                  )}
+                                </div>
+
+                                {showAvailabilityForm &&
+                                  availabilityEditingId === volunteer.id && (
                                     <AvailabilityEditor
                                       initialAvailabilities={
                                         groupedAvailabilities
@@ -507,87 +594,9 @@ const VolunteersManager = ({ setAllUsers, fetchVolunteerDetails }) => {
                                       }}
                                       daysOfWeekLabels={daysOfWeekLabels}
                                     />
-                                  ) : (
-                                    <>
-                                      <div className="flex justify-between items-center">
-                                        <span className="font-semibold">
-                                          Disponibilités:
-                                        </span>
-                                        <button
-                                          onClick={() => {
-                                            setShowAvailabilityForm(true);
-                                            setAvailabilityEditingId(
-                                              volunteer.id
-                                            );
-                                          }}
-                                          className="ml-4 bg-blue-500 text-white px-3 py-1 rounded-lg hover:bg-blue-600"
-                                        >
-                                          Modifier
-                                        </button>
-                                      </div>
-                                      {(details.availabilities || []).length ===
-                                      0 ? (
-                                        <p className="mt-2 text-gray-500">
-                                          Aucune disponibilité définie
-                                        </p>
-                                      ) : (
-                                        <ul className="list-disc pl-4 mt-2">
-                                          {daysOfWeekLabels.map(
-                                            (dayLabel, index) => {
-                                              const dayOfWeek = index + 1;
-                                              const slots =
-                                                groupedAvailabilities[
-                                                  dayOfWeek
-                                                ] || [];
-                                              return slots.length > 0 ? (
-                                                <li key={dayOfWeek}>
-                                                  {dayLabel}:{" "}
-                                                  {slots.map((slot, idx) => (
-                                                    <span key={idx}>
-                                                      {slot.startTime} -{" "}
-                                                      {slot.endTime}
-                                                      {idx < slots.length - 1 &&
-                                                        ", "}
-                                                    </span>
-                                                  ))}
-                                                </li>
-                                              ) : null;
-                                            }
-                                          )}
-                                        </ul>
-                                      )}
-                                    </>
                                   )}
-                                </div>
 
-                                <p>
-                                  <span className="font-semibold">
-                                    Responsabilité Civile:
-                                  </span>{" "}
-                                  {details.insurance_file_path ? (
-                                    <a
-                                      href={
-                                        isProduction
-                                          ? details.insurance_file_path
-                                          : `${API_BASE_URL}${details.insurance_file_path}`
-                                      }
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-blue-600 hover:underline dark:text-blue-500 ml-2 flex items-center"
-                                    >
-                                      <FontAwesomeIcon
-                                        icon={faFileDownload}
-                                        className="mr-1"
-                                      />
-                                      Voir / Télécharger
-                                    </a>
-                                  ) : (
-                                    <span className="ml-2 text-gray-500">
-                                      Aucune assurance téléversée
-                                    </span>
-                                  )}
-                                </p>
-                                <p>
+                                <p className="mt-2">
                                   <FontAwesomeIcon
                                     icon={faListCheck}
                                     className="mr-1"
@@ -601,6 +610,7 @@ const VolunteersManager = ({ setAllUsers, fetchVolunteerDetails }) => {
                                     ? "Non"
                                     : "Non spécifié"}
                                 </p>
+
                                 <div>
                                   <FontAwesomeIcon
                                     icon={faListCheck}
@@ -705,7 +715,7 @@ const AvailabilityEditor = ({
   return (
     <form
       onSubmit={handleSubmit}
-      className="bg-gray-50 dark:bg-gray-800 p-6 rounded-lg space-y-4"
+      className="bg-gray-50 dark:bg-gray-800 p-6 rounded-lg space-y-4 mt-4"
     >
       <h4 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
         Modifier les disponibilités

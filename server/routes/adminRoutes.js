@@ -6,6 +6,7 @@ const {
   S3Client,
   PutObjectCommand,
   DeleteObjectCommand,
+  GetObjectCommand,  
 } = require("@aws-sdk/client-s3");
 const fs = require("fs");
 const path = require("path");
@@ -75,6 +76,72 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
       } catch (err) {
         console.error("Error fetching volunteers (admin):", err);
         res.status(500).json({ error: "Failed to fetch volunteers" });
+      }
+    }
+  );
+
+    router.get(
+    "/admin/volunteers/:id/insurance-link",
+    authenticate,
+    authorizeAdmin,
+    async (req, res) => {
+      try {
+        const { id } = req.params;
+        const q = await pool.query(
+          "SELECT insurance_file_path FROM users WHERE id = $1",
+          [id]
+        );
+        if (!q.rows.length || !q.rows[0].insurance_file_path) {
+          return res.status(404).json({ error: "No insurance file" });
+        }
+
+        const fileUrl = q.rows[0].insurance_file_path;
+
+        // If not in production or file is a local path, return direct local URL
+        if (!isProduction || /^\/uploads\//.test(fileUrl)) {
+          return res.json({
+            url: fileUrl.startsWith("/")
+              ? fileUrl
+              : `/${fileUrl.replace(/^\/?/, "")}`,
+          });
+        }
+
+        // In prod: if it’s already a public HTTP(S) URL and not S3, just return it
+        // (e.g., behind CDN you intentionally made public).
+        try {
+          const u = new URL(fileUrl);
+          const bucket = process.env.S3_BUCKET_NAME;
+          const isS3Host =
+            u.hostname.includes(".amazonaws.com") &&
+            (u.hostname.startsWith(`${bucket}.s3`) ||
+              u.hostname.includes(`s3.${process.env.AWS_REGION}`));
+
+          if (!isS3Host) {
+            // Non-S3 host (maybe CDN) — return as-is
+            return res.json({ url: fileUrl });
+          }
+
+          // Extract S3 key from path
+          const key = u.pathname.replace(/^\/+/, ""); // remove leading "/"
+
+          // Generate a short-lived presigned URL (5 minutes)
+          const signedUrl = await getSignedUrl(
+            s3Client,
+            new GetObjectCommand({
+              Bucket: bucket,
+              Key: key,
+            }),
+            { expiresIn: 300 }
+          );
+
+          return res.json({ url: signedUrl });
+        } catch (e) {
+          console.error("Error building presigned URL:", e);
+          return res.status(500).json({ error: "Cannot build insurance URL" });
+        }
+      } catch (err) {
+        console.error("insurance-link error:", err);
+        res.status(500).json({ error: "Failed to fetch insurance link" });
       }
     }
   );
@@ -663,38 +730,39 @@ module.exports = (pool, authenticate, authorizeAdmin) => {
   );
 
 // GET /admin/member-images with pagination
-router.get(
-  "/admin/member-images",
-  authenticate,
-  authorizeAdmin,
-  async (req, res) => {
-    try {
-      const limit = Math.min(parseInt(req.query.limit || "24", 10), 100); // cap to 100
-      const offset = Math.max(parseInt(req.query.offset || "0", 10), 0);
+  router.get(
+    "/admin/member-images",
+    authenticate,
+    authorizeAdmin,
+    async (req, res) => {
+      try {
+        const limit = Math.min(parseInt(req.query.limit || "24", 10), 100);
+        const offset = Math.max(parseInt(req.query.offset || "0", 10), 0);
 
-      // total count
-      const totalRes = await pool.query("SELECT COUNT(*)::int AS total FROM member_images");
-      const total = totalRes.rows[0].total || 0;
+        const totalRes = await pool.query(
+          "SELECT COUNT(*)::int AS total FROM member_images"
+        );
+        const total = totalRes.rows[0].total || 0;
 
-      // page
-      const result = await pool.query(
-        "SELECT id, url FROM member_images ORDER BY id DESC LIMIT $1 OFFSET $2",
-        [limit, offset]
-      );
+        const result = await pool.query(
+          "SELECT id, url FROM member_images ORDER BY id DESC LIMIT $1 OFFSET $2",
+          [limit, offset]
+        );
 
-      const nextOffset = offset + result.rows.length < total ? offset + result.rows.length : null;
+        const nextOffset =
+          offset + result.rows.length < total ? offset + result.rows.length : null;
 
-      res.json({
-        items: result.rows,
-        total,
-        nextOffset,
-      });
-    } catch (err) {
-      console.error("Error fetching member images:", err);
-      res.status(500).json({ error: "Failed to fetch member images" });
+        res.json({
+          items: result.rows,
+          total,
+          nextOffset,
+        });
+      } catch (err) {
+        console.error("Error fetching member images:", err);
+        res.status(500).json({ error: "Failed to fetch member images" });
+      }
     }
-  }
-);
+  );
 
 
   // ♻️ UPDATED: Delete member image (DB + S3/local file)
