@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
-import Cookies from "js-cookie";
 
 const useLandingPageImages = () => {
-  const [memberImages, setMemberImages] = useState([]);
+  const [memberImages, setMemberImages] = useState([]); // array of URL strings
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -10,34 +9,44 @@ const useLandingPageImages = () => {
     import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
 
   useEffect(() => {
-    const fetchImages = async () => {
+    (async () => {
       try {
-        const token = Cookies.get("token");
         const res = await fetch(`${API_BASE_URL}/member-images?limit=30`, {
-          headers: { Authorization: `Bearer ${token}` },
+          // public endpoint — no auth header
         });
-        if (!res.ok) throw new Error(`Failed to fetch member images (${res.status})`);
+        if (!res.ok) {
+          const txt = await res.text().catch(() => "");
+          throw new Error(`HTTP ${res.status}: ${txt || res.statusText}`);
+        }
         const data = await res.json();
 
-        const items = Array.isArray(data?.items) ? data.items : [];
+        // normalize to an array of “records”
+        const records = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.items)
+          ? data.items
+          : Array.isArray(data?.rows)
+          ? data.rows
+          : [];
 
-        const fullUrls = items.map((img) => {
-          const u = img.url || "";
-          return u.startsWith("http")
-            ? u
-            : `${API_BASE_URL}/${u.replace(/^\/?/, "")}`;
-        });
+        // normalize each record to a URL string
+        const urls = records
+          .map((rec) => (typeof rec === "string" ? rec : rec?.url))
+          .filter((u) => typeof u === "string" && u.length > 0)
+          .map((u) =>
+            u.startsWith("http")
+              ? u
+              : `${API_BASE_URL}/${u.replace(/^\/?/, "")}`
+          );
 
-        setMemberImages(fullUrls);
-      } catch (err) {
-        console.error(err);
-        setError(err.message || "Unknown error");
+        setMemberImages(urls);
+      } catch (e) {
+        console.error("Landing images fetch error:", e);
+        setError(e.message || "Unknown error");
       } finally {
         setLoading(false);
       }
-    };
-
-    fetchImages();
+    })();
   }, [API_BASE_URL]);
 
   return { memberImages, loading, error };
