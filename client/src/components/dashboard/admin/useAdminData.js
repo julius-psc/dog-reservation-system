@@ -30,89 +30,74 @@ const useAdminData = () => {
     const token = Cookies.get("token");
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-    const fetchData = async (url, setter, setLoading, setError) => {
-      try {
-        const res = await fetch(url, { headers });
-        if (!res.ok) throw new Error(`Échec de la récupération depuis ${url}`);
-        const data = await res.json();
-        setter(data);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    // Fetch paginated volunteers (minimal)
-    fetchData(
-      `${API_BASE_URL}/admins/volunteers/minimal`,
-      setVolunteers,
-      setLoading,
-      setError
-    );
-
-    // Fetch volunteer count separately
-    const fetchVolunteerCount = async () => {
+    const fetchAllData = async () => {
+      // Mettre tous les états de chargement à true au début
+      setLoading(true);
       setVolunteerCountLoading(true);
-      setVolunteerCountError(null);
-      try {
-        const res = await fetch(`${API_BASE_URL}/admin/volunteers/count`, {
-          headers,
-        });
-        if (!res.ok) throw new Error("Failed to fetch volunteer count");
-        const data = await res.json();
-        setVolunteerCount(data.count);
-      } catch (err) {
-        setVolunteerCountError(err.message);
-      } finally {
-        setVolunteerCountLoading(false);
-      }
-    };
-    fetchVolunteerCount();
-
-    // Fetch reservations
-    fetchData(
-      `${API_BASE_URL}/admin/reservations`,
-      setAllReservations,
-      setReservationsLoading,
-      setReservationsError
-    );
-
-    // Fetch users (paginated list)
-    fetchData(
-      `${API_BASE_URL}/admin/all-users`,
-      setAllUsers,
-      setUsersLoading,
-      setUsersError
-    );
-
-    // Fetch users count separately
-    const fetchUsersCount = async () => {
+      setReservationsLoading(true);
       setUsersLoading(true);
-      setUsersError(null);
+      setOtherVillageLoading(true);
+
       try {
-        const res = await fetch(`${API_BASE_URL}/admin/users/count`, {
-          headers,
-        });
-        if (!res.ok) throw new Error("Failed to fetch users count");
-        const data = await res.json();
-        setUsersCount(data.count);
+        // Préparer toutes les requêtes
+        const requests = [
+          fetch(`${API_BASE_URL}/admins/volunteers/minimal`, { headers }),
+          fetch(`${API_BASE_URL}/admin/volunteers/count`, { headers }),
+          fetch(`${API_BASE_URL}/admin/reservations`, { headers }),
+          fetch(`${API_BASE_URL}/admin/all-users`, { headers }),
+          fetch(`${API_BASE_URL}/admin/users/count`, { headers }),
+          fetch(`${API_BASE_URL}/admin/other-village-requests`, { headers }),
+        ];
+
+        // Attendre que toutes les requêtes soient terminées
+        const responses = await Promise.all(requests);
+
+        // Vérifier que toutes les réponses sont OK
+        for (const res of responses) {
+          if (!res.ok) {
+            throw new Error(
+              `Échec de la récupération des données : ${res.statusText}`
+            );
+          }
+        }
+
+        // Extraire les données JSON de toutes les réponses
+        const [
+          volunteersData,
+          volunteerCountData,
+          reservationsData,
+          usersData,
+          usersCountData,
+          otherVillageData,
+        ] = await Promise.all(responses.map((res) => res.json()));
+
+        // Mettre à jour tous les états en une seule fois
+        setVolunteers(volunteersData);
+        setVolunteerCount(volunteerCountData.count);
+        setAllReservations(reservationsData);
+        setAllUsers(usersData);
+        setUsersCount(usersCountData.count);
+        setOtherVillageRequests(otherVillageData);
       } catch (err) {
+        console.error("Erreur lors de la récupération des données admin:", err);
+        // Mettre à jour les états d'erreur
+        setError(err.message);
+        setVolunteerCountError(err.message);
+        setReservationsError(err.message);
         setUsersError(err.message);
+        setOtherVillageError(err.message);
       } finally {
+        // Mettre tous les états de chargement à false à la fin
+        setLoading(false);
+        setVolunteerCountLoading(false);
+        setReservationsLoading(false);
         setUsersLoading(false);
+        setOtherVillageLoading(false);
       }
     };
-    fetchUsersCount();
 
-    // Fetch other village requests
-    fetchData(
-      `${API_BASE_URL}/admin/other-village-requests`,
-      setOtherVillageRequests,
-      setOtherVillageLoading,
-      setOtherVillageError
-    );
-  }, [API_BASE_URL]);
+    fetchAllData();
+  }, [API_BASE_URL]); // La dépendance est correcte
 
   const fetchVolunteerDetails = async (volunteerId) => {
     const token = Cookies.get("token");
